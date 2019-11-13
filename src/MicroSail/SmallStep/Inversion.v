@@ -35,13 +35,11 @@ From MicroSail Require Import
 Set Implicit Arguments.
 
 Import CtxNotations.
-Import EnvNotations.
 
 Module Inversion
-       (Import typekit : TypeKit)
-       (Import termkit : TermKit typekit)
-       (Import progkit : ProgramKit typekit termkit).
-  Module SS := SmallStep typekit termkit progkit.
+       (Import termkit : TermKit)
+       (Import progkit : ProgramKit termkit).
+  Module SS := SmallStep termkit progkit.
   Import SS.
 
   Local Ltac steps_inversion_simpl :=
@@ -72,8 +70,8 @@ Module Inversion
              => specialize (H _ _ _ eq_refl)
            | [ H : Final ?s -> _, H' : Final ?s |- _ ]
              => specialize (H H')
-           | [ H1 : ⟨ ?δ1, ?s1 ⟩ ---> ⟨ ?δ2, ?s2 ⟩,
-               H2 : ⟨ ?δ2, ?s2 ⟩ --->* ⟨ ?δ3, ?s3 ⟩ |- _ ]
+           | [ H1 : ?s1 ---> ?s2,
+               H2 : ?s2 --->* ?s3 |- _ ]
              => extend (step_trans H1 H2)
            end;
        steps_inversion_simpl).
@@ -84,10 +82,8 @@ Module Inversion
        | [ |- exists t, _ ] => eexists
        | [ |- _ /\ _ ] => constructor
        | [ |- True ] => constructor
-       | [ |- ⟨ _ , stm_lit _ _ ⟩ --->* ⟨ _, _ ⟩ ] => constructor 1
-       | [ |- ⟨ _ , stm_exit _ _ ⟩ --->* ⟨ _, _ ⟩ ] => constructor 1
-       | [ |- ⟨ _ , stm_let _ _ (stm_lit _ _) _ ⟩ ---> ⟨ _ , _ ⟩ ] => apply step_stm_let_value
-       | [ |- ⟨ _ , stm_let _ _ (stm_exit _ _) _ ⟩ ---> ⟨ _ , _ ⟩ ] => apply step_stm_let_exit
+       | [ |- stm_lit _ --->* _ ] => constructor 1
+       | [ |- stm_exit _ _ --->* _ ] => constructor 1
        end; cbn); try eassumption.
 
   Local Ltac steps_inversion_induction :=
@@ -97,61 +93,13 @@ Module Inversion
       | inversion step; steps_inversion_inster; steps_inversion_solve
       ].
 
-  Lemma steps_inversion_let {Γ x τ σ} {δ1 δ3 : LocalStore Γ}
-    {s1 : Stm Γ τ} {s2 : Stm (ctx_snoc Γ (x, τ)) σ} {t : Stm Γ σ} (final : Final t)
-    (steps : ⟨ δ1, stm_let x τ s1 s2 ⟩ --->* ⟨ δ3, t ⟩) :
-    exists (δ2 : LocalStore Γ) (s1' : Stm Γ τ),
-    (⟨ δ1, s1 ⟩ --->* ⟨ δ2, s1' ⟩) /\ Final s1' /\
-    (exists (s0 : Stm Γ σ),
-        (⟨ δ2, stm_let x τ s1' s2 ⟩ ---> ⟨ δ2, s0 ⟩) /\ ⟨ δ2, s0 ⟩ --->* ⟨ δ3, t ⟩).
-  Proof.
-    remember (stm_let x τ s1 s2) as s. revert steps s1 s2 Heqs.
-    steps_inversion_induction.
-  Qed.
-
-  Lemma steps_inversion_let' {Γ Δ σ} (δ1 δ3 : LocalStore Γ)
-    (δΔ : LocalStore Δ) (k : Stm (ctx_cat Γ Δ) σ) (t : Stm Γ σ) (final : Final t)
-    (steps : ⟨ δ1, stm_let' δΔ k ⟩ --->* ⟨ δ3, t ⟩) :
-    exists δ2 δΔ' k',
-      ⟨ env_cat δ1 δΔ , k ⟩ --->* ⟨ env_cat δ2 δΔ' , k' ⟩ /\ Final k' /\
-      exists (s0 : Stm Γ σ),
-        (⟨ δ2, stm_let' δΔ' k' ⟩ ---> ⟨ δ2, s0 ⟩) /\ (⟨ δ2, s0 ⟩ --->* ⟨ δ3, t ⟩).
-  Proof.
-    remember (stm_let' δΔ k) as s. revert steps δΔ k Heqs.
-    steps_inversion_induction.
-  Qed.
-
-  Lemma steps_inversion_seq {Γ τ σ} (δ1 δ3 : LocalStore Γ)
-    (s1 : Stm Γ τ) (s2 : Stm Γ σ) (t : Stm Γ σ) (final : Final t)
-    (steps : ⟨ δ1, stm_seq s1 s2 ⟩ --->* ⟨ δ3, t ⟩) :
-    exists δ2 s1',
-      ⟨ δ1, s1 ⟩ --->* ⟨ δ2, s1' ⟩ /\ Final s1' /\
-      exists (s0 : Stm Γ σ),
-        (⟨ δ2, stm_seq s1' s2 ⟩ ---> ⟨ δ2 , s0 ⟩) /\ (⟨ δ2 , s0 ⟩ --->* ⟨ δ3, t ⟩).
-  Proof.
-    remember (stm_seq s1 s2) as s. revert steps s1 s2 Heqs.
-    steps_inversion_induction.
-  Qed.
-
-  Lemma steps_inversion_app' {Γ Δ σ} (δ1 δ3 : LocalStore Γ)
-    (δΔ : LocalStore Δ) (k : Stm Δ σ) (t : Stm Γ σ) (final : Final t)
-    (steps : ⟨ δ1, stm_app' Δ δΔ σ k ⟩ --->* ⟨ δ3, t ⟩) :
-    exists δΔ' k',
-      ⟨ δΔ , k ⟩ --->* ⟨ δΔ' , k' ⟩ /\ Final k' /\
-      exists s0,
-      (⟨ δ1, stm_app' Δ δΔ' σ k' ⟩ ---> ⟨ δ1, s0 ⟩) /\ (⟨ δ1, s0⟩ --->* ⟨ δ3, t ⟩).
-  Proof.
-    remember (stm_app' Δ δΔ σ k) as s. revert steps δΔ k Heqs.
-    steps_inversion_induction.
-  Qed.
-
-  Lemma steps_inversion_bind {Γ τ σ} (δ1 δ3 : LocalStore Γ)
-    (s1 : Stm Γ τ) (k : Lit τ -> Stm Γ σ) (t : Stm Γ σ) (final : Final t)
-    (steps : ⟨ δ1, stm_bind s1 k ⟩ --->* ⟨ δ3, t ⟩) :
-    exists δ2 s1',
-      ⟨ δ1, s1 ⟩ --->* ⟨ δ2, s1' ⟩ /\ Final s1' /\
-      exists (s0 : Stm Γ σ),
-        (⟨ δ2, stm_bind s1' k ⟩ ---> ⟨ δ2 , s0 ⟩) /\ (⟨ δ2 , s0 ⟩ --->* ⟨ δ3, t ⟩).
+  Lemma steps_inversion_bind {τ σ} `{Blastable τ}
+    (s1 : Stm τ) (k : τ -> Stm σ) (t : Stm σ) (final : Final t)
+    (steps : stm_bind s1 k --->* t) :
+    exists s1',
+      s1 --->* s1' /\ Final s1' /\
+      exists (s0 : Stm σ),
+        (stm_bind s1' k ---> s0) /\ (s0 --->* t).
   Proof.
     remember (stm_bind s1 k) as s. revert steps s1 k Heqs.
     steps_inversion_induction.

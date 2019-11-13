@@ -44,16 +44,16 @@ Delimit Scope pat_scope with pat.
 Delimit Scope exp_scope with exp.
 
 Reserved Notation "'ε'"            (at level 0).
-Reserved Infix "▻"                 (at level 55, left associativity).
-Reserved Infix "▻▻"                (at level 55, left associativity).
+Reserved Infix "▻"                 (at level 50, left associativity).
+Reserved Infix "▻▻"                (at level 50, left associativity).
 Reserved Notation "b ∈ Γ"          (at level 75, Γ at next level, no associativity).
 
-Reserved Notation "δ ► x ↦ v"      (at level 55, x at level 99, left associativity).
-Reserved Notation "δ1 ►► δ2"       (at level 55, left associativity).
-Reserved Notation "δ [ x ↦ v ]"    (at level 55, x at level 99, v at level 99, left associativity).
+Reserved Notation "δ ► x ↦ v"      (at level 50, x at level 99, left associativity).
+Reserved Notation "δ1 ►► δ2"       (at level 50, left associativity).
+Reserved Notation "δ [ x ↦ v ]"    (at level 50, x at level 99, v at level 99, left associativity).
 Reserved Notation "δ ! x"          (at level 56, no associativity).
 
-Reserved Notation "⟨ δ1 , s1 ⟩ ---> ⟨ δ2 , s2 ⟩" (at level 75, no associativity).
-Reserved Notation "⟨ δ1 , s1 ⟩ --->* ⟨ δ2 , s2 ⟩" (at level 75, no associativity).
+Reserved Notation "s1 ---> s2" (at level 75, no associativity).
+Reserved Notation "s1 --->* s2" (at level 75, no associativity).
 (* Notation "( x , y , .. , z )" := *)
 (*   (tuplepat_snoc .. (tuplepat_snoc (tuplepat_snoc tuplepat_nil x) y) .. z) : pat_scope. *)

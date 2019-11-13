@@ -33,7 +33,7 @@ Set Implicit Arguments.
 
 (* Type of contexts. This is a list of bindings of type B. This type and
    subsequent types use the common notation of snoc lists. *)
-Inductive Ctx (B : Set) : Set :=
+Inductive Ctx (B : Type) : Type :=
 | ctx_nil
 | ctx_snoc (Γ : Ctx B) (b : B).
 
@@ -42,7 +42,7 @@ Arguments ctx_snoc {_} _ _.
 Bind Scope ctx_scope with Ctx.
 
 Section WithBinding.
-  Context {B : Set}.
+  Context {B : Type}.
 
   (* Concatenation of two contexts. *)
   Fixpoint ctx_cat (Γ1 Γ2 : Ctx B) {struct Γ2} : Ctx B :=
@@ -83,13 +83,13 @@ Section WithBinding.
 
   (* Custom pattern matching in cases where the context was already refined
      by a different match, i.e. on environments. *)
-  Definition inctx_case_nil {b : B} {A : Set} (bIn : InCtx b ctx_nil) : A :=
+  Definition inctx_case_nil {b : B} {A : Type} (bIn : InCtx b ctx_nil) : A :=
     let (n, e) := bIn in match e with end.
-  Definition inctx_case_snoc (D : B -> Set) (Γ : Ctx B) (b0 : B) (db0 : D b0)
+  Definition inctx_case_snoc (D : B -> Type) (Γ : Ctx B) (b0 : B) (db0 : D b0)
     (dΓ: forall b, InCtx b Γ -> D b) (b : B) (bIn: InCtx b (ctx_snoc Γ b0)) : D b :=
     let (n, e) := bIn in
     match n return ctx_nth_is (ctx_snoc Γ b0) n b -> D b with
-    | 0 =>   eq_rec b0 D db0 b
+    | 0 =>   eq_rect b0 D db0 b
     | S n => fun e => dΓ b (Build_InCtx _ _ n e)
     end e.
 

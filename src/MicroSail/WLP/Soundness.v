@@ -39,74 +39,46 @@ From MicroSail Require Import
 Set Implicit Arguments.
 
 Import CtxNotations.
-Import EnvNotations.
 
 Module Soundness
-       (Import typekit : TypeKit)
-       (Import termkit : TermKit typekit)
-       (Import progkit : ProgramKit typekit termkit)
-       (Import contkit : ContractKit typekit termkit progkit).
-  Module WLP := WLP typekit termkit progkit contkit.
+       (Import termkit : TermKit)
+       (Import progkit : ProgramKit termkit)
+       (Import contkit : ContractKit termkit progkit).
+  Module WLP := WLP termkit progkit contkit.
   Import WLP.
-  Module SSI := Inversion typekit termkit progkit.
+  Module SSI := Inversion termkit progkit.
   Import SSI.
   Import SS.
 
   Ltac wlp_sound_steps_inversion :=
     repeat
       match goal with
-      | [ H: ⟨ _, stm_app _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>               dependent destruction H
-      | [ H: ⟨ _, stm_app _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>              dependent destruction H
-      | [ H: ⟨ _, stm_assert _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>            dependent destruction H
-      | [ H: ⟨ _, stm_assert _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>           dependent destruction H
-      | [ H: ⟨ _, stm_assign _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>            dependent destruction H
-      | [ H: ⟨ _, stm_assign _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>           dependent destruction H
-      | [ H: ⟨ _, stm_exit _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>              dependent destruction H
-      | [ H: ⟨ _, stm_exit _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>             dependent destruction H
-      | [ H: ⟨ _, stm_exp _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>                 dependent destruction H
-      | [ H: ⟨ _, stm_exp _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>                dependent destruction H
-      | [ H: ⟨ _, stm_if _ _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>              dependent destruction H
-      | [ H: ⟨ _, stm_if _ _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>             dependent destruction H
-      | [ H: ⟨ _, stm_lit _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>               dependent destruction H
-      | [ H: ⟨ _, stm_lit _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>              dependent destruction H
-      | [ H: ⟨ _, stm_match_sum _ _ _ _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>   dependent destruction H
-      | [ H: ⟨ _, stm_match_sum _ _ _ _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>  dependent destruction H
-      | [ H: ⟨ _, stm_match_list _ _ _ _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>  dependent destruction H
-      | [ H: ⟨ _, stm_match_list _ _ _ _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] => dependent destruction H
-      | [ H: ⟨ _, stm_match_pair _ _ _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>    dependent destruction H
-      | [ H: ⟨ _, stm_match_pair _ _ _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>   dependent destruction H
-      | [ H: ⟨ _, stm_match_enum _ _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>      dependent destruction H
-      | [ H: ⟨ _, stm_match_enum _ _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>     dependent destruction H
-      | [ H: ⟨ _, stm_match_tuple _ _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>     dependent destruction H
-      | [ H: ⟨ _, stm_match_tuple _ _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>    dependent destruction H
-      | [ H: ⟨ _, stm_match_union _ _ _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>   dependent destruction H
-      | [ H: ⟨ _, stm_match_union _ _ _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] =>  dependent destruction H
-      | [ H: ⟨ _, stm_match_record _ _ _ _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>  dependent destruction H
-      | [ H: ⟨ _, stm_match_record _ _ _ _ ⟩ --->* ⟨ _, _ ⟩ |- _ ] => dependent destruction H
+      | [ H: stm_app _ _ ---> _ |- _ ] =>               dependent destruction H
+      | [ H: stm_app _ _ --->* _ |- _ ] =>              dependent destruction H
+      | [ H: stm_assert _ _ ---> _ |- _ ] =>            dependent destruction H
+      | [ H: stm_assert _ _ --->* _ |- _ ] =>           dependent destruction H
+      | [ H: stm_exit _ _ ---> _ |- _ ] =>              dependent destruction H
+      | [ H: stm_exit _ _ --->* _ |- _ ] =>             dependent destruction H
+      | [ H: stm_if _ _ _ ---> _ |- _ ] =>              dependent destruction H
+      | [ H: stm_if _ _ _ --->* _ |- _ ] =>             dependent destruction H
+      | [ H: stm_lit _ ---> _ |- _ ] =>               dependent destruction H
+      | [ H: stm_lit _ --->* _ |- _ ] =>              dependent destruction H
 
-      | [ H: ⟨ _, stm_app' _ _ _ (stm_lit _ _) ⟩ ---> ⟨ _, _ ⟩ |- _ ] => dependent destruction H
-      | [ H: ⟨ _, stm_let _ _ (stm_lit _ _) _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>  dependent destruction H
-      | [ H: ⟨ _, stm_let' _ (stm_lit _ _) ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>     dependent destruction H
-      | [ H: ⟨ _, stm_seq (stm_lit _ _) _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>      dependent destruction H
-      | [ H: ⟨ _, stm_bind (stm_lit _ _) _ ⟩ ---> ⟨ _, _ ⟩ |- _ ] =>     dependent destruction H
+      | [ H: stm_bind (stm_lit _) _ ---> _ |- _ ] =>     dependent destruction H
 
-      | [ H: ⟨ _, stm_app' _ _ _ _ ⟩ --->* ⟨ _, ?s1 ⟩, HF: Final ?s1 |- _ ] => apply (steps_inversion_app' HF) in H; destruct_conjs
-      | [ H: ⟨ _, stm_let _ _ _ _ ⟩ --->* ⟨ _, ?s1 ⟩, HF: Final ?s1 |- _ ] =>  apply (steps_inversion_let HF) in H; destruct_conjs
-      | [ H: ⟨ _, stm_let' _ _ ⟩ --->* ⟨ _, ?s1 ⟩, HF: Final ?s1 |- _ ] =>     apply (steps_inversion_let' HF) in H; destruct_conjs
-      | [ H: ⟨ _, stm_seq _ _ ⟩ --->* ⟨ _, ?s1 ⟩, HF: Final ?s1 |- _ ] =>      apply (steps_inversion_seq HF) in H; destruct_conjs
-      | [ H: ⟨ _, stm_bind _ _ ⟩ --->* ⟨ _, ?s1 ⟩, HF: Final ?s1 |- _ ] =>     apply (steps_inversion_bind HF) in H; destruct_conjs
-      | [ H: IsLit _ _ _ |- _ ] => apply IsLit_inversion in H; destruct_conjs; subst
+      | [ H: stm_bind _ _ --->* ?s1 , HF: Final ?s1 |- _ ] =>     apply (steps_inversion_bind HF) in H; destruct_conjs
+      | [ H: IsLit _ _ |- _ ] => apply IsLit_inversion in H; destruct_conjs; subst
       end; cbn in *.
 
   Ltac wlp_sound_inst :=
     match goal with
-    | [ IH: forall _ _ _, ⟨ _ , ?s ⟩ --->* ⟨ _ , _ ⟩ -> _,
-        HS: ⟨ _ , ?s ⟩ --->* ⟨ _ , ?t ⟩, HF: Final ?t |- _ ] =>
-      specialize (IH _ _ _ HS HF); clear HS HF
-    | [ IH: forall _ _ _ _, ⟨ _ , _ ⟩ --->* ⟨ _ , _ ⟩ -> _,
-        HS: ⟨ _ , _ ⟩ --->* ⟨ _ , ?t ⟩, HF: Final ?t |- _ ] =>
-      specialize (IH _ _ _ _ HS HF); clear HS HF
-    | [ IH: forall POST, WLP ?s POST ?δ -> _, WP: WLP ?s _ ?δ |- _ ] =>
+    | [ IH: forall _, ?s --->* _ -> _,
+        HS: ?s --->* ?t, HF: Final ?t |- _ ] =>
+      specialize (IH _ HS HF); clear HS HF
+    | [ IH: forall _ _, _ --->* _ -> _,
+        HS: _ --->* ?t, HF: Final ?t |- _ ] =>
+      specialize (IH _ _ HS HF); clear HS HF
+    | [ IH: forall POST, WLP ?s POST -> _, WP: WLP ?s _ |- _ ] =>
       specialize (IH _ WP); clear WP
     end.
 
@@ -116,14 +88,8 @@ Module Soundness
        try match goal with
            | [ H: True |- _ ] => clear H
            | [ H: False |- _ ] => destruct H
-           | [ H: Env _ (ctx_snoc _ _) |- _ ] =>
-             dependent destruction H
-           | [ H: Env _ ctx_nil |- _ ] =>
-             dependent destruction H
-           | [ H: context[env_drop _ (_ ►► _)]|- _] =>
-             rewrite env_drop_cat in H
-           | [ _: context[match eval ?e ?δ with _ => _ end] |- _ ] =>
-             destruct (eval e δ)
+           (* | [ _: context[match eval ?e ?δ with _ => _ end] |- _ ] => *)
+           (*   destruct (eval e δ) *)
            end).
 
   Ltac wlp_sound_solve :=
@@ -132,45 +98,44 @@ Module Soundness
        wlp_sound_simpl;
        try wlp_sound_inst); auto.
 
-  Definition ValidContractEnv (cenv : ContractEnv) : Prop :=
+  Definition ValidContract {τ : Set} (P : Pred τ) (s : Stm τ) : Prop :=
+    forall (s' : Stm τ),
+      s --->* s' ->
+      Final s' ->
+      IsLit s' P.
+
+  Definition ValidContractEnv (cenv : ContractEnv) : Type :=
     forall σs σ (f : 𝑭 σs σ),
       match cenv σs σ f with
-      | Some c=>
-        forall (δ δ' : LocalStore σs) (s' : Stm σs σ),
-          ⟨ δ, Pi f ⟩ --->* ⟨ δ', s' ⟩ ->
+      | ContractWLP _ _ pre post =>
+        forall (δ : LocalStore σs) (s' : Stm σ),
+          apply (Pi f) δ --->* s' ->
           Final s' ->
-          contract_pre_condition c δ ->
-          IsLit δ s' (contract_post_condition c)
-      | None => True
+          apply pre δ ->
+          IsLit s' (apply post δ)
+      | _ => False
       end.
 
-  Lemma WLP_sound (validCEnv : ValidContractEnv CEnv) {Γ σ} (s : Stm Γ σ) :
-    forall (δ δ' : LocalStore Γ) (s' : Stm Γ σ), ⟨ δ, s ⟩ --->* ⟨ δ', s' ⟩ -> Final s' ->
-      forall (POST : Lit σ -> Pred (LocalStore Γ)), WLP s POST δ -> IsLit δ' s' POST.
+  Lemma WLP_sound (validCEnv : ValidContractEnv CEnv) {σ} (s : Stm σ) :
+    forall (s' : Stm σ), s --->* s' -> Final s' ->
+      forall (POST : Pred σ), WLP s POST -> IsLit s' POST.
   Proof.
     induction s; cbn; intros.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
     - wlp_sound_solve.
     - pose proof (validCEnv _ _ f).
       destruct (CEnv f); wlp_sound_solve.
       intuition.
       wlp_sound_solve.
+    - destruct b.
+      + wlp_sound_solve.
+      + wlp_sound_solve.
+    - destruct b.
+      + wlp_sound_solve.
+      + wlp_sound_solve.
     - wlp_sound_solve.
     - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
-    - wlp_sound_solve.
+      rewrite blast_sound in H3.
+      wlp_sound_solve.
   Qed.
 
 End Soundness.
