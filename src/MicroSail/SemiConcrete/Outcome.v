@@ -50,7 +50,7 @@ Delimit Scope outcome_scope with out.
 
 Inductive Outcome (E A : Type) : Type :=
 | outcome_pure (a: A)
-| outcome_angelic {I : Type} (os: I -> Outcome E A)
+| outcome_angelic {I : Type} (R : Prop) (os: I -> Outcome E A)
 | outcome_demonic {I : Type} (os: I -> Outcome E A)
 | outcome_angelic_binary (o1 o2 : Outcome E A)
 | outcome_demonic_binary (o1 o2 : Outcome E A)
@@ -95,7 +95,7 @@ Definition outcome_demonic_finite {E A} `{finite.Finite A} : Outcome E A :=
 Fixpoint outcome_map {E A B : Type} (f : A -> B) (o : Outcome E A) : Outcome E B :=
   match o with
   | outcome_pure a               => outcome_pure (f a)
-  | outcome_angelic os           => outcome_angelic (fun i => outcome_map f (os i))
+  | outcome_angelic R os         => outcome_angelic R (fun i => outcome_map f (os i))
   | outcome_demonic os           => outcome_demonic (fun i => outcome_map f (os i))
   | outcome_angelic_binary o1 o2 => outcome_angelic_binary (outcome_map f o1) (outcome_map f o2)
   | outcome_demonic_binary o1 o2 => outcome_demonic_binary (outcome_map f o1) (outcome_map f o2)
@@ -109,7 +109,7 @@ Fixpoint outcome_map {E A B : Type} (f : A -> B) (o : Outcome E A) : Outcome E B
 Fixpoint outcome_bimap {E F A B : Type} (f : E -> F) (g : A -> B) (o : Outcome E A) : Outcome F B :=
   match o with
   | outcome_pure a               => outcome_pure (g a)
-  | outcome_angelic os           => outcome_angelic (fun i => outcome_bimap f g (os i))
+  | outcome_angelic R os         => outcome_angelic R (fun i => outcome_bimap f g (os i))
   | outcome_demonic os           => outcome_demonic (fun i => outcome_bimap f g (os i))
   | outcome_angelic_binary o1 o2 => outcome_angelic_binary (outcome_bimap f g o1) (outcome_bimap f g o2)
   | outcome_demonic_binary o1 o2 => outcome_demonic_binary (outcome_bimap f g o1) (outcome_bimap f g o2)
@@ -123,7 +123,7 @@ Fixpoint outcome_bimap {E F A B : Type} (f : E -> F) (g : A -> B) (o : Outcome E
 Fixpoint outcome_bind {E A B : Type} (o : Outcome E A) (f : A -> Outcome E B) : Outcome E B :=
   match o with
   | outcome_pure a               => f a
-  | outcome_angelic os           => outcome_angelic (fun i => outcome_bind (os i) f)
+  | outcome_angelic R os         => outcome_angelic R (fun i => outcome_bind (os i) f)
   | outcome_demonic os           => outcome_demonic (fun i => outcome_bind (os i) f)
   | outcome_angelic_binary o1 o2 => outcome_angelic_binary (outcome_bind o1 f) (outcome_bind o2 f)
   | outcome_demonic_binary o1 o2 => outcome_demonic_binary (outcome_bind o1 f) (outcome_bind o2 f)
@@ -143,7 +143,7 @@ Inductive Debug {B} (b : B) (P : Prop) : Prop :=
 Fixpoint outcome_satisfy {E A : Type} (o : Outcome E A) (F : E -> Prop) (P : A -> Prop) : Prop :=
   match o with
   | outcome_pure a               => P a
-  | outcome_angelic os           => exists i, outcome_satisfy (os i) F P
+  | outcome_angelic R os         => R -> exists i, outcome_satisfy (os i) F P
   | outcome_demonic os           => forall i, outcome_satisfy (os i) F P
   | outcome_angelic_binary o1 o2 => outcome_satisfy o1 F P \/ outcome_satisfy o2 F P
   | outcome_demonic_binary o1 o2 => outcome_satisfy o1 F P /\ outcome_satisfy o2 F P
@@ -189,8 +189,8 @@ Definition outcome_assumek_prune {E A} (P : Prop) (o : Outcome E A) : Outcome E 
 
 Fixpoint outcome_prune {E A : Type} (o : Outcome E A) : Outcome E A :=
    match o with
-   | outcome_angelic os =>
-     outcome_angelic (fun i => outcome_prune (os i))
+   | outcome_angelic R os =>
+     outcome_angelic R (fun i => outcome_prune (os i))
    | outcome_demonic os =>
      outcome_demonic (fun i => outcome_prune (os i))
    | outcome_angelic_binary o1 o2 =>
@@ -339,8 +339,8 @@ Module OutcomeNotations.
   Notation "'⨂' x .. y => F" :=
     (outcome_demonic (fun x => .. (outcome_demonic (fun y => F)) .. ))
     (at level 200, x binder, y binder, right associativity) : outcome_scope.
-  Notation "'⨁' x .. y => F" :=
-    (outcome_angelic (fun x => .. (outcome_angelic (fun y => F)) .. ))
+  Notation "'⨁[' R ']' x .. y => F" :=
+    (outcome_angelic R (fun x => .. (outcome_angelic R (fun y => F)) .. ))
     (at level 200, x binder, y binder, right associativity) : outcome_scope.
 
   Infix "⊗" := outcome_demonic_binary (at level 40, left associativity) : outcome_scope.

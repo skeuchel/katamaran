@@ -200,7 +200,8 @@ Module Soundness
         sound_inster.
         intros [? [δ2 h2]] HYP; cbn.
         now apply (IHasn2 ι δ2 h2 POST).
-      - destruct HYP as [v HYP].
+      - specialize (HYP I).
+        destruct HYP as [v HYP].
         apply (entails_trans (inst_scheap h1) (inst_assertion (env_snoc ι (ς , τ) v) asn ✱ POST δ1)).
         + now apply IHasn.
         + apply sepcon_entails.
@@ -267,7 +268,7 @@ Module Soundness
       CTriple δΔ (inst_scheap h) (fun v => POST v δΓ) c.
     Proof.
       destruct c as [Σe δe req result ens] eqn:Heqc.
-      intros [ι [Heqs HYP]].
+      intros [ι [Heqs HYP]]; auto.
       unfold scmut_angelic, scmut_bind, scmut_pure in HYP; cbn in HYP.
       repeat setoid_rewrite outcome_satisfy_bind in HYP; cbn in HYP.
       repeat setoid_rewrite outcome_satisfy_bind in HYP; cbn in HYP.
@@ -418,6 +419,7 @@ Module Soundness
         now apply rule_stm_match_record, IHs.
 
       - (* stm_read_register *)
+        specialize (HYP I).
         destruct HYP as [v HYP].
         eapply rule_consequence_left.
         apply (rule_stm_read_register_backwards (v := v)).
@@ -426,6 +428,7 @@ Module Soundness
         now apply (scmut_consume_chunk_sound _ (fun δ => _ -✱ POST _ δ)) in HYP.
 
       - (* stm_write_register *)
+        specialize (HYP I).
         destruct HYP as [v HYP].
         eapply rule_consequence_left.
         apply (rule_stm_write_register_backwards (v := v)).

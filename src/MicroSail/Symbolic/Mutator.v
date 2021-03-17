@@ -716,7 +716,7 @@ Module Mutators
       fun _ _ _ _ => outcome_block.
 
     Definition dmut_angelic {Γ1 Γ2 I A Σ} (ms : I -> DynamicMutator Γ1 Γ2 A Σ) : DynamicMutator Γ1 Γ2 A Σ :=
-      fun Σ1 ζ1 pc1 s1 => outcome_angelic (fun i => ms i Σ1 ζ1 pc1 s1).
+      fun Σ1 ζ1 pc1 s1 => outcome_angelic (exists ι, inst ι pc1) (fun i => ms i Σ1 ζ1 pc1 s1).
     Definition dmut_demonic {Γ1 Γ2 I A Σ} (ms : I -> DynamicMutator Γ1 Γ2 A Σ) : DynamicMutator Γ1 Γ2 A Σ :=
       fun Σ1 ζ1 pc1 s1 => outcome_demonic (fun i => ms i Σ1 ζ1 pc1 s1).
     Definition dmut_angelic_binary {Γ1 Γ2 A Σ} (m1 m2 : DynamicMutator Γ1 Γ2 A Σ) : DynamicMutator Γ1 Γ2 A Σ :=
@@ -785,7 +785,8 @@ Module Mutators
       (dmut_demonic (fun x => .. (dmut_demonic (fun y => F)) .. )) : dmut_scope.
 
     Notation "'⨁' x .. y => F" :=
-      (dmut_angelic (fun x => .. (dmut_angelic (fun y => F)) .. )) : dmut_scope.
+      (dmut_angelic (fun x => .. (dmut_angelic (fun y => F)) .. ))
+        (at level 200, x binder, y binder, right associativity) : dmut_scope.
 
     Infix "⊗" := dmut_demonic_binary (at level 40, left associativity) : dmut_scope.
     Infix "⊕" := dmut_angelic_binary (at level 50, left associativity) : dmut_scope.

@@ -166,7 +166,7 @@ Module SemiConcrete
     Definition scmut_demonic {Γ1 Γ2 I A} (ms : I -> SCMut Γ1 Γ2 A) : SCMut Γ1 Γ2 A :=
       fun (s : SCState Γ1) => (⨂ i : I => ms i s)%out.
     Definition scmut_angelic {Γ1 Γ2 I A} (ms : I -> SCMut Γ1 Γ2 A) : SCMut Γ1 Γ2 A :=
-      fun (s : SCState Γ1) => (⨁ i : I => ms i s)%out.
+      fun (s : SCState Γ1) => (⨁[ True ] i : I => ms i s)%out.
     Definition scmut_fail {Γ1 Γ2 A} (msg : string) : SCMut Γ1 Γ2 A :=
       fun s => outcome_fail msg.
     Definition scmut_block {Γ1 Γ2 A} : SCMut Γ1 Γ2 A :=
@@ -199,7 +199,8 @@ Module SemiConcrete
       (scmut_demonic (fun x => .. (scmut_demonic (fun y => F)) .. )) : mutator_scope.
 
     Notation "'⨁' x .. y => F" :=
-      (scmut_angelic (fun x => .. (scmut_angelic (fun y => F)) .. )) : mutator_scope.
+      (scmut_angelic (fun x => .. (scmut_angelic (fun y => F)) .. ))
+        (at level 200, x binder, y binder, right associativity) : mutator_scope.
 
     Infix "⊗" := scmut_demonic_binary (at level 40, left associativity) : mutator_scope.
     Infix "⊕" := scmut_angelic_binary (at level 50, left associativity) : mutator_scope.

@@ -903,16 +903,16 @@ Module Soundness
       Qed.
       Local Hint Resolve dmut_consume_chunk_vac : core.
 
-      Lemma dmut_angelic_vac {Γ1 Γ2 I AT A Σ} `{Inst AT A}
-            {ms : I -> DynamicMutator Γ1 Γ2 AT Σ} :
-        (exists i, dmut_vac (ms i)) ->
-        dmut_vac (dmut_angelic ms).
-      Proof.
-        unfold dmut_angelic.
-        intros [i msvac] Σ1 ζ1 pc1 s1 P Pvac Hpc1.
-        cbn. exists i. now eapply msvac.
-      Qed.
-      Local Hint Resolve dmut_angelic_vac : core.
+      (* Lemma dmut_angelic_vac {Γ1 Γ2 I AT A Σ} `{Inst AT A} *)
+      (*       {ms : I -> DynamicMutator Γ1 Γ2 AT Σ} : *)
+      (*   (exists i, dmut_vac (ms i)) -> *)
+      (*   dmut_vac (dmut_angelic ms). *)
+      (* Proof. *)
+      (*   unfold dmut_angelic. *)
+      (*   intros [i msvac] Σ1 ζ1 pc1 s1 P Pvac Hpc1. *)
+      (*   cbn. exists i. now eapply msvac. *)
+      (* Qed. *)
+      (* Local Hint Resolve dmut_angelic_vac : core. *)
 
       Lemma dmut_consume_vac {Γ Σ} (asn : Assertion Σ) :
         dmut_vac (@dmut_consume Γ Σ asn).
@@ -921,19 +921,20 @@ Module Soundness
           unfold dmut_assert_term, dmut_assume_term; eauto 10.
         - destruct (term_get_sum s) as [[s'|s']|s']; eauto.
           eapply dmut_angelic_binary_vac.
-          + eapply dmut_angelic_vac.
-            admit.
-          + eapply dmut_angelic_vac.
-            admit.
-        - destruct (term_get_pair s) as [[t1 t2]|].
-          eauto.
-          eapply dmut_angelic_vac.
-          admit.
+          + intros Σ1 ζ1 pc1 s1 P Pvac incpc1 [ι' Hpc1].
+            exfalso. eapply (incpc1 _ Hpc1).
+          + intros Σ1 ζ1 pc1 s1 P Pvac incpc1 [ι' Hpc1].
+            exfalso. eapply (incpc1 _ Hpc1).
+        - destruct (term_get_pair s) as [[t1 t2]|]; eauto.
+          intros Σ1 ζ1 pc1 s1 P Pva incpc1 [ι' Hpc1].
+          exfalso. eapply (incpc1 _ Hpc1).
         - destruct (term_get_record s).
           eauto.
-          eapply dmut_angelic_vac.
-          admit.
-      Admitted.
+          intros Σ1 ζ1 pc1 s1 P Pva incpc1 [ι' Hpc1].
+          exfalso. eapply (incpc1 _ Hpc1).
+        - intros Σ1 ζ1 pc1 s1 P Pva incpc1 [ι' Hpc1].
+          exfalso. eapply (incpc1 _ Hpc1).
+      Qed.
       Local Hint Resolve dmut_consume_vac : core.
 
       Lemma dmut_exec_vac {Γ Σ τ} (s : Stm Γ τ) :
@@ -1355,7 +1356,7 @@ Module Soundness
           {Σ1} (ζ01 : Sub Σ0 Σ1) (POST : StateProperty Γ2 A Σ1) :
       forall {Σ2} (ζ12 : Sub Σ1 Σ2) pc2 s2,
         dmut_wp (dmut_sub ζ01 (dmut_angelic m)) POST ζ12 pc2 s2 <->
-        exists b, dmut_wp (dmut_sub ζ01 (m b)) POST ζ12 pc2 s2.
+        ((exists ι, inst ι pc2) -> exists b, dmut_wp (dmut_sub ζ01 (m b)) POST ζ12 pc2 s2).
     Proof. reflexivity. Qed.
 
     Definition dmut_wp_sub_id {Γ1 Γ2 Σ0 A} (m : DynamicMutator Γ1 Γ2 A Σ0) (P : StateProperty Γ2 A Σ0) :
