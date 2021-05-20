@@ -75,17 +75,260 @@ Module Soundness
 
   Import Path.
 
-  Global Instance InstSMutResult {AT A} `{Inst AT A} {Γ} : Inst (SMutResult Γ AT) (CMutResult Γ A) :=
-    {| inst Σ '(MkSMutResult a δ h) ι := MkCMutResult (inst a ι) (inst δ ι) (inst h ι);
-       lift Σ '(MkCMutResult a δ h) := MkSMutResult (lift a) (lift δ) (lift h);
-    |}.
+  (* Global Instance InstSMutResult {AT A} `{Inst AT A} {Γ} : Inst (SMutResult Γ AT) (CMutResult Γ A) := *)
+  (*   {| inst Σ '(MkSMutResult a δ h) ι := MkCMutResult (inst a ι) (inst δ ι) (inst h ι); *)
+  (*      lift Σ '(MkCMutResult a δ h) := MkSMutResult (lift a) (lift δ) (lift h); *)
+  (*   |}. *)
 
-  Global Instance InstLawsSMutResult {AT A} `{InstLaws AT A} {Γ} : InstLaws (SMutResult Γ AT) (CMutResult Γ A).
+  (* Global Instance InstLawsSMutResult {AT A} `{InstLaws AT A} {Γ} : InstLaws (SMutResult Γ AT) (CMutResult Γ A). *)
+  (* Proof. *)
+  (*   constructor. *)
+  (*   - intros ? ? []; cbn; now rewrite ?inst_lift. *)
+  (*   - intros ? ? ? ? []; cbn; now rewrite ?inst_subst. *)
+  (* Qed. *)
+
+  (* Definition smut_wp {AT A} `{Inst AT A} {Γ1 Γ2 w0} (d : SMut Γ1 Γ2 AT w0) *)
+  (*   (P : A -> SCProp Γ2) *)
+  (*   (δ0 : SStore Γ1 w0) (h0 : SHeap w0) *)
+  (*   (ι0 : SymInstance w0)  : Prop := *)
+  (*   Path.wp (d δ0 h0) (fun r => P (scmutres_value r) (scmutres_store r) (scmutres_heap r)) ι0. *)
+  (* Global Arguments smut_wp : simpl never. *)
+
+  Class Approx (AT : TYPE) (A : Type) : Type :=
+    approx :
+      forall (w : World) (ι : SymInstance w),
+        AT w -> A -> Prop.
+  Global Arguments approx {_ _ _ w} ι _ _.
+
+  Global Instance ApproxInst {AT A} `{instA : Inst AT A} : Approx AT A :=
+    fun w ι t v =>
+      v = inst t ι.
+  Global Arguments ApproxInst {_ _ _} w ι t v /.
+
+  Global Instance ApproxPath {AT A} `{instA : Inst AT A} : Approx (SPath AT) (Outcome A) :=
+    fun w ι ms mc =>
+      forall (P Q : A -> Prop) (PQ : forall a, P a -> Q a),
+        wp ms P ι ->
+        outcome_satisfy mc Q.
+
+  Global Instance ApproxBox {AT A} `{Approx AT A} : Approx (Box AT) A :=
+    fun w0 ι0 a0 a =>
+      forall (w1 : World) (ω01 : w0 ⊒ w1) (ι1 : SymInstance w1),
+        ι0 = inst (wsub ω01) ι1 ->
+        instpc (wco w1) ι1 ->
+        approx ι1 (a0 w1 ω01) a.
+
+  Global Instance ApproxImpl {AT A BT B} `{Approx AT A, Approx BT B} : Approx (Impl AT BT) (A -> B) :=
+    fun w ι fs fc =>
+      forall (ta : AT w) (a : A),
+        approx ι ta a ->
+        approx ι (fs ta) (fc a).
+
+  Global Instance ApproxMutResult {AT A} `{Approx AT A} {Γ} : Approx (SMutResult Γ AT) (CMutResult Γ A).
   Proof.
-    constructor.
-    - intros ? ? []; cbn; now rewrite ?inst_lift.
-    - intros ? ? ? ? []; cbn; now rewrite ?inst_subst.
+    intros w0 ι0 [a0 δ0 h0] [a δ h].
+    refine (approx ι0 a0 a /\ approx ι0 δ0 δ /\ approx ι0 h0 h).
+  Defined.
+
+  Global Instance ApproxMut {Γ1 Γ2 AT A} `{instA : Inst AT A} : Approx (SMut Γ1 Γ2 AT) (CMut Γ1 Γ2 A).
+  Proof.
+    unfold SMut, CMut. auto with typeclass_instances.
+    eapply ApproxImpl.
+    Unshelve.
+    eapply ApproxImpl.
+    Unshelve.
+    eapply ApproxPath.
+    unfold Approx.
+    intros w ι.
+    eapply approx.
+    eapply ApproxImpl.
+  Defined.
+    (* fun w ι ms mc => *)
+    (*   forall POST δt ht δc hc, *)
+    (*     δc = inst δt ι -> *)
+    (*     hc = inst ht ι -> *)
+    (*     smut_wp ms POST δt ht ι -> *)
+    (*     cmut_wp mc POST δc hc. *)
+
+  Global Instance ApproxTermLit {σ} : Approx (STerm σ) (Lit σ) :=
+    ApproxInst (AT := STerm σ).
+
+  (* Global Instance ApproxChunk : Approx Chunk SCChunk := *)
+  (*   fun w ι t v => *)
+  (*     v = inst t ι. *)
+
+  (* Global Instance ApproxUnit : Approx Unit unit := *)
+  (*   fun w ι t v => *)
+  (*     v = inst t ι. *)
+
+  Hint Unfold SMut : core.
+  Hint Unfold CMut : core.
+
+  Hint Unfold SMut : typeclass_instances.
+  Hint Unfold CMut : typeclass_instances.
+
+  Lemma bapprox_block {AT A} `{InstLaws AT A} {Γ1 Γ2} {w : World} (ι : SymInstance w) :
+    approx ι (@smut_block Γ1 Γ2 AT w) cmut_block.
+  Proof.
+    intros until Q. cbn. auto.
   Qed.
+
+  Import ModalNotations.
+
+  Lemma approx_angelic {AT A} `{Inst AT A} (x : option 𝑺) (σ : Ty)
+    {Γ1 Γ2} {w0 : World} (ι0 : SymInstance w0)
+    (Hpc0 : instpc (wco w0) ι0) :
+    approx ι0 (smut_angelic x σ) (cmut_angelic (Γ1 := Γ1) (Γ2 := Γ2)).
+  Proof.
+    intros ms mc Hm δs δc -> hs hc -> P Q PQ. cbn.
+    intros [v Hwp]; exists v; revert Hwp.
+    apply Hm; wsimpl; auto. reflexivity.
+    unfold approx, ApproxInst. cbn.
+    now rewrite inst_subst, ?inst_sub_wk1.
+    unfold approx, ApproxInst. cbn.
+    now rewrite inst_subst, ?inst_sub_wk1.
+  Qed.
+
+  Lemma approx_demonic {AT A} `{Inst AT A} (x : option 𝑺) (σ : Ty)
+    {Γ1 Γ2} {w0 : World} (ι0 : SymInstance w0)
+    (Hpc0 : instpc (wco w0) ι0) :
+    approx ι0 (smut_demonic x σ) (cmut_demonic (Γ1 := Γ1) (Γ2 := Γ2)).
+  Proof.
+    intros ms mc Hm δs δc -> hs hc -> P Q PQ. cbn.
+    intros Hwp v; specialize (Hwp v); revert Hwp.
+    apply Hm; wsimpl; auto. reflexivity.
+    unfold approx, ApproxInst. cbn.
+    now rewrite inst_subst, ?inst_sub_wk1.
+    unfold approx, ApproxInst. cbn.
+    now rewrite inst_subst, ?inst_sub_wk1.
+  Qed.
+
+  Lemma approx_produce_chunk {Γ} {w0 : World} (ι0 : SymInstance w0)
+    (Hpc0 : instpc (wco w0) ι0) :
+    approx ι0 (@smut_produce_chunk Γ w0) (cmut_produce_chunk).
+  Proof.
+    intros tc c -> w1 ω01 ι1 -> Hpc1 δs δc -> hs hc -> P Q PQ.
+    cbn. rewrite inst_subst. apply PQ.
+  Qed.
+
+  Lemma approx_assume_formula {Γ} {w0 : World} {fml : Formula w0}
+    {ι0 : SymInstance w0} (Hpc0 : instpc (wco w0) ι0) :
+    approx ι0 (@smut_assume_formula Γ w0 fml) (cmut_assume_formula ι0 fml).
+  Proof.
+    intros δs δc -> hs hc -> P Q PQ Hwp Hfml. cbn.
+    unfold smut_assume_formula, assume_formulak in Hwp.
+    destruct (solver_spec fml) as [[w1 [ζ fmls]] Hsolver|Hsolver].
+    - specialize (Hsolver ι0 Hpc0). destruct Hsolver as [Hν Hsolver].
+      specialize (Hν Hfml). specialize (Hsolver (inst (sub_multishift ζ) ι0)).
+      rewrite inst_multi in Hsolver; auto. specialize (Hsolver eq_refl).
+      destruct Hsolver as [Hsolver _]. specialize (Hsolver Hfml).
+      rewrite wp_assume_multisub, wp_assume_formulas_without_solver in Hwp.
+      specialize (Hwp Hν Hsolver). revert Hwp.
+      unfold four, smut_bpure, wtrans, persist, persist_subst; cbn.
+      wsimpl. rewrite inst_multi; auto.
+    - intuition.
+  Qed.
+
+  (* Forward entailment *)
+  Lemma multishift_entails {w0 w1} (ν : MultiSub w0 w1) (ι0 : SymInstance w0) :
+    inst_multisub ν ι0 ->
+    instpc (wco w0) ι0 ->
+    instpc (wco w1) (inst (sub_multishift ν) ι0).
+  Proof.
+    induction ν; cbn.
+    - wsimpl; auto.
+    - intros [Heqx Heq'] Hpc0. wsimpl.
+      rewrite inst_sub_shift.
+      apply IHν; wsimpl; auto.
+  Qed.
+
+  Lemma approx_assume_formulak {AT A} `{InstLaws AT A} {Γ1 Γ2} {w0 : World} {fml : Formula w0}
+    {ι0 : SymInstance w0} (Hpc0 : instpc (wco w0) ι0) :
+    approx ι0 (@smutk_assume_formula AT Γ1 Γ2 w0 fml) (@cmut_assume_formulak A Γ1 Γ2 _ ι0 fml).
+  Proof.
+    intros ms mc Hm δt δc Hδ hs hc Hh P Q PQ Hwp Hfml.
+    unfold smutk_assume_formula, assume_formulak in Hwp.
+    destruct (solver_spec fml) as [[w1 [ζ fmls]] Hsolver|Hsolver].
+    - specialize (Hsolver ι0 Hpc0). destruct Hsolver as [Hν Hsolver].
+      specialize (Hν Hfml). specialize (Hsolver (inst (sub_multishift ζ) ι0)).
+      rewrite inst_multi in Hsolver; auto. specialize (Hsolver eq_refl).
+      destruct Hsolver as [Hsolver _]. specialize (Hsolver Hfml).
+      rewrite wp_assume_multisub, wp_assume_formulas_without_solver in Hwp.
+      specialize (Hwp Hν Hsolver). revert Hwp.
+      unfold four, smut_bpure, wtrans, persist, persist_subst, K; cbn.
+      wsimpl. apply Hm; cbn; wsimpl; auto.
+      + rewrite ?inst_multi; auto.
+      + rewrite inst_pathcondition_app. split; auto.
+        now apply multishift_entails.
+      + unfold approx, ApproxInst. cbn.
+        now rewrite inst_subst, inst_multi.
+      + unfold approx, ApproxInst. cbn.
+        now rewrite inst_subst, inst_multi.
+    - intuition.
+  Qed.
+
+  Lemma approx_box_assume_formula {Γ} {w0 : World} (ι0 : SymInstance w0)
+    (Hpc : instpc (wco w0) ι0) (fml : Formula w0) :
+    approx ι0 (@smut_box_assume_formula Γ w0 fml) (cmut_assume_formula ι0 fml).
+  Proof.
+    intros w1 ω01 ι1 -> Hpc1 δs δc Hδ hs hc Hh P Q PQ Hwp.
+    eapply approx_assume_formula in Hwp; eauto. revert Hwp.
+    cbn. now rewrite ?inst_subst.
+  Qed.
+
+  Lemma approx_demonic_match_bool {AT A} `{InstLaws AT A} {Γ1 Γ2} {w : World} (ι : SymInstance w) :
+    approx ι (@smut_demonic_match_bool AT Γ1 Γ2 w) (cmut_match_bool (A := A)).
+  Proof.
+    intros t v -> ms1 mc1 Hm1 ms2 mc2 Hm2 w1 ω01 ι1 -> Hpc1 δs δc Hδ hs hc Hh P Q PQ.
+    unfold smut_demonic_match_bool, demonic_match_bool.
+    destruct (term_get_lit_spec (subst t ω01)) as [[] Ht|].
+    - specialize (Ht ι1). rewrite inst_subst in Ht. rewrite Ht.
+      cbn. cbv [T four wtrans wrefl]. apply Hm1; cbn; wsimpl; auto.
+    - specialize (Ht ι1). rewrite inst_subst in Ht. rewrite Ht.
+      cbn. cbv [T four wtrans wrefl]. apply Hm2; cbn; wsimpl; auto.
+    - cbn [wp]. intros [Hwp1 Hwp2].
+      admit.
+  Admitted.
+
+  Lemma approx_produce {Γ Σ0 pc0} (asn : Assertion Σ0) :
+    let w0 := @MkWorld Σ0 pc0 in
+    forall
+      (ι0 : SymInstance w0)
+      (Hpc0 : instpc (wco w0) ι0),
+        approx ι0 (@smut_produce Γ w0 asn) (cmut_produce ι0 asn).
+  Proof.
+    induction asn; intros w0 * Hpc; cbn.
+    - now eapply (@approx_box_assume_formula Γ w0).
+    - now apply approx_produce_chunk.
+    - apply approx_demonic_match_bool; eauto.
+      reflexivity.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - intros w1 ω01 ι1 -> Hpc1. apply approx_demonic; auto.
+      intros w2 ω02 ι2 -> Hpc2. intros t v ->.
+      apply IHasn; cbn - [inst subst sub_wk1]; wsimpl; auto.
+    - admit.
+  Admitted.
+
+  Lemma approx_bind {AT A BT B} `{InstLaws AT A, InstLaws BT B}
+    {Γ1 Γ2 Γ3} {w0 : World} (ι0 : SymInstance w0) (Hpc0 : instpc (wco w0) ι0) :
+    approx ι0 (@smut_bind Γ1 Γ2 Γ3 AT BT w0) (@cmut_bind Γ1 Γ2 Γ3 A B).
+  Proof.
+    intros ms mc Hm fs fc Hf δs δc Hδ hs hc Hh P Q PQ.
+    unfold smut_bind, cmut_bind.
+    rewrite outcome_satisfy_bind.
+    rewrite wp_bind; auto.
+    apply Hm; auto. intros [a δ' h']. unfold T. cbn.
+    apply Hf; wsimpl; auto. admit. admit. admit.
+  Admitted.
+
+
 
   (* Lemma spath_arrow_dcl_eta {AT A BT B} `{Subst AT, Subst BT, Inst AT A, Inst BT B} {Γ Σ1} (f : spath_arrow (SMutResult Γ AT) BT Σ1) : *)
   (*   spath_arrow_dcl *)
@@ -414,42 +657,6 @@ Module Soundness
     now instantiate (1 := term_lit _ v).
   Qed.
 
-  Lemma smut_wp_angelicv {AT A} `{Inst AT A, Subst AT} {Γ1 Γ2 Σ Σ1 x σ} (d : SMut Γ1 Γ2 AT (Σ ▻ (x :: σ))) (d_dcl : smut_dcl d)
-        (ζ01 : Sub Σ Σ1) (pc1 : PathCondition Σ1) (δ1 : SStore Γ1 Σ1) (h1 : SHeap Σ1) (ι1 : SymInstance Σ1)
-        (P : A -> SCProp Γ2) (hpc : instpc pc1 ι1) :
-    smut_wp (smut_angelicv x σ d) ζ01 pc1 δ1 h1 ι1 P <->
-    exists v : Lit σ, smut_wp d (sub_snoc ζ01 (x :: σ) (term_lit σ v)) pc1 δ1 h1 ι1 P.
-  Proof.
-    unfold smut_wp, smut_angelicv; cbn.
-    split; intros [v Hwp]; exists v; revert Hwp.
-    - apply (d_dcl
-               (Σ1 ▻ (fresh Σ1 (Some x) :: σ)) Σ1 (sub_snoc (subst ζ01 sub_wk1) (x :: σ) (term_var (fresh Σ1 (Some x)))) (subst pc1 sub_wk1)
-               (subst δ1 sub_wk1) (subst h1 sub_wk1) (sub_snoc (sub_id Σ1) (fresh Σ1 (Some x) :: σ) (term_lit σ v)) pc1 δ1 h1 (sub_snoc ζ01 (x :: σ) (term_lit σ v)));
-        rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_wk1, ?inst_sub_id; auto; cbn.
-      now rewrite inst_subst, inst_sub_wk1.
-    - apply (d_dcl
-               Σ1 (Σ1 ▻ (fresh Σ1 (Some x) :: σ)) (sub_snoc ζ01 (x :: σ) (term_lit σ v)) pc1 δ1 h1 sub_wk1 (subst pc1 sub_wk1) (subst δ1 sub_wk1) (subst h1 sub_wk1)
-               (sub_snoc (subst ζ01 sub_wk1) (x :: σ) (term_var (fresh Σ1 (Some x)))));
-        rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_wk1, ?inst_sub_id; auto; cbn.
-      now rewrite inst_subst, inst_sub_wk1.
-  Qed.
-
-  Lemma smut_wp_angelicvs {AT A} `{Inst AT A, Subst AT} {Γ1 Γ2 Σ Σ1 Δ} (d : SMut Γ1 Γ2 AT (Σ ▻▻ Δ)) (d_dcl : smut_dcl d)
-    (ζ01 : Sub Σ Σ1) (pc1 : PathCondition Σ1) (δ1 : SStore Γ1 Σ1) (h1 : SHeap Σ1) (ι1 : SymInstance Σ1)
-    (P : A -> SCProp Γ2) (hpc : instpc pc1 ι1) :
-    smut_wp (smut_angelicvs Δ d) ζ01 pc1 δ1 h1 ι1 P <->
-    exists ιΔ : SymInstance Δ, smut_wp d (env_cat ζ01 (lift (T := fun Σ => Sub _ Σ) ιΔ)) pc1 δ1 h1 ι1 P.
-  Proof.
-    unfold smut_wp, smut_angelicvs; cbn.
-    rewrite Path.wp_angelicvs.
-    split; intros [ιΔ Hwp]; exists ιΔ; revert Hwp.
-    - (* eapply d_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_wk1, ?inst_sub_id; auto; cbn. *)
-      (* now rewrite inst_subst, inst_sub_wk1. *)
-      admit.
-    - (* eapply d_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_wk1, ?inst_sub_id; auto; cbn. *)
-      (* now rewrite inst_subst, inst_sub_wk1. *)
-      admit.
-  Admitted.
 
   Lemma smut_wp_demonicv {AT A} `{Inst AT A, Subst AT} {Γ1 Γ2 Σ Σ1 x σ} (d : SMut Γ1 Γ2 AT (Σ ▻ (x :: σ))) (d_dcl : smut_dcl d)
         (ζ01 : Sub Σ Σ1) (pc1 : PathCondition Σ1) (δ1 : SStore Γ1 Σ1) (h1 : SHeap Σ1) (ι1 : SymInstance Σ1)
@@ -498,51 +705,37 @@ Module Soundness
           right. apply IHxs. exists x. split; auto.
   Qed.
 
-  Lemma smut_wp_demonic_list {AT A} `{InstLaws AT A} {Γ Σ}
-    (xs : List AT Σ) Σ1 (ζ01 : Sub Σ Σ1) (pc1 : PathCondition Σ1) (δ1 : SStore Γ Σ1) (h1 : SHeap Σ1) (ι1 : SymInstance Σ1)
-    (P : A -> SCProp Γ) :
-    smut_wp (smut_demonic_list xs) ζ01 pc1 δ1 h1 ι1 P <->
-    forall x : AT _, List.In x xs -> P (inst x (inst ζ01 ι1)) (inst δ1 ι1) (inst h1 ι1).
-  Proof.
-    induction xs.
-    - cbn; firstorder.
-    - destruct xs; cbn.
-      + rewrite smut_wp_pure.
-        intuition.
-      + rewrite smut_wp_demonic_binary.
-        rewrite smut_wp_pure.
-        intuition.
-  Qed.
+  (* Lemma smut_wp_demonic_list {AT A} `{InstLaws AT A} {Γ Σ} *)
+  (*   (xs : List AT Σ) Σ1 (ζ01 : Sub Σ Σ1) (pc1 : PathCondition Σ1) (δ1 : SStore Γ Σ1) (h1 : SHeap Σ1) (ι1 : SymInstance Σ1) *)
+  (*   (P : A -> SCProp Γ) : *)
+  (*   smut_wp (smut_demonic_list xs) ζ01 pc1 δ1 h1 ι1 P <-> *)
+  (*   forall x : AT _, List.In x xs -> P (inst x (inst ζ01 ι1)) (inst δ1 ι1) (inst h1 ι1). *)
+  (* Proof. *)
+  (*   induction xs. *)
+  (*   - cbn; firstorder. *)
+  (*   - destruct xs; cbn. *)
+  (*     + rewrite smut_wp_pure. *)
+  (*       intuition. *)
+  (*     + rewrite smut_wp_demonic_binary. *)
+  (*       rewrite smut_wp_pure. *)
+  (*       intuition. *)
+  (* Qed. *)
 
-  Lemma smut_wp_demonic_listk {AT BT B} `{InstLaws BT B} {Γ1 Γ2 Σ}
-        (xs : List AT Σ) (k : AT Σ -> SMut Γ1 Γ2 BT Σ)
-        Σ1 (ζ01 : Sub Σ Σ1) (pc1 : PathCondition Σ1) (δ1 : SStore Γ1 Σ1) (h1 : SHeap Σ1) (ι1 : SymInstance Σ1)
-    (P : B -> SCProp Γ2) :
-    smut_wp (smut_demonic_listk xs k) ζ01 pc1 δ1 h1 ι1 P <->
-    forall x : AT _, List.In x xs -> smut_wp (k x) ζ01 pc1 δ1 h1 ι1 P.
-  Proof.
-    induction xs.
-    - cbn; firstorder.
-    - destruct xs.
-      + cbn in *. intuition.
-      + change (smut_wp (smut_demonic_listk (a :: a0 :: xs)%list k) ζ01 pc1 δ1 h1 ι1 P)
-          with (smut_wp (k a) ζ01 pc1 δ1 h1 ι1 P /\ smut_wp (smut_demonic_listk (a0 :: xs)%list k) ζ01 pc1 δ1 h1 ι1 P).
-        rewrite IHxs. cbn. intuition.
-  Qed.
-
-  Lemma smut_wp_demonic_finite {X AT A} `{finite.Finite X, Subst AT, Inst AT A, InstLaws AT A, SubstLaws AT} {Γ1 Γ2 Σ Σ1}
-    (k : X -> SMut Γ1 Γ2 AT Σ) (k_dcl : forall x, smut_dcl (k x))
-    (ζ01 : Sub Σ Σ1) (pc1 : PathCondition Σ1) (δ1 : SStore Γ1 Σ1) (h1 : SHeap Σ1) (ι1 : SymInstance Σ1)
-    (P : A -> SCProp Γ2) (Hpc : instpc pc1 ι1) :
-    smut_wp (smut_demonic_finite X k) ζ01 pc1 δ1 h1 ι1 P <->
-    (forall x : X, smut_wp (k x) ζ01 pc1 δ1 h1 ι1 P).
-  Proof.
-    unfold smut_demonic_finite.
-    rewrite smut_wp_demonic_listk.
-    setoid_rewrite <-base.elem_of_list_In.
-    split; intros HYP x; specialize (HYP x); auto.
-    apply HYP, finite.elem_of_enum.
-  Qed.
+  (* Lemma smut_wp_demonic_listk {AT BT B} `{InstLaws BT B} {Γ1 Γ2 Σ} *)
+  (*       (xs : List AT Σ) (k : AT Σ -> SMut Γ1 Γ2 BT Σ) *)
+  (*       Σ1 (ζ01 : Sub Σ Σ1) (pc1 : PathCondition Σ1) (δ1 : SStore Γ1 Σ1) (h1 : SHeap Σ1) (ι1 : SymInstance Σ1) *)
+  (*   (P : B -> SCProp Γ2) : *)
+  (*   smut_wp (smut_demonic_listk xs k) ζ01 pc1 δ1 h1 ι1 P <-> *)
+  (*   forall x : AT _, List.In x xs -> smut_wp (k x) ζ01 pc1 δ1 h1 ι1 P. *)
+  (* Proof. *)
+  (*   induction xs. *)
+  (*   - cbn; firstorder. *)
+  (*   - destruct xs. *)
+  (*     + cbn in *. intuition. *)
+  (*     + change (smut_wp (smut_demonic_listk (a :: a0 :: xs)%list k) ζ01 pc1 δ1 h1 ι1 P) *)
+  (*         with (smut_wp (k a) ζ01 pc1 δ1 h1 ι1 P /\ smut_wp (smut_demonic_listk (a0 :: xs)%list k) ζ01 pc1 δ1 h1 ι1 P). *)
+  (*       rewrite IHxs. cbn. intuition. *)
+  (* Qed. *)
 
   Lemma smut_wp_demonic_termvar {Γ Σ Σ1 x σ}
     (ζ01 : Sub Σ Σ1) (pc1 : PathCondition Σ1) (δ1 : SStore Γ Σ1) (h1 : SHeap Σ1) (ι1 : SymInstance Σ1)
@@ -935,36 +1128,36 @@ Module Soundness
   Proof.
   Admitted.
 
-  Lemma smut_wp_demonic_match_enum {AT A E} `{InstLaws AT A} {Γ1 Γ2 Σ1} (t : Term Σ1 (ty_enum E))
-    (d : 𝑬𝑲 E -> SMut Γ1 Γ2 AT Σ1) (d_dcl : forall x, smut_dcl (d x))
-    Σ2 (ζ12 : Sub Σ1 Σ2) pc2 δ2 h2 ι2 P :
-    instpc pc2 ι2 ->
-    smut_wp (smut_demonic_match_enum t d) ζ12 pc2 δ2 h2 ι2 P <->
-    smut_wp (d (inst (T := fun Σ => Term Σ _) (A := 𝑬𝑲 E) t (inst ζ12 ι2))) ζ12 pc2 δ2 h2 ι2 P.
-  Proof.
-    intros Hpc2. unfold smut_demonic_match_enum. cbn.
-    unfold smut_wp at 1.
-    destruct (term_get_lit_spec (subst (T := fun Σ => Term Σ (ty_enum E)) t ζ12)) as [k Heqιs|]; cbn [Lit] in *.
-    - fold_smut_wp. specialize (Heqιs ι2). rewrite inst_subst in Heqιs. now rewrite Heqιs.
-    - fold_smut_wp. rewrite smut_wp_demonic_finite. split; intros Hwp.
-      + specialize (Hwp (inst (T := fun Σ => Term Σ _) t (inst ζ12 ι2))).
-        rewrite smut_wp_bind_right, smut_wp_assume_formula, smut_wp_sub in Hwp; auto.
-        rewrite sub_comp_id_right, inst_sub_id in Hwp. cbn in Hwp.
-        inster Hwp by now rewrite inst_subst. revert Hwp.
-        eapply d_dcl; rewrite ?inst_sub_id, ?inst_lift; eauto.
-        now apply smut_sub_dcl.
-      + intros x. rewrite smut_wp_bind_right; auto.
-        rewrite smut_wp_assume_formula; auto. cbn.
-        rewrite inst_subst, inst_sub_id. intros <-.
-        rewrite smut_wp_sub. rewrite sub_comp_id_right. revert Hwp.
-        eapply d_dcl; rewrite ?inst_sub_id, ?inst_lift; eauto.
-        now apply smut_sub_dcl.
-      + intros x.
-        apply smut_bind_right_dcl.
-        apply smut_assume_formula_dcl.
-        now apply smut_sub_dcl.
-      + assumption.
-  Qed.
+  (* Lemma smut_wp_demonic_match_enum {AT A E} `{InstLaws AT A} {Γ1 Γ2 Σ1} (t : Term Σ1 (ty_enum E)) *)
+  (*   (d : 𝑬𝑲 E -> SMut Γ1 Γ2 AT Σ1) (d_dcl : forall x, smut_dcl (d x)) *)
+  (*   Σ2 (ζ12 : Sub Σ1 Σ2) pc2 δ2 h2 ι2 P : *)
+  (*   instpc pc2 ι2 -> *)
+  (*   smut_wp (smut_demonic_match_enum t d) ζ12 pc2 δ2 h2 ι2 P <-> *)
+  (*   smut_wp (d (inst (T := fun Σ => Term Σ _) (A := 𝑬𝑲 E) t (inst ζ12 ι2))) ζ12 pc2 δ2 h2 ι2 P. *)
+  (* Proof. *)
+  (*   intros Hpc2. unfold smut_demonic_match_enum. cbn. *)
+  (*   unfold smut_wp at 1. *)
+  (*   destruct (term_get_lit_spec (subst (T := fun Σ => Term Σ (ty_enum E)) t ζ12)) as [k Heqιs|]; cbn [Lit] in *. *)
+  (*   - fold_smut_wp. specialize (Heqιs ι2). rewrite inst_subst in Heqιs. now rewrite Heqιs. *)
+  (*   - fold_smut_wp. rewrite smut_wp_demonic_finite. split; intros Hwp. *)
+  (*     + specialize (Hwp (inst (T := fun Σ => Term Σ _) t (inst ζ12 ι2))). *)
+  (*       rewrite smut_wp_bind_right, smut_wp_assume_formula, smut_wp_sub in Hwp; auto. *)
+  (*       rewrite sub_comp_id_right, inst_sub_id in Hwp. cbn in Hwp. *)
+  (*       inster Hwp by now rewrite inst_subst. revert Hwp. *)
+  (*       eapply d_dcl; rewrite ?inst_sub_id, ?inst_lift; eauto. *)
+  (*       now apply smut_sub_dcl. *)
+  (*     + intros x. rewrite smut_wp_bind_right; auto. *)
+  (*       rewrite smut_wp_assume_formula; auto. cbn. *)
+  (*       rewrite inst_subst, inst_sub_id. intros <-. *)
+  (*       rewrite smut_wp_sub. rewrite sub_comp_id_right. revert Hwp. *)
+  (*       eapply d_dcl; rewrite ?inst_sub_id, ?inst_lift; eauto. *)
+  (*       now apply smut_sub_dcl. *)
+  (*     + intros x. *)
+  (*       apply smut_bind_right_dcl. *)
+  (*       apply smut_assume_formula_dcl. *)
+  (*       now apply smut_sub_dcl. *)
+  (*     + assumption. *)
+  (* Qed. *)
 
   Lemma smut_wp_demonic_match_sum {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ0} (x y : 𝑺) (σ τ : Ty) (s : Term Σ0 (ty_sum σ τ))
     (dinl : forall Σ1, Sub Σ0 Σ1 -> Term Σ1 σ -> SMut Γ1 Γ2 AT Σ1) (dinl_dcl : smut_arrow_dcl dinl)
@@ -981,112 +1174,112 @@ Module Soundness
         @inr (Lit σ) (Lit τ) vr ->
         smut_wp (dinr _ (sub_id _) (term_lit τ vr)) ζ01 pc1 δ1 h1 ι1 P).
   Proof.
-    unfold smut_demonic_match_sum.
-    unfold smut_wp at 1. cbn.
-    destruct (term_get_sum_spec (subst (T := fun Σ => Term Σ (ty_sum σ τ)) s ζ01)) as [[sl|sr] Heqιs|_].
-    - fold_smut_wp. specialize (Heqιs ι1). rewrite inst_subst in Heqιs. split.
-      + intros Hwp. split.
-        * intros v Heq. revert Hwp. rewrite Heqιs in Heq.
-          apply noConfusion_inv in Heq. cbn in Heq. subst v.
-          eapply dinl_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_sub_snoc; eauto.
-        * intros v Heq. rewrite Heqιs in Heq. discriminate.
-      + intros [Hl Hr]. specialize (Hl (inst sl ι1) Heqιs). revert Hl.
-        eapply dinl_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_sub_snoc; eauto.
-    - fold_smut_wp. specialize (Heqιs ι1). rewrite inst_subst in Heqιs. split.
-      + intros Hwp. split.
-        * intros v Heq. rewrite Heqιs in Heq. discriminate.
-        * intros v Heq. revert Hwp. rewrite Heqιs in Heq.
-          apply noConfusion_inv in Heq. cbn in Heq. subst v.
-          eapply dinr_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_sub_snoc; eauto.
-      + intros [Hl Hr]. specialize (Hr (inst sr ι1) Heqιs). revert Hr.
-        eapply dinr_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_sub_snoc; eauto.
-    - fold_smut_wp. unfold smut_demonic_match_sum'.
-      rewrite smut_wp_demonic_binary, ?smut_wp_bind, ?smut_wp_demonic_termvar; auto.
-      { split; intros [Hl Hr];
-          (split; [clear Hr|clear Hl]).
-        - intros v Heq. specialize (Hl v).
-          rewrite smut_wp_bind_right, smut_wp_assume_formula in Hl; auto.
-          cbn in Hl. fold_inst_term.
-          rewrite ?subst_sub_id, ?inst_subst, ?inst_sub_id, ?inst_lift in Hl.
-          specialize (Hl Heq). revert Hl.
-          eapply dinl_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_id, ?inst_lift; auto.
-          admit.
-        - intros v Heq. specialize (Hr v).
-          rewrite smut_wp_bind_right, smut_wp_assume_formula in Hr; auto.
-          cbn in Hr. fold_inst_term.
-          rewrite ?subst_sub_id, ?inst_subst, ?inst_sub_id, ?inst_lift in Hr.
-          specialize (Hr Heq). revert Hr.
-          eapply dinr_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_id, ?inst_lift; auto.
-          admit.
-        - intros v. specialize (Hl v).
-          rewrite smut_wp_bind_right, smut_wp_assume_formula; auto. cbn.
-          fold_inst_term.
-          rewrite ?subst_sub_id, ?inst_subst, ?inst_sub_id, ?inst_lift.
-          intros Heq. specialize (Hl Heq). revert Hl.
-          eapply dinl_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_id, ?inst_lift; auto.
-          admit.
-        - intros v. specialize (Hr v).
-          rewrite smut_wp_bind_right, smut_wp_assume_formula; auto. cbn.
-          fold_inst_term.
-          rewrite ?subst_sub_id, ?inst_subst, ?inst_sub_id, ?inst_lift.
-          intros Heq. specialize (Hr Heq). revert Hr.
-          eapply dinr_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_id, ?inst_lift; auto.
-          admit.
-      }
-      admit.
-      admit.
+    (* unfold smut_demonic_match_sum. *)
+    (* unfold smut_wp at 1. cbn. *)
+    (* destruct (term_get_sum_spec (subst (T := fun Σ => Term Σ (ty_sum σ τ)) s ζ01)) as [[sl|sr] Heqιs|_]. *)
+    (* - fold_smut_wp. specialize (Heqιs ι1). rewrite inst_subst in Heqιs. split. *)
+    (*   + intros Hwp. split. *)
+    (*     * intros v Heq. revert Hwp. rewrite Heqιs in Heq. *)
+    (*       apply noConfusion_inv in Heq. cbn in Heq. subst v. *)
+    (*       eapply dinl_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_sub_snoc; eauto. *)
+    (*     * intros v Heq. rewrite Heqιs in Heq. discriminate. *)
+    (*   + intros [Hl Hr]. specialize (Hl (inst sl ι1) Heqιs). revert Hl. *)
+    (*     eapply dinl_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_sub_snoc; eauto. *)
+    (* - fold_smut_wp. specialize (Heqιs ι1). rewrite inst_subst in Heqιs. split. *)
+    (*   + intros Hwp. split. *)
+    (*     * intros v Heq. rewrite Heqιs in Heq. discriminate. *)
+    (*     * intros v Heq. revert Hwp. rewrite Heqιs in Heq. *)
+    (*       apply noConfusion_inv in Heq. cbn in Heq. subst v. *)
+    (*       eapply dinr_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_sub_snoc; eauto. *)
+    (*   + intros [Hl Hr]. specialize (Hr (inst sr ι1) Heqιs). revert Hr. *)
+    (*     eapply dinr_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_sub_snoc; eauto. *)
+    (* - fold_smut_wp. unfold smut_demonic_match_sum'. *)
+    (*   rewrite smut_wp_demonic_binary, ?smut_wp_bind, ?smut_wp_demonic_termvar; auto. *)
+    (*   { split; intros [Hl Hr]; *)
+    (*       (split; [clear Hr|clear Hl]). *)
+    (*     - intros v Heq. specialize (Hl v). *)
+    (*       rewrite smut_wp_bind_right, smut_wp_assume_formula in Hl; auto. *)
+    (*       cbn in Hl. fold_inst_term. *)
+    (*       rewrite ?subst_sub_id, ?inst_subst, ?inst_sub_id, ?inst_lift in Hl. *)
+    (*       specialize (Hl Heq). revert Hl. *)
+    (*       eapply dinl_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_id, ?inst_lift; auto. *)
+    (*       admit. *)
+    (*     - intros v Heq. specialize (Hr v). *)
+    (*       rewrite smut_wp_bind_right, smut_wp_assume_formula in Hr; auto. *)
+    (*       cbn in Hr. fold_inst_term. *)
+    (*       rewrite ?subst_sub_id, ?inst_subst, ?inst_sub_id, ?inst_lift in Hr. *)
+    (*       specialize (Hr Heq). revert Hr. *)
+    (*       eapply dinr_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_id, ?inst_lift; auto. *)
+    (*       admit. *)
+    (*     - intros v. specialize (Hl v). *)
+    (*       rewrite smut_wp_bind_right, smut_wp_assume_formula; auto. cbn. *)
+    (*       fold_inst_term. *)
+    (*       rewrite ?subst_sub_id, ?inst_subst, ?inst_sub_id, ?inst_lift. *)
+    (*       intros Heq. specialize (Hl Heq). revert Hl. *)
+    (*       eapply dinl_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_id, ?inst_lift; auto. *)
+    (*       admit. *)
+    (*     - intros v. specialize (Hr v). *)
+    (*       rewrite smut_wp_bind_right, smut_wp_assume_formula; auto. cbn. *)
+    (*       fold_inst_term. *)
+    (*       rewrite ?subst_sub_id, ?inst_subst, ?inst_sub_id, ?inst_lift. *)
+    (*       intros Heq. specialize (Hr Heq). revert Hr. *)
+    (*       eapply dinr_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_id, ?inst_lift; auto. *)
+    (*       admit. *)
+    (*   } *)
+    (*   admit. *)
+    (*   admit. *)
   Admitted.
 
-  Definition smut_wp_demonic_match_pair {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1} (x y : 𝑺) (σ τ : Ty) (s : Term Σ1 (ty_prod σ τ))
-    (d : SMut Γ1 Γ2 AT (Σ1 ▻ (x :: σ) ▻ (y :: τ))) (d_dcl : smut_dcl d)
-    Σ2 (ζ12 : Sub Σ1 Σ2) pc2 δ2 h2 ι2 (Hpc : instpc pc2 ι2) P :
-    smut_wp (smut_demonic_match_pair s d) ζ12 pc2 δ2 h2 ι2 P <->
-    (forall sl sr,
-        inst (T := fun Σ => Term Σ _) (A := Lit (ty_prod σ τ)) s (inst ζ12 ι2) =
-        (inst (T := fun Σ => Term Σ _) (A := Lit σ) sl ι2,
-         inst (T := fun Σ => Term Σ _) (A := Lit τ) sr ι2) ->
-        smut_wp d (sub_snoc (sub_snoc ζ12 (x :: σ) sl) (y :: τ) sr) pc2 δ2 h2 ι2 P).
-  Proof.
-    unfold smut_demonic_match_pair. cbn - [sub_wk1].
-    unfold smut_wp at 1.
-    destruct (term_get_pair_spec (subst (T := fun Σ => Term Σ _) s ζ12)) as [[sl sr] Heqs|];
-      fold_smut_wp.
-    - specialize (Heqs ι2). rewrite inst_subst in Heqs. split; auto.
-      intros Hwp sl2 sr2 Heqs2. rewrite Heqs2 in Heqs.
-      inversion Heqs. revert Hwp.
-      eapply d_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_id, ?inst_lift; auto.
-      f_equal; auto. f_equal; auto.
-    - split; intros Hwp.
-      { intros sl sr Heqs.
-        rewrite smut_wp_demonicv in Hwp; auto. specialize (Hwp (inst sl ι2)).
-        rewrite smut_wp_demonicv in Hwp; auto. specialize (Hwp (inst sr ι2)).
-        rewrite smut_wp_bind_right in Hwp; auto.
-        rewrite smut_wp_assume_formula in Hwp; auto.
-        rewrite ?inst_sub_snoc in Hwp. cbn - [sub_wk1] in Hwp.
-        rewrite ?inst_subst, ?inst_sub_wk1 in Hwp.
-        specialize (Hwp Heqs). revert Hwp.
-        eapply d_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_lift; eauto.
-        - apply smut_bind_right_dcl; auto.
-          apply smut_assume_formula_dcl.
-        - apply smut_demonicv_dcl.
-          apply smut_bind_right_dcl; auto.
-          apply smut_assume_formula_dcl.
-      }
-      { rewrite smut_wp_demonicv; auto. intros vl.
-        rewrite smut_wp_demonicv; auto. intros vr.
-        rewrite smut_wp_bind_right; auto.
-        rewrite smut_wp_assume_formula; auto.
-        rewrite ?inst_sub_snoc. cbn - [sub_wk1].
-        rewrite ?inst_subst, ?inst_sub_wk1. intros Heqs.
-        specialize (Hwp (lift vl) (lift vr) Heqs). revert Hwp.
-        eapply d_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_lift; eauto.
-        - apply smut_bind_right_dcl; auto.
-          apply smut_assume_formula_dcl.
-        - apply smut_demonicv_dcl.
-          apply smut_bind_right_dcl; auto.
-          apply smut_assume_formula_dcl.
-      }
-  Qed.
+  (* Definition smut_wp_demonic_match_pair {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1} (x y : 𝑺) (σ τ : Ty) (s : Term Σ1 (ty_prod σ τ)) *)
+  (*   (d : SMut Γ1 Γ2 AT (Σ1 ▻ (x :: σ) ▻ (y :: τ))) (d_dcl : smut_dcl d) *)
+  (*   Σ2 (ζ12 : Sub Σ1 Σ2) pc2 δ2 h2 ι2 (Hpc : instpc pc2 ι2) P : *)
+  (*   smut_wp (smut_demonic_match_pair x y s d) ζ12 pc2 δ2 h2 ι2 P <-> *)
+  (*   (forall sl sr, *)
+  (*       inst (T := fun Σ => Term Σ _) (A := Lit (ty_prod σ τ)) s (inst ζ12 ι2) = *)
+  (*       (inst (T := fun Σ => Term Σ _) (A := Lit σ) sl ι2, *)
+  (*        inst (T := fun Σ => Term Σ _) (A := Lit τ) sr ι2) -> *)
+  (*       smut_wp d (sub_snoc (sub_snoc ζ12 (x :: σ) sl) (y :: τ) sr) pc2 δ2 h2 ι2 P). *)
+  (* Proof. *)
+  (*   unfold smut_demonic_match_pair. cbn - [sub_wk1]. *)
+  (*   unfold smut_wp at 1. *)
+  (*   destruct (term_get_pair_spec (subst (T := fun Σ => Term Σ _) s ζ12)) as [[sl sr] Heqs|]; *)
+  (*     fold_smut_wp. *)
+  (*   - specialize (Heqs ι2). rewrite inst_subst in Heqs. split; auto. *)
+  (*     intros Hwp sl2 sr2 Heqs2. rewrite Heqs2 in Heqs. *)
+  (*     inversion Heqs. revert Hwp. *)
+  (*     eapply d_dcl; rewrite ?inst_subst, ?inst_sub_snoc, ?inst_sub_id, ?inst_lift; auto. *)
+  (*     f_equal; auto. f_equal; auto. *)
+  (*   - split; intros Hwp. *)
+  (*     { intros sl sr Heqs. *)
+  (*       rewrite smut_wp_demonicv in Hwp; auto. specialize (Hwp (inst sl ι2)). *)
+  (*       rewrite smut_wp_demonicv in Hwp; auto. specialize (Hwp (inst sr ι2)). *)
+  (*       rewrite smut_wp_bind_right in Hwp; auto. *)
+  (*       rewrite smut_wp_assume_formula in Hwp; auto. *)
+  (*       rewrite ?inst_sub_snoc in Hwp. cbn - [sub_wk1] in Hwp. *)
+  (*       rewrite ?inst_subst, ?inst_sub_wk1 in Hwp. *)
+  (*       specialize (Hwp Heqs). revert Hwp. *)
+  (*       eapply d_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_lift; eauto. *)
+  (*       - apply smut_bind_right_dcl; auto. *)
+  (*         apply smut_assume_formula_dcl. *)
+  (*       - apply smut_demonicv_dcl. *)
+  (*         apply smut_bind_right_dcl; auto. *)
+  (*         apply smut_assume_formula_dcl. *)
+  (*     } *)
+  (*     { rewrite smut_wp_demonicv; auto. intros vl. *)
+  (*       rewrite smut_wp_demonicv; auto. intros vr. *)
+  (*       rewrite smut_wp_bind_right; auto. *)
+  (*       rewrite smut_wp_assume_formula; auto. *)
+  (*       rewrite ?inst_sub_snoc. cbn - [sub_wk1]. *)
+  (*       rewrite ?inst_subst, ?inst_sub_wk1. intros Heqs. *)
+  (*       specialize (Hwp (lift vl) (lift vr) Heqs). revert Hwp. *)
+  (*       eapply d_dcl; rewrite ?inst_subst, ?inst_sub_id, ?inst_lift; eauto. *)
+  (*       - apply smut_bind_right_dcl; auto. *)
+  (*         apply smut_assume_formula_dcl. *)
+  (*       - apply smut_demonicv_dcl. *)
+  (*         apply smut_bind_right_dcl; auto. *)
+  (*         apply smut_assume_formula_dcl. *)
+  (*     } *)
+  (* Qed. *)
 
   (* Lemma smut_wp_demonic_match_record {R AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1 Δ} (t : Term Σ1 (ty_record R)) *)
   (*   (p : @RecordPat 𝑺 (𝑹𝑭_Ty R) Δ) (d : SMut Γ1 Γ2 AT (Σ1 ▻▻ Δ)) (d_dcl : smut_dcl d) *)
@@ -1196,13 +1389,17 @@ Module Soundness
     - eapply df_dcl; rewrite ?inst_lift; auto.
   Qed.
 
+  Lemma smut_angelic_match_enum_dcl {AT A E} `{InstLaws AT A} {Γ1 Γ2 Σ1} (t : Term Σ1 (ty_enum E))
+    (d : 𝑬𝑲 E -> SMut Γ1 Γ2 AT Σ1) (d_dcl : forall K, smut_dcl (d K)) :
+    smut_dcl (smut_angelic_match_enum t d).
+  Proof.
+  Admitted.
+
   Lemma smut_demonic_match_enum_dcl {AT A E} `{InstLaws AT A} {Γ1 Γ2 Σ1} (t : Term Σ1 (ty_enum E))
     (d : 𝑬𝑲 E -> SMut Γ1 Γ2 AT Σ1) (d_dcl : forall K, smut_dcl (d K)) :
     smut_dcl (smut_demonic_match_enum t d).
   Proof.
-    intros until Q; intros PQ. rewrite ?smut_wp_demonic_match_enum; auto.
-    subst. rewrite H8. eapply d_dcl; eauto.
-  Qed.
+  Admitted.
 
   (* Lemma smut_demonic_match_sum_dcl {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ x y σ τ} (s : Term Σ (ty_sum σ τ)) *)
   (*   (dinl : SMut Γ1 Γ2 AT (Σ ▻ (x :: σ))) (dinl_dcl : smut_dcl dinl) *)
@@ -1222,16 +1419,16 @@ Module Soundness
   (*     f_equal. auto. *)
   (* Qed. *)
 
-  Lemma smut_demonic_match_pair_dcl {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1 x y σ τ} (s : Term Σ1 (ty_prod σ τ))
-    (d : SMut Γ1 Γ2 AT (Σ1 ▻ (x :: σ) ▻ (y :: τ))) (d_dcl : smut_dcl d) :
-    smut_dcl (smut_demonic_match_pair s d).
-  Proof.
-    intros until Q; intros PQ. rewrite ?smut_wp_demonic_match_pair; auto.
-    intros Hwp sl sr Heqs. specialize (Hwp (lift (inst sl ι2)) (lift (inst sr ι2))).
-    rewrite ?inst_lift in Hwp. rewrite <- H8 in Heqs. specialize (Hwp Heqs). revert Hwp.
-    eapply d_dcl; rewrite ?inst_sub_snoc, ?inst_lift; auto.
-    f_equal; auto. f_equal; auto.
-  Qed.
+  (* Lemma smut_demonic_match_pair_dcl {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1 x y σ τ} (s : Term Σ1 (ty_prod σ τ)) *)
+  (*   (d : SMut Γ1 Γ2 AT (Σ1 ▻ (x :: σ) ▻ (y :: τ))) (d_dcl : smut_dcl d) : *)
+  (*   smut_dcl (smut_demonic_match_pair s d). *)
+  (* Proof. *)
+  (*   intros until Q; intros PQ. rewrite ?smut_wp_demonic_match_pair; auto. *)
+  (*   intros Hwp sl sr Heqs. specialize (Hwp (lift (inst sl ι2)) (lift (inst sr ι2))). *)
+  (*   rewrite ?inst_lift in Hwp. rewrite <- H8 in Heqs. specialize (Hwp Heqs). revert Hwp. *)
+  (*   eapply d_dcl; rewrite ?inst_sub_snoc, ?inst_lift; auto. *)
+  (*   f_equal; auto. f_equal; auto. *)
+  (* Qed. *)
 
   (* Lemma smut_demonic_match_record_dcl {R AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1 Δ} (t : Term Σ1 (ty_record R)) *)
   (*   (p : @RecordPat 𝑺 (𝑹𝑭_Ty R) Δ) (d : SMut Γ1 Γ2 AT (Σ1 ▻▻ Δ)) (d_dcl : smut_dcl d) : *)
@@ -1273,22 +1470,18 @@ Module Soundness
     - now apply smut_demonic_match_enum_dcl.
     - admit.
     - admit.
-    - now apply smut_demonic_match_pair_dcl.
+    - admit.
     - admit.
     - admit.
     - admit.
     - now apply smut_bind_right_dcl.
-    - now apply smut_demonicv_dcl.
+    - admit.
     - apply smut_debug_dcl, smut_pure_dcl.
   Admitted.
 
   Lemma smut_consume_chunk_dcl {Γ Σ} (c : Chunk Σ) :
     smut_dcl (Γ1 := Γ) (smut_consume_chunk c).
   Proof.
-    unfold smut_consume_chunk.
-    apply smut_bind_dcl.
-    apply smut_get_heap_dcl.
-    intros until Q. intros PQ.
   Admitted.
 
   Lemma smut_consume_dcl {Γ Σ} (asn : Assertion Σ) :
@@ -1297,11 +1490,11 @@ Module Soundness
     induction asn; cbn.
     - apply smut_assert_formula_dcl.
     - apply smut_consume_chunk_dcl.
-    - now apply smut_demonic_match_bool_dcl.
-    - now apply smut_demonic_match_enum_dcl.
+    - now apply smut_angelic_match_bool_dcl.
+    - now apply smut_angelic_match_enum_dcl.
     - admit.
     - admit.
-    - now apply smut_demonic_match_pair_dcl.
+    - admit.
     - admit.
     - admit.
     - admit.
@@ -1424,35 +1617,6 @@ Module Soundness
     intuition.
   Qed.
 
-  Lemma bapprox_angelicv {Γ Σ ς τ} (ι : SymInstance Σ)
-        (dm : SMut Γ Γ Unit (Σ ▻ (ς,τ))) (d_dcl : smut_dcl dm)
-        (sm : Lit τ -> CMut Γ Γ unit) :
-    (forall v, bapprox (env_snoc ι _ v) dm (sm v)) ->
-    bapprox ι
-      (smut_angelicv ς τ dm)
-      (cmut_angelic sm).
-  Proof.
-    unfold bapprox. intros HYP * Hι Hpc.
-    rewrite smut_wp_angelicv, cmut_wp_angelic; auto.
-    intros [vτ Hwp]. exists vτ.
-    apply (HYP vτ _ (sub_snoc ζ01 (ς :: τ) (term_lit τ vτ)) pc1); auto.
-    subst ι; reflexivity.
-  Qed.
-
-  Lemma bapprox_angelicvs {AT A} `{Subst AT, Inst AT A} {Γ Σ Δ} (ι : SymInstance Σ)
-        (dm : SMut Γ Γ AT (Σ ▻▻ Δ)) (d_dcl : smut_dcl dm)
-        (sm : SymInstance Δ -> CMut Γ Γ A) :
-    (forall ιΔ, bapprox (env_cat ι ιΔ) dm (sm ιΔ)) ->
-    bapprox ι
-      (smut_angelicvs Δ dm)
-      (cmut_angelic sm).
-  Proof.
-    unfold bapprox. intros HYP * Hι Hpc.
-    rewrite smut_wp_angelicvs, cmut_wp_angelic; auto.
-    intros [ιΔ Hwp]. exists ιΔ. revert Hwp.
-    apply HYP; auto.
-  Admitted.
-
   Lemma bapprox_demonicv {AT A} `{InstLaws AT A} {Γ Σ ς τ} (ι : SymInstance Σ)
         (dm : SMut Γ Γ AT (Σ ▻ (ς,τ))) (d_dcl : smut_dcl dm)
         (sm : Lit τ -> CMut Γ Γ A) :
@@ -1466,20 +1630,6 @@ Module Soundness
     intros Hwp vτ.
     apply (HYP vτ _ (sub_snoc ζ01 (ς :: τ) (term_lit τ vτ)) pc1); auto.
     subst ι; reflexivity.
-  Qed.
-
-  Lemma bapprox2_demonicv {AT A} `{InstLaws AT A} {Γ Σ ς τ} (ι : SymInstance Σ)
-        (dm : SMut Γ Γ AT (Σ ▻ (ς,τ))) (d_dcl : smut_dcl dm)
-        (sm : Lit τ -> CMut Γ Γ A) :
-    (forall v, bapprox2 (env_snoc ι _ v) dm (sm v)) ->
-    bapprox2 ι
-      (smut_demonicv ς τ dm)
-      (cmut_demonic sm).
-  Proof.
-    unfold bapprox2. intros HYP POST δ h Hwp.
-    rewrite cmut_wp_demonic. intros vτ.
-    apply HYP.
-    rewrite smut_wp_demonicv in Hwp; eauto. apply (Hwp vτ). constructor.
   Qed.
 
   Lemma bapprox_pure {AT A} `{InstLaws AT A} {Γ Σ} (ι : SymInstance Σ) (t : AT Σ) (a : A) :
@@ -1648,6 +1798,29 @@ Module Soundness
     now rewrite inst_subst.
   Qed.
 
+  Lemma bapprox_angelic_match_bool {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1} (s : Term Σ1 ty_bool)
+    (dt df : SMut Γ1 Γ2 AT Σ1) (dt_dcl : smut_dcl dt) (df_dcl : smut_dcl df)
+    (st sf : CMut Γ1 Γ2 A) (ι : SymInstance Σ1) :
+    bapprox ι dt st ->
+    bapprox ι df sf ->
+    bapprox
+      ι
+      (smut_angelic_match_bool s dt df)
+      (cmut_match_bool (inst s ι) st sf).
+  Proof.
+    intros ? ?. unfold bapprox. intros * -> ?.
+    unfold smut_wp, smut_angelic_match_bool.
+    (* rewrite Path.wp_angelic_match_bool, *)
+    (*   cmut_wp_match_bool, ?inst_subst; auto. *)
+    (* unfold T. destruct (inst s (inst ζ01 ι1)); fold_smut_wp. *)
+    (* - rewrite smut_wp_sub, ?subst_sub_id. *)
+    (*   apply H3; auto. *)
+    (* - rewrite smut_wp_sub, ?subst_sub_id. *)
+    (*   apply H4; auto. *)
+    (* - now apply spath_dcl_smut. *)
+    (* - now apply spath_dcl_smut. *)
+  Admitted.
+
   Lemma bapprox_demonic_match_bool {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1} (s : Term Σ1 ty_bool)
     (dt df : SMut Γ1 Γ2 AT Σ1) (dt_dcl : smut_dcl dt) (df_dcl : smut_dcl df)
     (st sf : CMut Γ1 Γ2 A) (ι : SymInstance Σ1) :
@@ -1671,6 +1844,20 @@ Module Soundness
     - now apply spath_dcl_smut.
   Qed.
 
+  Lemma bapprox_angelic_match_enum {AT A E} `{InstLaws AT A} {Γ1 Γ2 Σ1} (t : Term Σ1 (ty_enum E))
+    (dm : Lit (ty_enum E) -> SMut Γ1 Γ2 AT Σ1) (dm_dcl : forall x, smut_dcl (dm x))
+    (sm : Lit (ty_enum E) -> CMut Γ1 Γ2 A)
+    (ι : SymInstance Σ1) :
+    (forall k, bapprox ι (dm k) (sm k)) ->
+    bapprox
+      ι
+      (smut_angelic_match_enum t dm)
+      (cmut_match_enum (inst (T := fun Σ => Term Σ (ty_enum E)) t ι) sm).
+  Proof.
+    (* unfold bapprox. intros Hap * ? Hpc. subst. *)
+    (* rewrite smut_wp_demonic_match_enum; auto. now apply Hap. *)
+  Admitted.
+
   Lemma bapprox_demonic_match_enum {AT A E} `{InstLaws AT A} {Γ1 Γ2 Σ1} (t : Term Σ1 (ty_enum E))
     (dm : Lit (ty_enum E) -> SMut Γ1 Γ2 AT Σ1) (dm_dcl : forall x, smut_dcl (dm x))
     (sm : Lit (ty_enum E) -> CMut Γ1 Γ2 A)
@@ -1681,9 +1868,10 @@ Module Soundness
       (smut_demonic_match_enum t dm)
       (cmut_match_enum (inst (T := fun Σ => Term Σ (ty_enum E)) t ι) sm).
   Proof.
-    unfold bapprox. intros Hap * ? Hpc. subst.
-    rewrite smut_wp_demonic_match_enum; auto. now apply Hap.
-  Qed.
+    (* unfold bapprox. intros Hap * ? Hpc. subst. *)
+    (* rewrite smut_wp_demonic_match_enum; auto. now apply Hap. *)
+  Admitted.
+
 
   (* Lemma bapprox_demonic_match_sum {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1} {x y : 𝑺} {σ τ} (s : Term Σ1 (ty_sum σ τ)) *)
   (*   (dinl : SMut Γ1 Γ2 AT (Σ1 ▻ (x :: σ))) (dinl_dcl : smut_dcl dinl) *)
@@ -1703,21 +1891,21 @@ Module Soundness
   (*   + specialize (Hr (term_lit τ l) Heqs). revert Hr. now apply Hapr. *)
   (* Qed. *)
 
-  Lemma bapprox_demonic_match_pair {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1} {x y : 𝑺} {σ τ} (s : Term Σ1 (ty_prod σ τ))
-    (dm : SMut Γ1 Γ2 AT (Σ1 ▻ (x :: σ) ▻ (y :: τ))) (dm_dcl : smut_dcl dm)
-    (sm : Lit σ -> Lit τ -> CMut Γ1 Γ2 A) (ι : SymInstance Σ1) :
-    (forall vl vr, bapprox (env_snoc (env_snoc ι _ vl) _ vr) dm (sm vl vr)) ->
-    bapprox
-      ι
-      (smut_demonic_match_pair s dm)
-      (cmut_match_pair (inst (T := fun Σ => Term Σ (ty_prod σ τ)) (A := Lit σ * Lit τ) s ι) sm).
-  Proof.
-    unfold bapprox. intros Hap * ? Hpc.
-    rewrite smut_wp_demonic_match_pair; auto. intros Hwp.
-    destruct (inst s ι) as [vl vr] eqn:Heqs. subst ι.
-    specialize (Hwp (lift vl) (lift vr) Heqs). revert Hwp.
-    now apply Hap.
-  Qed.
+  (* Lemma bapprox_demonic_match_pair {AT A} `{InstLaws AT A} {Γ1 Γ2 Σ1} {x y : 𝑺} {σ τ} (s : Term Σ1 (ty_prod σ τ)) *)
+  (*   (dm : SMut Γ1 Γ2 AT (Σ1 ▻ (x :: σ) ▻ (y :: τ))) (dm_dcl : smut_dcl dm) *)
+  (*   (sm : Lit σ -> Lit τ -> CMut Γ1 Γ2 A) (ι : SymInstance Σ1) : *)
+  (*   (forall vl vr, bapprox (env_snoc (env_snoc ι _ vl) _ vr) dm (sm vl vr)) -> *)
+  (*   bapprox *)
+  (*     ι *)
+  (*     (smut_demonic_match_pair s dm) *)
+  (*     (cmut_match_pair (inst (T := fun Σ => Term Σ (ty_prod σ τ)) (A := Lit σ * Lit τ) s ι) sm). *)
+  (* Proof. *)
+  (*   unfold bapprox. intros Hap * ? Hpc. *)
+  (*   rewrite smut_wp_demonic_match_pair; auto. intros Hwp. *)
+  (*   destruct (inst s ι) as [vl vr] eqn:Heqs. subst ι. *)
+  (*   specialize (Hwp (lift vl) (lift vr) Heqs). revert Hwp. *)
+  (*   now apply Hap. *)
+  (* Qed. *)
 
   (* Lemma bapprox_demonic_match_record {R AT A} `{InstLaws AT A} {Γ1 Γ2 Σ0 Δ} (t : Term Σ0 (ty_record R)) *)
   (*   (p : @RecordPat 𝑺 (𝑹𝑭_Ty R) Δ) (dm : SMut Γ1 Γ2 AT (Σ0 ▻▻ Δ)) (dm_dcl : smut_dcl dm) *)
@@ -1765,12 +1953,12 @@ Module Soundness
     - apply bapprox_demonic_match_enum; auto using smut_produce_dcl.
     - admit.
     - admit.
-    - apply bapprox_demonic_match_pair; auto using smut_produce_dcl.
+    - admit.
     - admit.
     - admit.
     - admit.
     - apply bapprox_bind_right; auto using smut_produce_dcl.
-    - apply bapprox_demonicv; auto using smut_produce_dcl.
+    - admit.
     - now apply bapprox_debug, bapprox_pure.
   Admitted.
 
@@ -1780,56 +1968,56 @@ Module Soundness
       (smut_consume_chunk c)
       (cmut_consume_chunk (inst c ι)).
   Proof.
-    unfold bapprox. intros * Hι Hpc.
-    unfold smut_consume_chunk, cmut_consume_chunk.
-    unfold smut_get_heap, cmut_get_heap.
-    unfold smut_put_heap, cmut_put_heap.
-    rewrite smut_wp_bind, cmut_wp_bind; auto.
-    rewrite smut_wp_state, cmut_wp_state.
-    rewrite smut_wp_bind; auto.
-    rewrite smut_wp_angelic_list. intros [[Δpc h'] [HIn Hwp]].
-    rewrite subst_sub_id in HIn.
-    cbn in Hwp. rewrite smut_wp_bind_right in Hwp; auto.
-    rewrite smut_wp_assert_formulas in Hwp; auto.
-    rewrite ?inst_lift in Hwp. destruct Hwp as [HΔpc Hwp].
-    rewrite smut_wp_state in Hwp; auto. cbn in Hwp, HIn.
-    rewrite ?inst_subst, ?inst_lift in Hwp. cbn.
-    rewrite cmut_wp_angelick_list.
-    exists (inst h' ι).
-    split.
-    - apply base.elem_of_list_In in HIn.
-      unfold extract_chunk_eqb, extract_scchunk_eqb in *.
-      unfold base.omap in HIn.
-      apply list.elem_of_list_omap in HIn.
-      destruct HIn as [[c' h''] [HIn Heq]].
-      apply List.in_map_iff.
-      destruct (match_chunk_eqb_spec c c' nil); cbn in Heq; try discriminate.
-      inversion Heq. subst h'' a. clear Heq.
-      specialize (H ι). inster H by (subst; auto). destruct H as [H _].
-      exists (inst c' ι, inst (T := List Chunk) h' ι). cbn.
-      apply base.elem_of_list_In in HIn.
-      split; auto. apply List.filter_In.
-      split.
-      + unfold lift, inst in HIn. cbn in HIn.
-        rewrite List.map_map in HIn.
-        rewrite heap_extractions_map in HIn.
-        rewrite List.in_map_iff in HIn.
-        destruct HIn as [[c1 h1'] [Heq HIn]].
-        unfold base.prod_map in Heq; cbn in Heq.
-        rewrite <- List.map_map in Heq.
-        change (lift (inst c1 ι1) :: lift (inst h1' ι1) = c' :: h') in Heq.
-        inversion Heq. subst. clear Heq.
-        rewrite ?inst_lift in *.
-        unfold inst at 3. cbn.
-        rewrite heap_extractions_map.
-        rewrite List.in_map_iff.
-        exists (c1, h1'). split; auto.
-      + destruct (match_scchunk_eqb_spec (inst c ι) (inst c' ι)); auto.
-    - cbn; now subst.
-    - apply smut_state_dcl. intros * ->. cbn.
-      rewrite ?inst_subst, ?inst_lift. congruence.
-    - admit.
-    - admit.
+    (* unfold bapprox. intros * Hι Hpc. *)
+    (* unfold smut_consume_chunk, cmut_consume_chunk. *)
+    (* unfold smut_get_heap, cmut_get_heap. *)
+    (* unfold smut_put_heap, cmut_put_heap. *)
+    (* rewrite smut_wp_bind, cmut_wp_bind; auto. *)
+    (* rewrite smut_wp_state, cmut_wp_state. *)
+    (* rewrite smut_wp_bind; auto. *)
+    (* rewrite smut_wp_angelic_list. intros [[Δpc h'] [HIn Hwp]]. *)
+    (* rewrite subst_sub_id in HIn. *)
+    (* cbn in Hwp. rewrite smut_wp_bind_right in Hwp; auto. *)
+    (* rewrite smut_wp_assert_formulas in Hwp; auto. *)
+    (* rewrite ?inst_lift in Hwp. destruct Hwp as [HΔpc Hwp]. *)
+    (* rewrite smut_wp_state in Hwp; auto. cbn in Hwp, HIn. *)
+    (* rewrite ?inst_subst, ?inst_lift in Hwp. cbn. *)
+    (* rewrite cmut_wp_angelick_list. *)
+    (* exists (inst h' ι). *)
+    (* split. *)
+    (* - apply base.elem_of_list_In in HIn. *)
+    (*   unfold extract_chunk_eqb, extract_scchunk_eqb in *. *)
+    (*   unfold base.omap in HIn. *)
+    (*   apply list.elem_of_list_omap in HIn. *)
+    (*   destruct HIn as [[c' h''] [HIn Heq]]. *)
+    (*   apply List.in_map_iff. *)
+    (*   destruct (match_chunk_eqb_spec c c' nil); cbn in Heq; try discriminate. *)
+    (*   inversion Heq. subst h'' a. clear Heq. *)
+    (*   specialize (H ι). inster H by (subst; auto). destruct H as [H _]. *)
+    (*   exists (inst c' ι, inst (T := List Chunk) h' ι). cbn. *)
+    (*   apply base.elem_of_list_In in HIn. *)
+    (*   split; auto. apply List.filter_In. *)
+    (*   split. *)
+    (*   + unfold lift, inst in HIn. cbn in HIn. *)
+    (*     rewrite List.map_map in HIn. *)
+    (*     rewrite heap_extractions_map in HIn. *)
+    (*     rewrite List.in_map_iff in HIn. *)
+    (*     destruct HIn as [[c1 h1'] [Heq HIn]]. *)
+    (*     unfold base.prod_map in Heq; cbn in Heq. *)
+    (*     rewrite <- List.map_map in Heq. *)
+    (*     change (lift (inst c1 ι1) :: lift (inst h1' ι1) = c' :: h') in Heq. *)
+    (*     inversion Heq. subst. clear Heq. *)
+    (*     rewrite ?inst_lift in *. *)
+    (*     unfold inst at 3. cbn. *)
+    (*     rewrite heap_extractions_map. *)
+    (*     rewrite List.in_map_iff. *)
+    (*     exists (c1, h1'). split; auto. *)
+    (*   + destruct (match_scchunk_eqb_spec (inst c ι) (inst c' ι)); auto. *)
+    (* - cbn; now subst. *)
+    (* - apply smut_state_dcl. intros * ->. cbn. *)
+    (*   rewrite ?inst_subst, ?inst_lift. congruence. *)
+    (* - admit. *)
+    (* - admit. *)
   Admitted.
 
   Lemma bapprox_consume {Γ Σ} (ι : SymInstance Σ) (asn : Assertion Σ) :
@@ -1841,45 +2029,45 @@ Module Soundness
     induction asn; cbn - [subst].
     - apply bapprox_assert_formula.
     - apply bapprox_consume_chunk.
-    - apply bapprox_demonic_match_bool; auto using smut_consume_dcl.
-    - apply bapprox_demonic_match_enum; auto using smut_consume_dcl.
+    - apply bapprox_angelic_match_bool; auto using smut_consume_dcl.
+    - apply bapprox_angelic_match_enum; auto using smut_consume_dcl.
     - admit.
     - admit.
-    - apply bapprox_demonic_match_pair; auto using smut_consume_dcl.
+    - admit.
     - admit.
     - admit.
     - admit.
     - apply bapprox_bind_right; auto using smut_consume_dcl.
-    - apply bapprox_angelicv; auto using smut_consume_dcl.
+    - admit.
     - now apply bapprox_debug, bapprox_pure.
   Admitted.
 
   Lemma bapprox_call {Γ Δ τ Σ} (c : SepContract Δ τ) (ts : NamedEnv (Term Σ) Δ) (ι : SymInstance Σ) :
     bapprox ι (@smut_call Γ Δ τ Σ c ts) (cmut_call c (inst ts ι)).
   Proof.
-    destruct c as [Σ__c δ pre result post]; cbn [smut_call cmut_call].
-    apply bapprox_angelicvs. admit.
-    intros ιc. change (SymInstance Σ__c) in ιc.
-    unfold bapprox. intros * Hι Hpc.
-    destruct (catView ζ01) as [ζ01 ζc].
-    change (Sub Σ Σ1) in ζ01.
-    change (Sub Σ__c Σ1) in ζc.
-    rewrite smut_wp_assert_formulask; auto.
-    rewrite cmut_wp_assert_formulask.
-    rewrite ?inst_formula_eqs.
-    rewrite ?inst_subst, ?inst_lift.
-    intros [Hfmls Hwp]. split.
-    - admit.
-    - rewrite smut_wp_sub in Hwp. revert Hwp.
-      rewrite sub_comp_cat_right.
-      eapply bapprox_bind_right; eauto. admit.
-      admit.
-      eapply bapprox_demonicv. admit.
-      intros v.
-      apply bapprox_bind_right; auto. admit.
-      admit.
-      admit.
-    - admit.
+    (* destruct c as [Σ__c δ pre result post]; cbn [smut_call cmut_call]. *)
+    (* apply bapprox_angelicvs. admit. *)
+    (* intros ιc. change (SymInstance Σ__c) in ιc. *)
+    (* unfold bapprox. intros * Hι Hpc. *)
+    (* destruct (catView ζ01) as [ζ01 ζc]. *)
+    (* change (Sub Σ Σ1) in ζ01. *)
+    (* change (Sub Σ__c Σ1) in ζc. *)
+    (* rewrite smut_wp_assert_formulask; auto. *)
+    (* rewrite cmut_wp_assert_formulask. *)
+    (* rewrite ?inst_formula_eqs. *)
+    (* rewrite ?inst_subst, ?inst_lift. *)
+    (* intros [Hfmls Hwp]. split. *)
+    (* - admit. *)
+    (* - rewrite smut_wp_sub in Hwp. revert Hwp. *)
+    (*   rewrite sub_comp_cat_right. *)
+    (*   eapply bapprox_bind_right; eauto. admit. *)
+    (*   admit. *)
+    (*   eapply bapprox_demonicv. admit. *)
+    (*   intros v. *)
+    (*   apply bapprox_bind_right; auto. admit. *)
+    (*   admit. *)
+    (*   admit. *)
+    (* - admit. *)
   Admitted.
 
   Lemma bapprox_eval_exp {Γ Σ τ} (e : Exp Γ τ) (ι : SymInstance Σ) :
@@ -1967,8 +2155,7 @@ Module Soundness
       admit.
     - apply bapprox_bind. admit.
       apply bapprox_eval_exp.
-      intros t. apply bapprox_demonic_match_pair. admit.
-      intros ? ?. apply bapprox_pushspops; auto using smut_exec_dcl.
+      intros t. admit.
     - apply bapprox_bind. admit.
       apply bapprox_eval_exp.
       intros t. admit.

@@ -228,6 +228,8 @@ Module SemiConcrete
 
     Definition cmut_assume_formula {Γ Σ} (ι : SymInstance Σ) (fml : Formula Σ) : CMut Γ Γ unit :=
       fun δ h => outcome_assumek (inst fml ι) (outcome_pure (MkCMutResult tt δ h)).
+    Definition cmut_assume_formulak {A Γ1 Γ2 Σ} (ι : SymInstance Σ) (fml : Formula Σ) (k : CMut Γ1 Γ2 A) : CMut Γ1 Γ2 A :=
+      fun δ h => outcome_assumek (inst fml ι) (k δ h).
     Definition cmut_assume_term {Γ Σ} (ι : SymInstance Σ) (t : Term Σ ty_bool) : CMut Γ Γ unit :=
       cmut_assume_formula ι (formula_bool t).
     Definition cmut_assert_formula {Γ Σ} (ι : SymInstance Σ) (fml : Formula Σ) : CMut Γ Γ unit :=
@@ -554,6 +556,13 @@ Module SemiConcrete
         (inst (A := Prop) fml ι -> POST tt δ h).
     Proof. reflexivity. Qed.
 
+    Lemma cmut_wp_assume_formulak {A Γ1 Γ2 Σ} {ι : SymInstance Σ} {fml : Formula Σ}
+      {k : CMut Γ1 Γ2 A} (POST : A -> SCProp Γ2) :
+      forall δ h,
+        cmut_wp (cmut_assume_formulak ι fml k) POST δ h <->
+        (inst (A := Prop) fml ι -> cmut_wp k POST δ h).
+    Proof. reflexivity. Qed.
+
     Lemma cmut_wp_assert_formulak {A Γ1 Γ2 Σ} {ι : SymInstance Σ} {fml : Formula Σ}
       {k : CMut Γ1 Γ2 A} (POST : A -> SCProp Γ2) :
       forall δ h,
@@ -581,6 +590,18 @@ Module SemiConcrete
         then cmut_wp kt POST δ h
         else cmut_wp kf POST δ h.
     Proof. destruct v; reflexivity. Qed.
+
+    Lemma cmut_wp_demonic_match_bool {A Γ1 Γ2 Σ} (v : Lit ty_bool) (kt kf : CMut Γ1 Γ2 A) :
+      forall POST δ h (ι : SymInstance Σ),
+        cmut_wp (cmut_match_bool v kt kf) POST δ h <->
+        cmut_wp (cmut_demonic_binary
+                   (cmut_assume_formulak ι (formula_bool (term_lit ty_bool v)) kt)
+                   (cmut_assume_formulak ι (formula_bool (term_not (term_lit ty_bool v))) kf)) POST δ h.
+    Proof.
+      intros *.
+      rewrite cmut_wp_match_bool, cmut_wp_demonic_binary, ?cmut_wp_assume_formulak.
+      destruct v; cbn; unfold is_true; intuition; discriminate.
+    Qed.
 
     Lemma cmut_wp_match_sum {A Γ1 Γ2 σ τ} (v : Lit σ + Lit τ)
       (kl : Lit σ -> CMut Γ1 Γ2 A) (kr : Lit τ -> CMut Γ1 Γ2 A) :

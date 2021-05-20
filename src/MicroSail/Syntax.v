@@ -1181,8 +1181,8 @@ Module Terms (Export termkit : TermKit).
       now rewrite env_lookup_map, ?env_lookup_tabulate.
     Qed.
 
-    Lemma sub_comp_wk1_comm {Σ0 Σ1 x τ} (ζ : Sub Σ0 Σ1) :
-      subst sub_wk1 (sub_up1 ζ) = subst ζ (sub_wk1 (b:=(x::τ))).
+    Lemma sub_comp_wk1_comm {Σ0 Σ1 b} (ζ : Sub Σ0 Σ1) :
+      subst sub_wk1 (sub_up1 ζ) = subst ζ (sub_wk1 (b:=b)).
     Proof. now rewrite sub_comp_wk1_tail. Qed.
 
     Lemma sub_snoc_comp {Σ1 Σ2 Σ3 x τ v} (ζ1 : Sub Σ1 Σ2) (ζ2 : Sub Σ2 Σ3) :
@@ -1595,8 +1595,8 @@ Module Terms (Export termkit : TermKit).
       now rewrite env_map_tabulate, env_lookup_tabulate.
     Qed.
 
-    Lemma inst_sub_snoc {Σ0 Σ1} (ι : SymInstance Σ1) (ζ : Sub Σ0 Σ1) ς τ (t : Term Σ1 τ) :
-      inst (sub_snoc ζ (ς,τ) t) ι = env_snoc (inst ζ ι) (ς,τ) (inst t ι).
+    Lemma inst_sub_snoc {Σ0 Σ1} (ι : SymInstance Σ1) (ζ : Sub Σ0 Σ1) b (t : Term Σ1 (snd b)) :
+      inst (sub_snoc ζ b t) ι = env_snoc (inst ζ ι) b (inst t ι).
     Proof. reflexivity. Qed.
 
     Lemma inst_sub_up1 {Σ1 Σ2 b} (ζ12 : Sub Σ1 Σ2) (ι2 : SymInstance Σ2) (v : Lit (snd b)) :
@@ -1648,51 +1648,6 @@ Module Terms (Export termkit : TermKit).
     Global Arguments lift {T A _ Σ} !_.
 
   End Instantiation.
-
-  Section MultiSubs.
-
-    Inductive MultiSub (Σ : LCtx) : LCtx -> Set :=
-    | multisub_id        : MultiSub Σ Σ
-    | multisub_cons {Σ' x σ} (xIn : (x::σ) ∈ Σ) (t : Term (Σ - (x::σ)) σ)
-                    (ζ : MultiSub (Σ - (x::σ)) Σ')
-                    : MultiSub Σ Σ'.
-
-    Global Arguments multisub_id {_}.
-    Global Arguments multisub_cons {_ _} x {_ _} t ζ.
-
-    Fixpoint sub_multi {Σ1 Σ2} (ζ : MultiSub Σ1 Σ2) : Sub Σ1 Σ2 :=
-      match ζ with
-      | multisub_id         => sub_id _
-      | multisub_cons x t ζ => subst (sub_single _ t) (sub_multi ζ)
-      end.
-
-    Fixpoint sub_multishift {Σ1 Σ2} (ζ : MultiSub Σ1 Σ2) : Sub Σ2 Σ1 :=
-      match ζ with
-      | multisub_id         => sub_id _
-      | multisub_cons x t ζ => subst (sub_multishift ζ) (sub_shift _)
-      end.
-
-    Fixpoint inst_multisub {Σ0 Σ1} (ζ : MultiSub Σ0 Σ1) (ι : SymInstance Σ0) : Prop :=
-      match ζ with
-      | multisub_id => True
-      | @multisub_cons _ Σ' x σ xIn t ζ0 =>
-        let ι' := env_remove' (x :: σ) ι xIn in
-        env_lookup ι xIn = inst t ι' /\ inst_multisub ζ0 ι'
-      end.
-
-    Lemma inst_multi {Σ1 Σ2} (ι1 : SymInstance Σ1) (ζ : MultiSub Σ1 Σ2) :
-      inst_multisub ζ ι1 ->
-      inst (sub_multi ζ) (inst (sub_multishift ζ) ι1) = ι1.
-    Proof.
-      intros Hζ. induction ζ; cbn.
-      - now rewrite ?inst_sub_id.
-      - cbn in Hζ. destruct Hζ as [? Hζ]. rewrite <- inst_sub_shift in Hζ.
-        rewrite ?inst_subst.
-        rewrite IHζ; auto. rewrite inst_sub_shift.
-        now rewrite inst_sub_single.
-    Qed.
-
-  End MultiSubs.
 
   Section Utils.
 
