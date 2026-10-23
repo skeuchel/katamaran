@@ -1,0 +1,4 @@
+; Tests; not installed.
+(rocq.theory
+ (name KatamaranTests)
+ (theories Stdlib Equations stdpp iris Katamaran Katamaran.RiscvPmp))
