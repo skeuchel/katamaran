@@ -64,6 +64,14 @@ git clone https://github.com/katamaran-project/katamaran.git
 cd katamaran && make && make install
 ```
 
+Alternatively, build with dune. `dune build` builds the library, the case
+studies and the tests (which are not installed). Each part is a separate
+package: `rocq-katamaran` (the library), `rocq-katamaran-minimalcaps`,
+`rocq-katamaran-riscvpmp` and `rocq-katamaran-gvt`. For example:
+```
+dune build -p rocq-katamaran && dune install rocq-katamaran
+```
+
 Using
 -----
 

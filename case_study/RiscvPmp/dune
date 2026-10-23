@@ -1,0 +1,7 @@
+(rocq.theory
+ (name Katamaran.RiscvPmp)
+ (package rocq-katamaran-riscvpmp)
+ (theories Stdlib Equations stdpp iris Katamaran)
+ (modules :standard \ BlockVer.RunningExample))
+
+(include_subdirs qualified)
