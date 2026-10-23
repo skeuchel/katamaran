@@ -1,0 +1,4 @@
+; Prints the assumptions of the main results; not installed.
+(rocq.theory
+ (name KatamaranAssumptions)
+ (theories Stdlib Katamaran Katamaran.MinimalCaps Katamaran.RiscvPmp))

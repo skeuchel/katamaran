@@ -1,7 +1,8 @@
-(coq.theory
+(rocq.theory
  (name Katamaran.MinimalCaps)
- (package coq-katamaran)
- (modules Base Machine Contracts Model)
- (theories Katamaran))
+ (package rocq-katamaran-minimalcaps)
+ (theories Stdlib Equations stdpp iris Katamaran)
+ ; Shallow is only used for statistics (see `make minimalcaps`).
+ (modules :standard \ Shallow))
 
 (include_subdirs qualified)

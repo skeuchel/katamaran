@@ -1,0 +1,17 @@
+; Keep these flags in sync with _CoqProject.
+(env
+ (_
+  (rocq
+   (flags
+    (:standard
+     -w all
+     -w -disj-pattern-notation
+     -w -notation-overridden
+     -w -redundant-canonical-projection
+     -w -warn-library-file-stdlib-vector
+     -w -warn-transitive-library-file-stdlib-vector
+     -w -deprecated-transitive-library-file
+     -w -bad-template-constraint
+     -w -using-fallback-loc
+     -w -class-declaration-default-mode
+     -w -level-tolerance)))))

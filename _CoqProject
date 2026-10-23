@@ -55,7 +55,7 @@ case_study/RiscvPmp/BlockVer/BinaryVerifier.v
 case_study/RiscvPmp/Everything.v
 case_study/RiscvPmp/UnaryAdequacy.v
 case_study/RiscvPmp/FemtoKernel.v
-case_study/Assumptions.v
+case_study/Assumptions/Assumptions.v
 -Q examples/GVT Katamaran.RiscvPmp.GVT
 examples/GVT/Sig.v
 examples/GVT/Logic.v

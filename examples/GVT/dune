@@ -1,0 +1,5 @@
+(rocq.theory
+ (name Katamaran.RiscvPmp.GVT)
+ (package rocq-katamaran-gvt)
+ (theories Stdlib Equations stdpp iris Katamaran Katamaran.RiscvPmp)
+ (modules :standard \ PartialVerifier))

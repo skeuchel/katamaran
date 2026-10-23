@@ -1,5 +1,13 @@
-(coq.theory
+(rocq.theory
  (name Katamaran)
- (package coq-katamaran))
+ (package rocq-katamaran)
+ (theories Stdlib Ltac2 Equations stdpp iris)
+ (modules
+  :standard
+  \ Iris.LaterBinaryWp
+  Staging.Monads
+  Staging.WorldIsomorphisms
+  Staging.BinaryExecutor.ShallowExecutorRel
+  Staging.NewShallow.IrisInstance))
 
 (include_subdirs qualified)
