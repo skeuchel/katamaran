@@ -1,6 +1,0 @@
-(coq.theory
- (name Katamaran.RiscvPmp)
- (package coq-katamaran)
- (theories Katamaran))
-
-(include_subdirs qualified)
