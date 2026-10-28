@@ -513,11 +513,12 @@ Module Type IrisWeakestPre
   End WeakestPre.
 
   Module wptactics.
+    (* Keep the kits folded: Exp constructors carry them as arguments. *)
     Ltac kEval :=
       match goal with
       | |- environments.envs_entails ?ctx (semWP ?store ?s ?post) =>
-          let s' := eval compute - [Val] in s in
-          let store' := eval compute - [Val] in store in
+          let s' := eval compute - [Val typedeclkit typedenotekit typedefkit] in s in
+          let store' := eval compute - [Val typedeclkit typedenotekit typedefkit] in store in
           change_no_check (environments.envs_entails ctx (semWP store' s' post))
       end.
 
