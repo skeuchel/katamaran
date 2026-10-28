@@ -100,14 +100,14 @@ Module Import ExampleProgram <: Program DefaultBase.
     Import ctx.resolution.
 
     Local Coercion stm_exp : Exp >-> Stm.
-    Local Notation "'l'"   := (@exp_var _ "l" _ _) : exp_scope.
-    Local Notation "'m'"   := (@exp_var _ "m" _ _) : exp_scope.
-    Local Notation "'s'"   := (@exp_var _ "s" _ _) : exp_scope.
-    Local Notation "'sm'"   := (@exp_var _ "sm" _ _) : exp_scope.
-    Local Notation "'sml'"   := (@exp_var _ "sml" _ _) : exp_scope.
-    Local Notation "'y'"   := (@exp_var _ "y" _ _) : exp_scope.
-    Local Notation "'xs'"   := (@exp_var _ "xs" _ _) : exp_scope.
-    Local Notation "'ys'"   := (@exp_var _ "ys" _ _) : exp_scope.
+    #[local] Notation "'l'"   := (exp_var "l") : exp_scope.
+    #[local] Notation "'m'"   := (exp_var "m") : exp_scope.
+    #[local] Notation "'s'"   := (exp_var "s") : exp_scope.
+    #[local] Notation "'sm'"   := (exp_var "sm") : exp_scope.
+    #[local] Notation "'sml'"   := (exp_var "sml") : exp_scope.
+    #[local] Notation "'y'"   := (exp_var "y") : exp_scope.
+    #[local] Notation "'xs'"   := (exp_var "xs") : exp_scope.
+    #[local] Notation "'ys'"   := (exp_var "ys") : exp_scope.
 
     (* The implementation of the [summaxlen] function as a μSail statement. *)
     Definition fun_summaxlen : Stm ["xs" ∷ ty.list ty.int] (ty.prod (ty.prod ty.int ty.int) ty.int) :=
@@ -496,7 +496,7 @@ Module Import ExampleModel.
       - cbn.
         iIntros "_".
         iExists ι.
-        unfold DefaultBase.evals.
+        unfold Expressions.evals.
         rewrite env.map_map env.map_id.
         rewrite interpret_assertion_pure_or_not; auto.
         iSplit; [trivial|].

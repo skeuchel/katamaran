@@ -237,7 +237,7 @@ Module Type StatementsOn (Import B : Base) (Import F : FunDeclKit B).
      *)
     Definition exp_smart_var {Γ : PCtx} (x : PVar) {p : IsSome (ctx.resolve Γ x)} :
       Exp Γ (fromSome (ctx.resolve Γ x) p) :=
-      @exp_var Γ x (fromSome (ctx.resolve Γ x) p) (ctx.resolve_mk_in Γ x p).
+      exp_var (Γ := Γ) x (xInΓ := ctx.resolve_mk_in Γ x p).
 
     Definition stm_smart_assign {Γ : PCtx} (x : PVar) {p : IsSome (ctx.resolve Γ x)} :
       Stm Γ (fromSome (ctx.resolve Γ x) p) -> Stm Γ (fromSome (ctx.resolve Γ x) p) :=

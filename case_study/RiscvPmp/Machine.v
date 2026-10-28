@@ -284,82 +284,82 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
   Include FunDeclMixin RiscvPmpBase.
 
   Module RiscvμSailNotations.
-    Notation "'rs'"           := (@exp_var _ "rs" _ _) : exp_scope.
-    Notation "'rs1'"          := (@exp_var _ "rs1" _ _) : exp_scope.
-    Notation "'rs1_val'"      := (@exp_var _ "rs1_val" _ _) : exp_scope.
-    Notation "'rs2'"          := (@exp_var _ "rs2" _ _) : exp_scope.
-    Notation "'rs2_val'"      := (@exp_var _ "rs2_val" _ _) : exp_scope.
-    Notation "'csr_val'"      := (@exp_var _ "csr_val" _ _) : exp_scope.
-    Notation "'rd'"           := (@exp_var _ "rd" _ _) : exp_scope.
-    Notation "'op'"           := (@exp_var _ "op" _ _) : exp_scope.
-    Notation "'result'"       := (@exp_var _ "result" _ _) : exp_scope.
-    Notation "'res'"          := (@exp_var _ "res" _ _) : exp_scope.
-    Notation "'v'"            := (@exp_var _ "v" _ _) : exp_scope.
-    Notation "'imm'"          := (@exp_var _ "imm" _ _) : exp_scope.
-    Notation "'shamt'"        := (@exp_var _ "shamt" _ _) : exp_scope.
-    Notation "'immext'"       := (@exp_var _ "immext" _ _) : exp_scope.
-    Notation "'off'"          := (@exp_var _ "off" _ _) : exp_scope.
-    Notation "'offset'"       := (@exp_var _ "offset" _ _) : exp_scope.
-    Notation "'ret'"          := (@exp_var _ "ret" _ _) : exp_scope.
-    Notation "'tmp'"          := (@exp_var _ "tmp" _ _) : exp_scope.
-    Notation "'tmp1'"         := (@exp_var _ "tmp1" _ _) : exp_scope.
-    Notation "'tmp2'"         := (@exp_var _ "tmp2" _ _) : exp_scope.
-    Notation "'tmp3'"         := (@exp_var _ "tmp3" _ _) : exp_scope.
-    Notation "'rs1_int'"      := (@exp_var _ "rs1_int" _ _) : exp_scope.
-    Notation "'rs2_int'"      := (@exp_var _ "rs2_int" _ _) : exp_scope.
-    Notation "'result_wide'"  := (@exp_var _ "result_wide" _ _) : exp_scope.
-    Notation "'signed1'"      := (@exp_var _ "signed1" _ _) : exp_scope.
-    Notation "'signed2'"      := (@exp_var _ "signed2" _ _) : exp_scope.
-    Notation "'high'   "      := (@exp_var _ "high" _ _) : exp_scope.
-    Notation "'t'"            := (@exp_var _ "t" _ _) : exp_scope.
-    Notation "'e'"            := (@exp_var _ "e" _ _) : exp_scope.
-    Notation "'addr'"         := (@exp_var _ "addr" _ _) : exp_scope.
-    Notation "'paddr'"        := (@exp_var _ "paddr" _ _) : exp_scope.
-    Notation "'addr_int'"     := (@exp_var _ "addr_int" _ _) : exp_scope.
-    Notation "'vaddr'"        := (@exp_var _ "vaddr" _ _) : exp_scope.
-    Notation "'taken'"        := (@exp_var _ "taken" _ _) : exp_scope.
-    Notation "'typ'"          := (@exp_var _ "typ" _ _) : exp_scope.
-    Notation "'acc'"          := (@exp_var _ "acc" _ _) : exp_scope.
-    Notation "'value'"        := (@exp_var _ "value" _ _) : exp_scope.
-    Notation "'data'"         := (@exp_var _ "data" _ _) : exp_scope.
-    Notation "'check'"        := (@exp_var _ "check" _ _) : exp_scope.
-    Notation "'ent'"          := (@exp_var _ "ent" _ _) : exp_scope.
-    Notation "'pmpaddr'"      := (@exp_var _ "pmpaddr" _ _) : exp_scope.
-    Notation "'prev_pmpaddr'" := (@exp_var _ "prev_pmpaddr" _ _) : exp_scope.
-    Notation "'rng'"          := (@exp_var _ "rng" _ _) : exp_scope.
-    Notation "'cfg'"          := (@exp_var _ "cfg" _ _) : exp_scope.
-    Notation "'L'"            := (@exp_var _ "L" _ _) : exp_scope.
-    Notation "'A'"            := (@exp_var _ "A" _ _) : exp_scope.
-    Notation "'X'"            := (@exp_var _ "X" _ _) : exp_scope.
-    Notation "'W'"            := (@exp_var _ "W" _ _) : exp_scope.
-    Notation "'R'"            := (@exp_var _ "R" _ _) : exp_scope.
-    Notation "'lo'"           := (@exp_var _ "lo" _ _) : exp_scope.
-    Notation "'hi'"           := (@exp_var _ "hi" _ _) : exp_scope.
-    Notation "'f'"            := (@exp_var _ "f" _ _) : exp_scope.
-    Notation "'w'"            := (@exp_var _ "w" _ _) : exp_scope.
-    Notation "'ctl'"          := (@exp_var _ "ctl" _ _) : exp_scope.
-    Notation "'c'"            := (@exp_var _ "c" _ _) : exp_scope.
-    Notation "'cause'"        := (@exp_var _ "cause" _ _) : exp_scope.
-    Notation "'tvec'"         := (@exp_var _ "tvec" _ _) : exp_scope.
-    Notation "'m'"            := (@exp_var _ "m" _ _) : exp_scope.
-    Notation "'epc'"          := (@exp_var _ "epc" _ _) : exp_scope.
-    Notation "'priv'"         := (@exp_var _ "priv" _ _) : exp_scope.
-    Notation "'cur_priv'"     := (@exp_var _ "cur_priv" _ _) : exp_scope.
-    Notation "'del_priv'"     := (@exp_var _ "del_priv" _ _) : exp_scope.
-    Notation "'prev_priv'"    := (@exp_var _ "prev_priv" _ _) : exp_scope.
-    Notation "'p'"            := (@exp_var _ "p" _ _) : exp_scope.
-    Notation "'MPP'"          := (@exp_var _ "MPP" _ _) : exp_scope.
-    Notation "'SPP'"          := (@exp_var _ "SPP" _ _) : exp_scope.
-    Notation "'csr'"          := (@exp_var _ "csr" _ _) : exp_scope.
-    Notation "'csrrw'"        := (@exp_var _ "csrrw" _ _) : exp_scope.
-    Notation "'csrpr'"        := (@exp_var _ "csrpr" _ _) : exp_scope.
-    Notation "'idx'"          := (@exp_var _ "idx" _ _) : exp_scope.
-    Notation "'locked'"       := (@exp_var _ "locked" _ _) : exp_scope.
-    Notation "'width'"        := (@exp_var _ "width" _ _) : exp_scope.
-    Notation "'is_unsigned'"  := (@exp_var _ "is_unsigned" _ _) : exp_scope.
-    Notation "'is_imm'"       := (@exp_var _ "is_imm" _ _) : exp_scope.
-    Notation "'isWrite'"      := (@exp_var _ "isWrite" _ _) : exp_scope.
-    Notation "'new_val'"      := (@exp_var _ "new_val" _ _) : exp_scope.
+    Notation "'rs'"           := (exp_var "rs") : exp_scope.
+    Notation "'rs1'"          := (exp_var "rs1") : exp_scope.
+    Notation "'rs1_val'"      := (exp_var "rs1_val") : exp_scope.
+    Notation "'rs2'"          := (exp_var "rs2") : exp_scope.
+    Notation "'rs2_val'"      := (exp_var "rs2_val") : exp_scope.
+    Notation "'csr_val'"      := (exp_var "csr_val") : exp_scope.
+    Notation "'rd'"           := (exp_var "rd") : exp_scope.
+    Notation "'op'"           := (exp_var "op") : exp_scope.
+    Notation "'result'"       := (exp_var "result") : exp_scope.
+    Notation "'res'"          := (exp_var "res") : exp_scope.
+    Notation "'v'"            := (exp_var "v") : exp_scope.
+    Notation "'imm'"          := (exp_var "imm") : exp_scope.
+    Notation "'shamt'"        := (exp_var "shamt") : exp_scope.
+    Notation "'immext'"       := (exp_var "immext") : exp_scope.
+    Notation "'off'"          := (exp_var "off") : exp_scope.
+    Notation "'offset'"       := (exp_var "offset") : exp_scope.
+    Notation "'ret'"          := (exp_var "ret") : exp_scope.
+    Notation "'tmp'"          := (exp_var "tmp") : exp_scope.
+    Notation "'tmp1'"         := (exp_var "tmp1") : exp_scope.
+    Notation "'tmp2'"         := (exp_var "tmp2") : exp_scope.
+    Notation "'tmp3'"         := (exp_var "tmp3") : exp_scope.
+    Notation "'rs1_int'"      := (exp_var "rs1_int") : exp_scope.
+    Notation "'rs2_int'"      := (exp_var "rs2_int") : exp_scope.
+    Notation "'result_wide'"  := (exp_var "result_wide") : exp_scope.
+    Notation "'signed1'"      := (exp_var "signed1") : exp_scope.
+    Notation "'signed2'"      := (exp_var "signed2") : exp_scope.
+    Notation "'high'   "      := (exp_var "high") : exp_scope.
+    Notation "'t'"            := (exp_var "t") : exp_scope.
+    Notation "'e'"            := (exp_var "e") : exp_scope.
+    Notation "'addr'"         := (exp_var "addr") : exp_scope.
+    Notation "'paddr'"        := (exp_var "paddr") : exp_scope.
+    Notation "'addr_int'"     := (exp_var "addr_int") : exp_scope.
+    Notation "'vaddr'"        := (exp_var "vaddr") : exp_scope.
+    Notation "'taken'"        := (exp_var "taken") : exp_scope.
+    Notation "'typ'"          := (exp_var "typ") : exp_scope.
+    Notation "'acc'"          := (exp_var "acc") : exp_scope.
+    Notation "'value'"        := (exp_var "value") : exp_scope.
+    Notation "'data'"         := (exp_var "data") : exp_scope.
+    Notation "'check'"        := (exp_var "check") : exp_scope.
+    Notation "'ent'"          := (exp_var "ent") : exp_scope.
+    Notation "'pmpaddr'"      := (exp_var "pmpaddr") : exp_scope.
+    Notation "'prev_pmpaddr'" := (exp_var "prev_pmpaddr") : exp_scope.
+    Notation "'rng'"          := (exp_var "rng") : exp_scope.
+    Notation "'cfg'"          := (exp_var "cfg") : exp_scope.
+    Notation "'L'"            := (exp_var "L") : exp_scope.
+    Notation "'A'"            := (exp_var "A") : exp_scope.
+    Notation "'X'"            := (exp_var "X") : exp_scope.
+    Notation "'W'"            := (exp_var "W") : exp_scope.
+    Notation "'R'"            := (exp_var "R") : exp_scope.
+    Notation "'lo'"           := (exp_var "lo") : exp_scope.
+    Notation "'hi'"           := (exp_var "hi") : exp_scope.
+    Notation "'f'"            := (exp_var "f") : exp_scope.
+    Notation "'w'"            := (exp_var "w") : exp_scope.
+    Notation "'ctl'"          := (exp_var "ctl") : exp_scope.
+    Notation "'c'"            := (exp_var "c") : exp_scope.
+    Notation "'cause'"        := (exp_var "cause") : exp_scope.
+    Notation "'tvec'"         := (exp_var "tvec") : exp_scope.
+    Notation "'m'"            := (exp_var "m") : exp_scope.
+    Notation "'epc'"          := (exp_var "epc") : exp_scope.
+    Notation "'priv'"         := (exp_var "priv") : exp_scope.
+    Notation "'cur_priv'"     := (exp_var "cur_priv") : exp_scope.
+    Notation "'del_priv'"     := (exp_var "del_priv") : exp_scope.
+    Notation "'prev_priv'"    := (exp_var "prev_priv") : exp_scope.
+    Notation "'p'"            := (exp_var "p") : exp_scope.
+    Notation "'MPP'"          := (exp_var "MPP") : exp_scope.
+    Notation "'SPP'"          := (exp_var "SPP") : exp_scope.
+    Notation "'csr'"          := (exp_var "csr") : exp_scope.
+    Notation "'csrrw'"        := (exp_var "csrrw") : exp_scope.
+    Notation "'csrpr'"        := (exp_var "csrpr") : exp_scope.
+    Notation "'idx'"          := (exp_var "idx") : exp_scope.
+    Notation "'locked'"       := (exp_var "locked") : exp_scope.
+    Notation "'width'"        := (exp_var "width") : exp_scope.
+    Notation "'is_unsigned'"  := (exp_var "is_unsigned") : exp_scope.
+    Notation "'is_imm'"       := (exp_var "is_imm") : exp_scope.
+    Notation "'isWrite'"      := (exp_var "isWrite") : exp_scope.
+    Notation "'new_val'"      := (exp_var "new_val") : exp_scope.
 
     Notation "'Read'" := (exp_union access_type KRead (exp_val ty.unit tt)) : exp_scope.
     Notation "'Write'" := (exp_union access_type KWrite (exp_val ty.unit tt)) : exp_scope.
@@ -399,7 +399,7 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
 
   Definition zero_reg {Γ} : Stm Γ ty_xlenbits := exp_val ty_xlenbits (Bitvector.bv.of_N 0).
 
-  Definition exp_testbit {Γ n} (eb : Exp Γ (ty.bvec n)) (i : N) : Exp Γ ty.bool :=
+  Definition exp_testbit {Γ : PCtx} {n} (eb : Exp Γ (ty.bvec n)) (i : N) : Exp Γ ty.bool :=
     let em := exp_val (ty.bvec n) (Bitvector.bv.of_N (N.shiftl 1 i)) in
     exp_binop bop.bvand eb em = em.
 
@@ -1160,7 +1160,7 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
      The Sail codebase handles this slightly different, by converting the
      exception_type param ee into a number first and using that to index the
      bitvector. *)
-  Definition stm_idx_medeleg {Γ} (medeleg : Exp Γ ty_xlenbits) (ee : Exp Γ ty_exception_type) : Stm Γ ty.bool :=
+  Definition stm_idx_medeleg {Γ : PCtx} (medeleg : Exp Γ ty_xlenbits) (ee : Exp Γ ty_exception_type) : Stm Γ ty.bool :=
     match: ee in union exception_type with
     |> KE_Fetch_Addr_Align pat_unit   => stm_exp (exp_testbit medeleg 0)
     |> KE_Fetch_Access_Fault pat_unit => stm_exp (exp_testbit medeleg 1)
@@ -2310,7 +2310,7 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
     Inductive AnnotInstr :=
     | AnnotAST  (i : AST)
     | AnnotDebugBreak
-    | AnnotLemmaInvocation {Δ} (l : 𝑳 Δ) (es : NamedEnv (Exp [ctx]) Δ)
+    | AnnotLemmaInvocation {Δ} (l : 𝑳 Δ) (es : NamedEnv (Exp ([ctx] : PCtx)) Δ)
     .
 
     Definition extract_AST (i : AnnotInstr) : option AST :=

@@ -426,7 +426,7 @@ Module RefineExecOn
       Proof. unfold RVal, RInst. crushPredEntails3. now rewrite peval_sound. Qed.
 
       Lemma refine_seval_exp {Γ σ} (e : Exp Γ σ) {w : World} {δ} {sδ : SStore Γ w} :
-        ℛ⟦ RStore Γ ⟧ δ sδ ⊢ ℛ⟦RVal σ⟧ (B.eval e δ) (seval_exp sδ e).
+        ℛ⟦ RStore Γ ⟧ δ sδ ⊢ ℛ⟦RVal σ⟧ (Expressions.eval e δ) (seval_exp sδ e).
       Proof.
         unfold RStore, RVal, RInst. crushPredEntails3.
         rewrite <-eval_exp_inst.
@@ -502,7 +502,7 @@ Module RefineExecOn
         MkRefineCompat (refine_peval t v).
 
       #[export] Instance refine_compat_seval_exp {Γ σ} (e : Exp Γ σ) {w : World} {δ} {sδ : SStore Γ w} :
-        RefineCompat (RVal σ) (B.eval e δ) w (seval_exp sδ e) _ :=
+        RefineCompat (RVal σ) (Expressions.eval e δ) w (seval_exp sδ e) _ :=
         MkRefineCompat (refine_seval_exp e).
 
       #[export] Instance refine_compat_seval_exps {Γ Δ : PCtx} {es : NamedEnv (Exp Γ) Δ} {w : World} {δ : CStore Γ} {sδ : SStore Γ w} : RefineCompat (RStore Δ) (evals es δ) w (seval_exps sδ es) _ :=

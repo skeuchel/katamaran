@@ -50,10 +50,12 @@ Import env.notations.
 Local Set Implicit Arguments.
 Local Unset Elimination Schemes.
 
-Module Type ExpressionsOn (Import TY : Types).
+Section WithTypes.
+
+  Context {TDC : ty.TypeDeclKit} {TDN : ty.TypeDenoteKit TDC}
+    {TDF : ty.TypeDefKit TDN} {PVar : Set}.
 
   Local Abbreviation PCtx := (NCtx PVar Ty).
-  Local Abbreviation CStore := (@NamedEnv PVar Ty Val).
 
   (* Intrinsically well-typed expressions. The context Γ of mutable variables
      contains names PVar and types Ty, but the names are not computationally
@@ -77,12 +79,70 @@ Module Type ExpressionsOn (Import TY : Types).
   | exp_tuple   {σs : Ctx Ty} (es : Env (Exp Γ) σs) : Exp Γ (ty.tuple σs)
   | exp_union   {U : unioni} (K : unionk U) (e : Exp Γ (unionk_ty U K)) : Exp Γ (ty.union U)
   | exp_record  (R : recordi) (es : NamedEnv (Exp Γ) (recordf_ty R)) : Exp Γ (ty.record R).
-  Arguments exp_var {_} _ {_ _}.
-  Arguments exp_val {_} _ _.
-  Arguments exp_tuple {_ σs} & es.
-  Arguments exp_union {_} U K & e.
-  Arguments exp_record {_} R & es.
-  Bind Scope exp_scope with Exp.
+
+End WithTypes.
+
+Arguments exp_var {_ _ _ _ _} _ {_ _}.
+Arguments exp_val {_ _ _ _ _} _ _.
+Arguments exp_tuple {_ _ _ _ _ σs} & es.
+Arguments exp_union {_ _ _ _ _} U K & e.
+Arguments exp_record {_ _ _ _ _} R & es.
+Bind Scope exp_scope with Exp.
+
+Abbreviation exp_int l := (exp_val ty.int l%Z).
+Abbreviation exp_bool l := (exp_val ty.bool l).
+Abbreviation exp_true   := (exp_val ty.bool true).
+Abbreviation exp_false  := (exp_val ty.bool false).
+Abbreviation exp_string s := (exp_val ty.string s%string).
+Abbreviation exp_inl e := (exp_unop uop.inl e%exp).
+Abbreviation exp_inr e := (exp_unop uop.inr e%exp).
+Abbreviation exp_neg e := (exp_unop uop.neg e%exp).
+Abbreviation exp_not e := (exp_unop uop.not e%exp).
+Abbreviation exp_sext e := (exp_unop uop.sext e%exp).
+Abbreviation exp_zext e := (exp_unop uop.zext e%exp).
+Abbreviation exp_get_slice_int e := (exp_unop uop.get_slice_int e%exp).
+Abbreviation exp_signed e := (exp_unop uop.signed e%exp).
+Abbreviation exp_unsigned e := (exp_unop uop.unsigned e%exp).
+Abbreviation exp_bvapp := (exp_binop bop.bvapp).
+Abbreviation exp_bvdrop m := (exp_unop (uop.bvdrop m)).
+Abbreviation exp_bvtake m := (exp_unop (uop.bvtake m)).
+Abbreviation exp_negate e := (exp_unop uop.negate e%exp).
+
+Notation "e1 && e2" := (exp_binop bop.and e1 e2) : exp_scope.
+Notation "e1 || e2" := (exp_binop bop.or e1 e2) : exp_scope.
+Notation "e1 + e2" := (exp_binop bop.plus e1 e2) : exp_scope.
+Notation "e1 * e2" := (exp_binop bop.times e1 e2) : exp_scope.
+Notation "e1 - e2" := (exp_binop bop.minus e1 e2) : exp_scope.
+Notation "e1 +ᵇ e2" := (exp_binop bop.bvadd e1 e2) : exp_scope.
+Notation "e1 -ᵇ e2" := (exp_binop bop.bvsub e1 e2) : exp_scope.
+Notation "e1 *ᵇ e2" := (exp_binop bop.bvmul e1 e2) : exp_scope.
+
+Notation "e1 >= e2" := (exp_binop (bop.relop bop.le) e2 e1) : exp_scope.
+Notation "e1 > e2" := (exp_binop (bop.relop bop.lt) e2 e1) : exp_scope.
+Notation "e1 <= e2" := (exp_binop (bop.relop bop.le) e1 e2) : exp_scope.
+Notation "e1 < e2" := (exp_binop (bop.relop bop.lt) e1 e2) : exp_scope.
+
+Notation "e1 >=ˢ e2" := (exp_binop (bop.relop bop.bvule) e2 e1) : exp_scope.
+Notation "e1 >ˢ e2" := (exp_binop (bop.relop bop.bvult) e2 e1) : exp_scope.
+Notation "e1 <ˢ e2" := (exp_binop (bop.relop bop.bvult) e1 e2) : exp_scope.
+Notation "e1 <=ˢ e2" := (exp_binop (bop.relop bop.bvule) e1 e2) : exp_scope.
+
+Notation "e1 >=ᵘ e2" := (exp_binop (bop.relop bop.bvule) e2 e1) : exp_scope.
+Notation "e1 >ᵘ e2" := (exp_binop (bop.relop bop.bvult) e2 e1) : exp_scope.
+Notation "e1 <=ᵘ e2" := (exp_binop (bop.relop bop.bvule) e1 e2) : exp_scope.
+Notation "e1 <ᵘ e2" := (exp_binop (bop.relop bop.bvult) e1 e2) : exp_scope.
+
+Notation "e1 = e2" := (exp_binop (bop.relop bop.eq) e1 e2) : exp_scope.
+Notation "e1 != e2" := (exp_binop (bop.relop bop.neq) e1 e2) : exp_scope.
+Notation "- e" := (exp_unop uop.neg e) : exp_scope.
+
+Section WithTypes.
+
+  Context {TDC : ty.TypeDeclKit} {TDN : ty.TypeDenoteKit TDC}
+    {TDF : ty.TypeDefKit TDN} {PVar : Set}.
+
+  #[local] Abbreviation PCtx := (NCtx PVar Ty).
+  #[local] Abbreviation CStore := (@NamedEnv PVar Ty Val).
 
   Section ExpElimination.
 
@@ -154,66 +214,19 @@ Module Type ExpressionsOn (Import TY : Types).
   Definition evals {Γ Δ} (es : NamedEnv (Exp Γ) Δ) (δ : CStore Γ) : CStore Δ :=
     env.map (fun xτ e => eval e δ) es.
 
-  Abbreviation exp_int l := (@exp_val _ ty.int l%Z).
-  Abbreviation exp_bool l := (@exp_val _ ty.bool l).
-  Abbreviation exp_true   := (@exp_val _ ty.bool true).
-  Abbreviation exp_false  := (@exp_val _ ty.bool false).
-  Abbreviation exp_string s := (@exp_val _ ty.string s%string).
-  Abbreviation exp_inl e := (exp_unop uop.inl e%exp).
-  Abbreviation exp_inr e := (exp_unop uop.inr e%exp).
-  Abbreviation exp_neg e := (exp_unop uop.neg e%exp).
-  Abbreviation exp_not e := (exp_unop uop.not e%exp).
-  Abbreviation exp_sext e := (exp_unop uop.sext e%exp).
-  Abbreviation exp_zext e := (exp_unop uop.zext e%exp).
-  Abbreviation exp_get_slice_int e := (exp_unop uop.get_slice_int e%exp).
-  Abbreviation exp_signed e := (exp_unop uop.signed e%exp).
-  Abbreviation exp_unsigned e := (exp_unop uop.unsigned e%exp).
-  Abbreviation exp_bvapp := (exp_binop bop.bvapp).
-  Abbreviation exp_bvdrop m := (exp_unop (uop.bvdrop m)).
-  Abbreviation exp_bvtake m := (exp_unop (uop.bvtake m)).
-  Abbreviation exp_negate e := (exp_unop uop.negate e%exp).
-
-  Notation "e1 && e2" := (exp_binop bop.and e1 e2) : exp_scope.
-  Notation "e1 || e2" := (exp_binop bop.or e1 e2) : exp_scope.
-  Notation "e1 + e2" := (exp_binop bop.plus e1 e2) : exp_scope.
-  Notation "e1 * e2" := (exp_binop bop.times e1 e2) : exp_scope.
-  Notation "e1 - e2" := (exp_binop bop.minus e1 e2) : exp_scope.
-  Notation "e1 +ᵇ e2" := (exp_binop bop.bvadd e1 e2) : exp_scope.
-  Notation "e1 -ᵇ e2" := (exp_binop bop.bvsub e1 e2) : exp_scope.
-  Notation "e1 *ᵇ e2" := (exp_binop bop.bvmul e1 e2) : exp_scope.
-
-  Notation "e1 >= e2" := (exp_binop (bop.relop bop.le) e2 e1) : exp_scope.
-  Notation "e1 > e2" := (exp_binop (bop.relop bop.lt) e2 e1) : exp_scope.
-  Notation "e1 <= e2" := (exp_binop (bop.relop bop.le) e1 e2) : exp_scope.
-  Notation "e1 < e2" := (exp_binop (bop.relop bop.lt) e1 e2) : exp_scope.
-
-  Notation "e1 >=ˢ e2" := (exp_binop (bop.relop bop.bvule) e2 e1) : exp_scope.
-  Notation "e1 >ˢ e2" := (exp_binop (bop.relop bop.bvult) e2 e1) : exp_scope.
-  Notation "e1 <ˢ e2" := (exp_binop (bop.relop bop.bvult) e1 e2) : exp_scope.
-  Notation "e1 <=ˢ e2" := (exp_binop (bop.relop bop.bvule) e1 e2) : exp_scope.
-
-  Notation "e1 >=ᵘ e2" := (exp_binop (bop.relop bop.bvule) e2 e1) : exp_scope.
-  Notation "e1 >ᵘ e2" := (exp_binop (bop.relop bop.bvult) e2 e1) : exp_scope.
-  Notation "e1 <=ᵘ e2" := (exp_binop (bop.relop bop.bvule) e1 e2) : exp_scope.
-  Notation "e1 <ᵘ e2" := (exp_binop (bop.relop bop.bvult) e1 e2) : exp_scope.
-
-  Notation "e1 = e2" := (exp_binop (bop.relop bop.eq) e1 e2) : exp_scope.
-  Notation "e1 != e2" := (exp_binop (bop.relop bop.neq) e1 e2) : exp_scope.
-  Notation "- e" := (exp_unop uop.neg e) : exp_scope.
-
-  Definition exp_truncate {Γ n} (m : nat) {p : IsTrue (m <=? n)} :
+  Definition exp_truncate {Γ : PCtx} {n} (m : nat) {p : IsTrue (m <=? n)} :
     Exp Γ (ty.bvec n) -> Exp Γ (ty.bvec m) :=
     match bv.leview m n with
     | bv.is_le k => exp_bvtake m
     end.
 
-  Definition exp_vector_subrange {Γ n} s l {p : IsTrue (s + l <=? n)} :
+  Definition exp_vector_subrange {Γ : PCtx} {n} s l {p : IsTrue (s + l <=? n)} :
     Exp Γ (ty.bvec n) -> Exp Γ (ty.bvec l) :=
     match bv.leview (s + l) n with
     | bv.is_le k => fun t => exp_bvdrop s (exp_bvtake (s + l) t)
     end.
 
-  Definition exp_update_vector_subrange {Γ n} (s l : nat) {p : IsTrue (s + l <=? n)} :
+  Definition exp_update_vector_subrange {Γ : PCtx} {n} (s l : nat) {p : IsTrue (s + l <=? n)} :
     Exp Γ (ty.bvec n) -> Exp Γ (ty.bvec l) -> Exp Γ (ty.bvec n) :=
     match bv.leview (s + l) n with
     | bv.is_le k =>
@@ -223,4 +236,4 @@ Module Type ExpressionsOn (Import TY : Types).
             (exp_bvdrop (s + l) t)
     end.
 
-End ExpressionsOn.
+End WithTypes.
