@@ -139,20 +139,20 @@ Section FunDefKit.
 
   Local Coercion stm_exp : Exp >-> Stm.
 
-  Local Notation "'a'"  := (@exp_var _ "a" _ _) : exp_scope.
-  Local Notation "'c'"  := (@exp_var _ "c" _ _) : exp_scope.
-  Local Notation "'e'"  := (@exp_var _ "e" _ _) : exp_scope.
-  Local Notation "'i'"  := (@exp_var _ "i" _ _) : exp_scope.
-  Local Notation "'n'"  := (@exp_var _ "n" _ _) : exp_scope.
-  Local Notation "'p'"  := (@exp_var _ "p" _ _) : exp_scope.
-  Local Notation "'p1'" := (@exp_var _ "p1" _ _) : exp_scope.
-  Local Notation "'p2'" := (@exp_var _ "p2" _ _) : exp_scope.
-  Local Notation "'q'"  := (@exp_var _ "q" _ _) : exp_scope.
-  Local Notation "'r'"  := (@exp_var _ "r" _ _) : exp_scope.
-  Local Notation "'w'"  := (@exp_var _ "w" _ _) : exp_scope.
-  Local Notation "'x'"  := (@exp_var _ "x" _ _) : exp_scope.
-  Local Notation "'immediate'" := (@exp_var _ "immediate" _ _) : exp_scope.
-  Local Notation "'offset'" := (@exp_var _ "offset" _ _) : exp_scope.
+  #[local] Notation "'a'"  := (exp_var "a") : exp_scope.
+  #[local] Notation "'c'"  := (exp_var "c") : exp_scope.
+  #[local] Notation "'e'"  := (exp_var "e") : exp_scope.
+  #[local] Notation "'i'"  := (exp_var "i") : exp_scope.
+  #[local] Notation "'n'"  := (exp_var "n") : exp_scope.
+  #[local] Notation "'p'"  := (exp_var "p") : exp_scope.
+  #[local] Notation "'p1'" := (exp_var "p1") : exp_scope.
+  #[local] Notation "'p2'" := (exp_var "p2") : exp_scope.
+  #[local] Notation "'q'"  := (exp_var "q") : exp_scope.
+  #[local] Notation "'r'"  := (exp_var "r") : exp_scope.
+  #[local] Notation "'w'"  := (exp_var "w") : exp_scope.
+  #[local] Notation "'x'"  := (exp_var "x") : exp_scope.
+  #[local] Notation "'immediate'" := (exp_var "immediate") : exp_scope.
+  #[local] Notation "'offset'" := (exp_var "offset") : exp_scope.
 
   Local Notation "'c'"  := "c" : string_scope.
   Local Notation "'e'"  := "e" : string_scope.

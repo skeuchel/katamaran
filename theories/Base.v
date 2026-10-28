@@ -35,13 +35,13 @@ From Katamaran Require Export
      Environment
      Prelude
      Syntax.BinOps
+     Syntax.Expressions
      Syntax.Registers
      Syntax.TypeDecl
      Syntax.UnOps
      Syntax.Variables
      Tactics.
 From Katamaran Require Import
-     Syntax.Expressions
      Syntax.Messages
      Syntax.Patterns
      Syntax.Terms
@@ -61,7 +61,6 @@ Arguments MkPrecise {_ _ _ _} & _ _ _.
 
 Module Type BaseMixin (Import TY : Types).
   Include
-    ExpressionsOn TY <+
     TermsOn TY <+ PatternsOn TY <+
     OccursCheckOn TY <+ GenOccursCheckOn TY <+ InstantiationOn TY <+
     MessagesOn TY.

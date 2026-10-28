@@ -250,14 +250,14 @@ Module Import ExampleProgram <: Program ExampleBase.
 
     Local Coercion stm_exp : Exp >-> Stm.
 
-    Local Notation "'`LT'" := (@exp_val _ (ty.enum ordering) LT).
-    Local Notation "'`GT'" := (@exp_val _ (ty.enum ordering) GT).
-    Local Notation "'`EQ'" := (@exp_val _ (ty.enum ordering) EQ).
+    #[local] Notation "'`LT'" := (exp_val (ty.enum ordering) LT).
+    #[local] Notation "'`GT'" := (exp_val (ty.enum ordering) GT).
+    #[local] Notation "'`EQ'" := (exp_val (ty.enum ordering) EQ).
     Local Notation "'`Left' e" := (exp_union either Left e) (at level 10, e at level 9).
     Local Notation "'`Right' e" := (exp_union either Right e) (at level 10, e at level 9).
-    Local Notation "'x'"   := (@exp_var _ "x" _ _) : exp_scope.
-    Local Notation "'y'"   := (@exp_var _ "y" _ _) : exp_scope.
-    Local Notation "'z'"   := (@exp_var _ "z" _ _) : exp_scope.
+    #[local] Notation "'x'"   := (exp_var "x") : exp_scope.
+    #[local] Notation "'y'"   := (exp_var "y") : exp_scope.
+    #[local] Notation "'z'"   := (exp_var "z") : exp_scope.
 
     Definition fun_msum : Stm ["x" ∷ ty.union either; "y" ∷ ty.union either] (ty.union either) :=
       stm_match_union_alt either x

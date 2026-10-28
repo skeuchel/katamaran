@@ -152,9 +152,9 @@ Module Import ExampleProgram <: Program ExampleBase.
 
     Local Coercion stm_exp : Exp >-> Stm.
 
-    Local Notation "'x'"   := (@exp_var _ "x" _ _) : exp_scope.
-    Local Notation "'y'"   := (@exp_var _ "y" _ _) : exp_scope.
-    Local Notation "'z'"   := (@exp_var _ "z" _ _) : exp_scope.
+    #[local] Notation "'x'"   := (exp_var "x") : exp_scope.
+    #[local] Notation "'y'"   := (exp_var "y") : exp_scope.
+    #[local] Notation "'z'"   := (exp_var "z") : exp_scope.
 
     Notation "'lemma' f args" := (stm_lemma f args%env) (at level 10, f at next level) : exp_scope.
 
