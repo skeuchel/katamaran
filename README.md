@@ -45,7 +45,7 @@ nix develop
 ```
 This will install all dependencies and open a shell with them available. Additionally it will set the COQPATH environment variable to include the dependencies. You can then compile the project within that shell or launch your favorite editor from within it.
 
-There is also an `lsp` development shell with editor tooling: `nix develop .#lsp`. With [direnv](https://direnv.net/), `.envrc` loads the default shell; to load the `lsp` shell instead, create a `.envrc.local` containing `use flake .#lsp` (it is not committed).
+There is also an `lsp` development shell with editor tooling and `rocq timelog2html`: `nix develop .#lsp`. With [direnv](https://direnv.net/), `.envrc` loads the default shell; to load the `lsp` shell instead, create a `.envrc.local` containing `use flake .#lsp` (it is not committed).
 
 Installation
 ------------
