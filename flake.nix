@@ -82,6 +82,38 @@
             license = pkgs.lib.licenses.lgpl21Plus;
           };
         };
+
+      # rocq-devtools (provides `rocq timelog2html`); not packaged in nixpkgs.
+      rocqDevtools920 =
+        let
+          rocq-core = rocqPackages920.rocq-core;
+          ocamlPackages = rocq-core.ocamlPackages;
+        in
+        pkgs.stdenv.mkDerivation {
+          pname = "rocq-devtools";
+          inherit (rocq-core) version src;
+          nativeBuildInputs = [ ocamlPackages.ocaml ocamlPackages.findlib pkgs.dune ];
+          buildInputs = [ rocq-core ] ++ (with ocamlPackages; [ camlzip yojson zarith ]);
+          dontConfigure = true;
+          buildPhase = ''
+            runHook preBuild
+            dune build -p rocq-devtools -j $NIX_BUILD_CORES
+            runHook postBuild
+          '';
+          # `rocq timelog2html` looks up the executable via findlib.
+          installPhase = ''
+            runHook preInstall
+            dune install --prefix $out \
+              --libdir $out/lib/ocaml/${ocamlPackages.ocaml.version}/site-lib rocq-devtools
+            runHook postInstall
+          '';
+          strictDeps = true;
+          meta = {
+            description = "Development tools for the Rocq prover (timelog2html)";
+            homepage = "https://rocq-prover.org";
+            license = pkgs.lib.licenses.lgpl21Only;
+          };
+        };
     in
     rec {
       packages = rec {
@@ -90,6 +122,7 @@
         rocq930 = rocqPackages930.katamaran;
 
         rocq-lsp-rocq920 = rocqLsp920;
+        rocq-devtools-rocq920 = rocqDevtools920;
       };
 
       # Editor/agent tooling. No default dev shell on purpose, so plain
@@ -100,6 +133,7 @@
           rocqPackages920.rocq-core
           rocqPackages920.vsrocq-language-server
           rocqLsp920
+          rocqDevtools920
           # For `dune build`; the same OCaml and dune Rocq is built with.
           rocqPackages920.rocq-core.ocamlPackages.ocaml
           rocqPackages920.rocq-core.ocamlPackages.dune_3
