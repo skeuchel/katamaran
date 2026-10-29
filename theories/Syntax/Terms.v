@@ -53,6 +53,460 @@ Local Set Implicit Arguments.
 Local Set Transparent Obligations.
 Local Unset Elimination Schemes.
 
+(* Case analysis on types and operators for the Term_*_case functions. These
+   helpers are global, so the impossible cases are not part of every copy of
+   TermsOn. T is the term family, the mk* arguments its constructors. *)
+Module cases.
+  #[local] Unset Implicit Arguments.
+
+  Section WithTypeDeclKit.
+    Context {TDC : TypeDeclKit} (T : Ty → Type).
+
+    #[local] Abbreviation MkBinOp :=
+      (∀ σ1 σ2 σ3, BinOp σ1 σ2 σ3 → T σ1 → T σ2 → T σ3) (only parsing).
+    #[local] Abbreviation MkUnOp :=
+      (∀ σ1 σ2, UnOp σ1 σ2 → T σ1 → T σ2) (only parsing).
+
+    Section Int.
+      Context (P : T ty.int → Type).
+
+      Definition motive_int (σ : Ty) : T σ → Type :=
+        match σ with
+        | ty.int => P
+        | _      => fun _ => unit
+        end.
+
+      Definition intro_int {F : Ty → Type} (mk : ∀ σ, F σ → T σ)
+        (f : ∀ x, P (mk ty.int x)) (σ : Ty) : ∀ x, motive_int σ (mk σ x) :=
+        match σ with
+        | ty.int => f
+        | _      => fun _ => tt
+        end.
+
+      Definition binop_int (mk : MkBinOp)
+        (pplus : ∀ x y, P (mk _ _ _ bop.plus x y))
+        (pminus : ∀ x y, P (mk _ _ _ bop.minus x y))
+        (ptimes : ∀ x y, P (mk _ _ _ bop.times x y))
+        (pland : ∀ x y, P (mk _ _ _ bop.land x y))
+        σ1 σ2 σ3 (op : BinOp σ1 σ2 σ3) : ∀ x y, motive_int σ3 (mk _ _ _ op x y) :=
+        match op with
+        | bop.plus  => pplus
+        | bop.minus => pminus
+        | bop.times => ptimes
+        | bop.land  => pland
+        | _         => fun _ _ => tt
+        end.
+
+      Definition unop_int (mk : MkUnOp)
+        (pneg : ∀ x, P (mk _ _ uop.neg x))
+        (psigned : ∀ n x, P (mk _ _ (@uop.signed _ n) x))
+        (punsigned : ∀ n x, P (mk _ _ (@uop.unsigned _ n) x))
+        σ1 σ2 (op : UnOp σ1 σ2) : ∀ x, motive_int σ2 (mk _ _ op x) :=
+        match op with
+        | uop.neg      => pneg
+        | uop.signed   => psigned _
+        | uop.unsigned => punsigned _
+        | _            => fun _ => tt
+        end.
+    End Int.
+
+    (* The index is not a variable: compare it with an equation. *)
+    Section List.
+      Context (σ : Ty) (P : T (ty.list σ) → Type).
+
+      #[local] Abbreviation cast e x :=
+        (eq_rect_r (fun τ => T (ty.list τ)) x e) (only parsing).
+
+      Definition motive_list (s : Ty) : T s → Type :=
+        match s with
+        | ty.list τ => fun x => ∀ e : σ = τ, P (cast e x)
+        | _         => fun _ => unit
+        end.
+
+      Definition intro_list {F : Ty → Type} (mk : ∀ σ, F σ → T σ)
+        (f : ∀ x, P (mk (ty.list σ) x)) (s : Ty) : ∀ x, motive_list s (mk s x) :=
+        match s with
+        | ty.list τ => fun x e =>
+            match e in _ = τ return ∀ x, P (cast e (mk (ty.list τ) x)) with
+            | eq_refl => f
+            end x
+        | _ => fun _ => tt
+        end.
+
+      Definition binop_list (mk : MkBinOp)
+        (pcons : ∀ x y, P (mk _ _ _ bop.cons x y))
+        (pappend : ∀ x y, P (mk _ _ _ bop.append x y))
+        σ1 σ2 σ3 (op : BinOp σ1 σ2 σ3) : ∀ x y, motive_list σ3 (mk _ _ _ op x y) :=
+        match op with
+        | @bop.cons _ τ => fun x y e =>
+            match e in _ = τ return ∀ x y, P (cast e (mk _ _ _ (@bop.cons _ τ) x y)) with
+            | eq_refl => pcons
+            end x y
+        | @bop.append _ τ => fun x y e =>
+            match e in _ = τ return ∀ x y, P (cast e (mk _ _ _ (@bop.append _ τ) x y)) with
+            | eq_refl => pappend
+            end x y
+        | _ => fun _ _ => tt
+        end.
+
+      Definition unop_list (mk : MkUnOp)
+        (prev : ∀ x, P (mk _ _ uop.rev x))
+        σ1 σ2 (op : UnOp σ1 σ2) : ∀ x, motive_list σ2 (mk _ _ op x) :=
+        match op with
+        | @uop.rev _ τ => fun x e =>
+            match e in _ = τ return ∀ x, P (cast e (mk _ _ (@uop.rev _ τ) x)) with
+            | eq_refl => prev
+            end x
+        | _ => fun _ => tt
+        end.
+    End List.
+
+    Section Bool.
+      Context (P : T ty.bool → Type).
+
+      Definition motive_bool (σ : Ty) : T σ → Type :=
+        match σ with
+        | ty.bool => P
+        | _       => fun _ => unit
+        end.
+
+      Definition intro_bool {F : Ty → Type} (mk : ∀ σ, F σ → T σ)
+        (f : ∀ x, P (mk ty.bool x)) (σ : Ty) : ∀ x, motive_bool σ (mk σ x) :=
+        match σ with
+        | ty.bool => f
+        | _       => fun _ => tt
+        end.
+
+      Definition binop_bool (mk : MkBinOp)
+        (pand : ∀ x y, P (mk _ _ _ bop.and x y))
+        (por : ∀ x y, P (mk _ _ _ bop.or x y))
+        (prel : ∀ σ (op : RelOp σ) x y, P (mk _ _ _ (bop.relop op) x y))
+        σ1 σ2 σ3 (op : BinOp σ1 σ2 σ3) : ∀ x y, motive_bool σ3 (mk _ _ _ op x y) :=
+        match op with
+        | bop.and      => pand
+        | bop.or       => por
+        | bop.relop op => prel _ op
+        | _            => fun _ _ => tt
+        end.
+
+      Definition unop_bool (mk : MkUnOp)
+        (pnot : ∀ x, P (mk _ _ uop.not x))
+        σ1 σ2 (op : UnOp σ1 σ2) : ∀ x, motive_bool σ2 (mk _ _ op x) :=
+        match op with
+        | uop.not => pnot
+        | _       => fun _ => tt
+        end.
+    End Bool.
+
+    Section Bvec.
+      Context (P : ∀ n, T (ty.bvec n) → Type).
+
+      Definition motive_bvec (σ : Ty) : T σ → Type :=
+        match σ with
+        | ty.bvec n => P n
+        | _         => fun _ => unit
+        end.
+
+      Definition intro_bvec {F : Ty → Type} (mk : ∀ σ, F σ → T σ)
+        (f : ∀ n x, P n (mk (ty.bvec n) x)) (σ : Ty) : ∀ x, motive_bvec σ (mk σ x) :=
+        match σ with
+        | ty.bvec n => f n
+        | _         => fun _ => tt
+        end.
+
+      Definition binop_bvec (mk : MkBinOp)
+        (pbvadd : ∀ n x y, P n (mk _ _ _ (@bop.bvadd _ n) x y))
+        (pbvsub : ∀ n x y, P n (mk _ _ _ (@bop.bvsub _ n) x y))
+        (pbvmul : ∀ n x y, P n (mk _ _ _ (@bop.bvmul _ n) x y))
+        (pbvand : ∀ n x y, P n (mk _ _ _ (@bop.bvand _ n) x y))
+        (pbvor : ∀ n x y, P n (mk _ _ _ (@bop.bvor _ n) x y))
+        (pbvxor : ∀ n x y, P n (mk _ _ _ (@bop.bvxor _ n) x y))
+        (pshiftr : ∀ n m x y, P n (mk _ _ _ (@bop.shiftr _ n m) x y))
+        (pshiftl : ∀ n m x y, P n (mk _ _ _ (@bop.shiftl _ n m) x y))
+        (pbvapp : ∀ n1 n2 x y, P (n1 + n2) (mk _ _ _ (@bop.bvapp _ n1 n2) x y))
+        (pbvcons : ∀ n x y, P (S n) (mk _ _ _ (@bop.bvcons _ n) x y))
+        (pupdate_subrange : ∀ n s l p x y,
+            P n (mk _ _ _ (@bop.update_vector_subrange _ n s l p) x y))
+        σ1 σ2 σ3 (op : BinOp σ1 σ2 σ3) : ∀ x y, motive_bvec σ3 (mk _ _ _ op x y) :=
+        match op with
+        | bop.bvadd                             => pbvadd _
+        | bop.bvsub                             => pbvsub _
+        | bop.bvmul                             => pbvmul _
+        | bop.bvand                             => pbvand _
+        | bop.bvor                              => pbvor _
+        | bop.bvxor                             => pbvxor _
+        | bop.shiftr                            => pshiftr _ _
+        | bop.shiftl                            => pshiftl _ _
+        | bop.bvapp                             => pbvapp _ _
+        | bop.bvcons                            => pbvcons _
+        | @bop.update_vector_subrange _ n s l p => pupdate_subrange n s l p
+        | _                                     => fun _ _ => tt
+        end.
+
+      Definition unop_bvec (mk : MkUnOp)
+        (pbvnot : ∀ n x, P n (mk _ _ (@uop.bvnot _ n) x))
+        (pnegate : ∀ n x, P n (mk _ _ (@uop.negate _ n) x))
+        (psext : ∀ n m p x, P n (mk _ _ (@uop.sext _ m n p) x))
+        (pzext : ∀ n m p x, P n (mk _ _ (@uop.zext _ m n p) x))
+        (pgetslice : ∀ n x, P n (mk _ _ (@uop.get_slice_int _ n) x))
+        (ptruncate : ∀ n m p x, P n (mk _ _ (@uop.truncate _ m n p) x))
+        (psubrange : ∀ s l m p x, P l (mk _ _ (@uop.vector_subrange _ m s l p) x))
+        (pbvdrop : ∀ m n x, P n (mk _ _ (@uop.bvdrop _ m n) x))
+        (pbvtake : ∀ m n x, P m (mk _ _ (@uop.bvtake _ m n) x))
+        σ1 σ2 (op : UnOp σ1 σ2) : ∀ x, motive_bvec σ2 (mk _ _ op x) :=
+        match op with
+        | uop.bvnot                      => pbvnot _
+        | uop.negate                     => pnegate _
+        | @uop.sext _ m n p              => psext n m p
+        | @uop.zext _ m n p              => pzext n m p
+        | @uop.get_slice_int _ n         => pgetslice n
+        | @uop.truncate _ n m p          => ptruncate m n p
+        | @uop.vector_subrange _ n s l p => psubrange s l n p
+        | @uop.bvdrop _ m n              => pbvdrop m n
+        | @uop.bvtake _ m n              => pbvtake m n
+        | _                              => fun _ => tt
+        end.
+    End Bvec.
+
+    Section Prod.
+      Context (σ1 σ2 : Ty) (P : T (ty.prod σ1 σ2) → Type).
+
+      #[local] Abbreviation cast e1 e2 x :=
+        (eq_rect_r (fun τ1 => T (ty.prod τ1 σ2))
+           (eq_rect_r (fun τ2 => T (ty.prod _ τ2)) x e2) e1) (only parsing).
+
+      Definition motive_prod (s : Ty) : T s → Type :=
+        match s with
+        | ty.prod τ1 τ2 => fun x => ∀ (e1 : σ1 = τ1) (e2 : σ2 = τ2), P (cast e1 e2 x)
+        | _             => fun _ => unit
+        end.
+
+      Definition intro_prod {F : Ty → Type} (mk : ∀ σ, F σ → T σ)
+        (f : ∀ x, P (mk (ty.prod σ1 σ2) x)) (s : Ty) : ∀ x, motive_prod s (mk s x) :=
+        match s with
+        | ty.prod τ1 τ2 => fun x e1 e2 =>
+            match e1 in _ = τ1 return ∀ x, P (cast e1 e2 (mk (ty.prod τ1 τ2) x)) with
+            | eq_refl =>
+                match e2 in _ = τ2 return ∀ x, P (cast eq_refl e2 (mk (ty.prod σ1 τ2) x)) with
+                | eq_refl => f
+                end
+            end x
+        | _ => fun _ => tt
+        end.
+
+      Definition binop_prod (mk : MkBinOp)
+        (ppair : ∀ x y, P (mk _ _ _ bop.pair x y))
+        a b c (op : BinOp a b c) : ∀ x y, motive_prod c (mk _ _ _ op x y) :=
+        match op with
+        | @bop.pair _ τ1 τ2 => fun x y e1 e2 =>
+            match e1 in _ = τ1 return ∀ x y, P (cast e1 e2 (mk _ _ _ (@bop.pair _ τ1 τ2) x y)) with
+            | eq_refl =>
+                match e2 in _ = τ2 return ∀ x y, P (cast eq_refl e2 (mk _ _ _ (@bop.pair _ σ1 τ2) x y)) with
+                | eq_refl => ppair
+                end
+            end x y
+        | _ => fun _ _ => tt
+        end.
+
+      (* A lone _ would not split on op, so name one constructor. *)
+      Definition unop_prod (mk : MkUnOp) a b (op : UnOp a b) : ∀ x, motive_prod b (mk _ _ op x) :=
+        match op with
+        | uop.neg => fun _ => tt
+        | _       => fun _ => tt
+        end.
+    End Prod.
+
+    Section Sum.
+      Context (σ1 σ2 : Ty) (P : T (ty.sum σ1 σ2) → Type).
+
+      #[local] Abbreviation cast e1 e2 x :=
+        (eq_rect_r (fun τ1 => T (ty.sum τ1 σ2))
+           (eq_rect_r (fun τ2 => T (ty.sum _ τ2)) x e2) e1) (only parsing).
+
+      Definition motive_sum (s : Ty) : T s → Type :=
+        match s with
+        | ty.sum τ1 τ2 => fun x => ∀ (e1 : σ1 = τ1) (e2 : σ2 = τ2), P (cast e1 e2 x)
+        | _            => fun _ => unit
+        end.
+
+      Definition intro_sum {F : Ty → Type} (mk : ∀ σ, F σ → T σ)
+        (f : ∀ x, P (mk (ty.sum σ1 σ2) x)) (s : Ty) : ∀ x, motive_sum s (mk s x) :=
+        match s with
+        | ty.sum τ1 τ2 => fun x e1 e2 =>
+            match e1 in _ = τ1 return ∀ x, P (cast e1 e2 (mk (ty.sum τ1 τ2) x)) with
+            | eq_refl =>
+                match e2 in _ = τ2 return ∀ x, P (cast eq_refl e2 (mk (ty.sum σ1 τ2) x)) with
+                | eq_refl => f
+                end
+            end x
+        | _ => fun _ => tt
+        end.
+
+      Definition binop_sum (mk : MkBinOp) a b c (op : BinOp a b c) :
+        ∀ x y, motive_sum c (mk _ _ _ op x y) :=
+        match op with
+        | bop.plus => fun _ _ => tt
+        | _        => fun _ _ => tt
+        end.
+
+      Definition unop_sum (mk : MkUnOp)
+        (pinl : ∀ x, P (mk _ _ uop.inl x))
+        (pinr : ∀ x, P (mk _ _ uop.inr x))
+        a b (op : UnOp a b) : ∀ x, motive_sum b (mk _ _ op x) :=
+        match op with
+        | @uop.inl _ τ1 τ2 => fun x e1 e2 =>
+            match e1 in _ = τ1 return ∀ x, P (cast e1 e2 (mk _ _ (@uop.inl _ τ1 τ2) x)) with
+            | eq_refl =>
+                match e2 in _ = τ2 return ∀ x, P (cast eq_refl e2 (mk _ _ (@uop.inl _ σ1 τ2) x)) with
+                | eq_refl => pinl
+                end
+            end x
+        | @uop.inr _ τ1 τ2 => fun x e1 e2 =>
+            match e1 in _ = τ1 return ∀ x, P (cast e1 e2 (mk _ _ (@uop.inr _ τ1 τ2) x)) with
+            | eq_refl =>
+                match e2 in _ = τ2 return ∀ x, P (cast eq_refl e2 (mk _ _ (@uop.inr _ σ1 τ2) x)) with
+                | eq_refl => pinr
+                end
+            end x
+        | _ => fun _ => tt
+        end.
+    End Sum.
+
+    Section Tuple.
+      Context (σs : Ctx Ty) (P : T (ty.tuple σs) → Type).
+
+      #[local] Abbreviation cast e x :=
+        (eq_rect_r (fun i => T (ty.tuple i)) x e) (only parsing).
+
+      Definition motive_tuple (s : Ty) : T s → Type :=
+        match s with
+        | ty.tuple i => fun x => ∀ e : σs = i, P (cast e x)
+        | _          => fun _ => unit
+        end.
+
+      Definition intro_tuple {F : Ty → Type} (mk : ∀ σ, F σ → T σ)
+        (f : ∀ x, P (mk (ty.tuple σs) x)) (s : Ty) : ∀ x, motive_tuple s (mk s x) :=
+        match s with
+        | ty.tuple i => fun x e =>
+            match e in _ = i return ∀ x, P (cast e (mk (ty.tuple i) x)) with
+            | eq_refl => f
+            end x
+        | _ => fun _ => tt
+        end.
+
+      Definition binop_tuple (mk : MkBinOp) a b c (op : BinOp a b c) :
+        ∀ x y, motive_tuple c (mk _ _ _ op x y) :=
+        match op with
+        | bop.plus => fun _ _ => tt
+        | _        => fun _ _ => tt
+        end.
+
+      Definition unop_tuple (mk : MkUnOp) a b (op : UnOp a b) :
+        ∀ x, motive_tuple b (mk _ _ op x) :=
+        match op with
+        | uop.neg => fun _ => tt
+        | _       => fun _ => tt
+        end.
+
+      Definition ctor_tuple {F : Ctx Ty → Type} (mk : ∀ i, F i → T (ty.tuple i))
+        (f : ∀ x, P (mk σs x)) (i : Ctx Ty) : ∀ x, motive_tuple (ty.tuple i) (mk i x) :=
+        fun x e =>
+          match e in _ = i return ∀ x, P (cast e (mk i x)) with
+          | eq_refl => f
+          end x.
+    End Tuple.
+
+    Section Union.
+      Context (U : unioni) (P : T (ty.union U) → Type).
+
+      #[local] Abbreviation cast e x :=
+        (eq_rect_r (fun i => T (ty.union i)) x e) (only parsing).
+
+      Definition motive_union (s : Ty) : T s → Type :=
+        match s with
+        | ty.union i => fun x => ∀ e : U = i, P (cast e x)
+        | _          => fun _ => unit
+        end.
+
+      Definition intro_union {F : Ty → Type} (mk : ∀ σ, F σ → T σ)
+        (f : ∀ x, P (mk (ty.union U) x)) (s : Ty) : ∀ x, motive_union s (mk s x) :=
+        match s with
+        | ty.union i => fun x e =>
+            match e in _ = i return ∀ x, P (cast e (mk (ty.union i) x)) with
+            | eq_refl => f
+            end x
+        | _ => fun _ => tt
+        end.
+
+      Definition binop_union (mk : MkBinOp) a b c (op : BinOp a b c) :
+        ∀ x y, motive_union c (mk _ _ _ op x y) :=
+        match op with
+        | bop.plus => fun _ _ => tt
+        | _        => fun _ _ => tt
+        end.
+
+      Definition unop_union (mk : MkUnOp) a b (op : UnOp a b) :
+        ∀ x, motive_union b (mk _ _ op x) :=
+        match op with
+        | uop.neg => fun _ => tt
+        | _       => fun _ => tt
+        end.
+
+      Definition ctor_union {F : unioni → Type} {G : ∀ i, F i → Type} (mk : ∀ i (K : F i), G i K → T (ty.union i))
+        (f : ∀ K x, P (mk U K x)) (i : unioni) : ∀ K x, motive_union (ty.union i) (mk i K x) :=
+        fun K x e =>
+          match e in _ = i return ∀ K x, P (cast e (mk i K x)) with
+          | eq_refl => f
+          end K x.
+    End Union.
+
+    Section Record.
+      Context (R : recordi) (P : T (ty.record R) → Type).
+
+      #[local] Abbreviation cast e x :=
+        (eq_rect_r (fun i => T (ty.record i)) x e) (only parsing).
+
+      Definition motive_record (s : Ty) : T s → Type :=
+        match s with
+        | ty.record i => fun x => ∀ e : R = i, P (cast e x)
+        | _           => fun _ => unit
+        end.
+
+      Definition intro_record {F : Ty → Type} (mk : ∀ σ, F σ → T σ)
+        (f : ∀ x, P (mk (ty.record R) x)) (s : Ty) : ∀ x, motive_record s (mk s x) :=
+        match s with
+        | ty.record i => fun x e =>
+            match e in _ = i return ∀ x, P (cast e (mk (ty.record i) x)) with
+            | eq_refl => f
+            end x
+        | _ => fun _ => tt
+        end.
+
+      Definition binop_record (mk : MkBinOp) a b c (op : BinOp a b c) :
+        ∀ x y, motive_record c (mk _ _ _ op x y) :=
+        match op with
+        | bop.plus => fun _ _ => tt
+        | _        => fun _ _ => tt
+        end.
+
+      Definition unop_record (mk : MkUnOp) a b (op : UnOp a b) :
+        ∀ x, motive_record b (mk _ _ op x) :=
+        match op with
+        | uop.neg => fun _ => tt
+        | _       => fun _ => tt
+        end.
+
+      Definition ctor_record {F : recordi → Type} (mk : ∀ i, F i → T (ty.record i))
+        (f : ∀ x, P (mk R x)) (i : recordi) : ∀ x, motive_record (ty.record i) (mk i x) :=
+        fun x e =>
+          match e in _ = i return ∀ x, P (cast e (mk i x)) with
+          | eq_refl => f
+          end x.
+    End Record.
+
+  End WithTypeDeclKit.
+End cases.
+
 Module Type TermsOn (Import TY : Types).
 
   Local Abbreviation PCtx := (NCtx PVar Ty).
@@ -237,16 +691,16 @@ Module Type TermsOn (Import TY : Types).
     Hypothesis (psigned : ∀ [n] (t : Term Σ (ty.bvec n)), P (term_unop uop.signed t)).
     Hypothesis (punsigned : ∀ [n] (t : Term Σ (ty.bvec n)), P (term_unop uop.unsigned t)).
 
-    Equations(noeqns) Term_int_case (t : Term Σ ty.int) : P t :=
-    | term_var_in lIn            => pvar lIn
-    | term_val _ i               => pval i
-    | term_binop bop.plus t1 t2  => pplus t1 t2
-    | term_binop bop.minus t1 t2 => pminus t1 t2
-    | term_binop bop.times t1 t2 => ptimes t1 t2
-    | term_binop bop.land t1 t2  => pland t1 t2
-    | term_unop uop.neg t        => pneg t
-    | term_unop uop.signed t     => psigned t
-    | term_unop uop.unsigned t   => punsigned t.
+    Definition Term_int_case (t : Term Σ ty.int) : P t :=
+      match t as t' in Term _ σ return cases.motive_int (Term Σ) P σ t' with
+      | @term_var _ l σ lIn => cases.intro_int _ P (@term_var Σ l) (@pvar l) σ lIn
+      | term_val σ v        => cases.intro_int _ P (@term_val Σ) pval σ v
+      | term_binop op t1 t2 =>
+          cases.binop_int _ P (@term_binop Σ) pplus pminus ptimes pland _ _ _ op t1 t2
+      | term_unop op t      =>
+          cases.unop_int _ P (@term_unop Σ) pneg psigned punsigned _ _ op t
+      | _                   => tt
+      end.
 
   End Term_int_case.
 
@@ -293,13 +747,14 @@ Module Type TermsOn (Import TY : Types).
                           P (term_binop (bop.relop op) t1 t2))).
     Hypothesis (pnot : ∀ t : Term Σ ty.bool, P (term_unop uop.not t)).
 
-    Equations(noeqns) Term_bool_case (t : Term Σ ty.bool) : P t :=
-    | term_var_in lIn                 => pvar lIn
-    | term_val _ b                    => pval b
-    | term_binop bop.and t1 t2        => pand t1 t2
-    | term_binop (bop.relop op) t1 t2 => prel op t1 t2
-    | term_binop bop.or t1 t2         => por t1 t2
-    | term_unop uop.not t             => pnot t.
+    Definition Term_bool_case (t : Term Σ ty.bool) : P t :=
+      match t as t' in Term _ σ return cases.motive_bool (Term Σ) P σ t' with
+      | @term_var _ l σ lIn => cases.intro_bool _ P (@term_var Σ l) (@pvar l) σ lIn
+      | term_val σ v        => cases.intro_bool _ P (@term_val Σ) pval σ v
+      | term_binop op t1 t2 => cases.binop_bool _ P (@term_binop Σ) pand por prel _ _ _ op t1 t2
+      | term_unop op t      => cases.unop_bool _ P (@term_unop Σ) pnot _ _ op t
+      | _                   => tt
+      end.
 
   End Term_bool_case.
 
@@ -334,12 +789,15 @@ Module Type TermsOn (Import TY : Types).
     Hypothesis (pappend : ∀ (t1 : Term Σ (ty.list σ)) (t2 : Term Σ (ty.list σ)), P (term_binop bop.append t1 t2)).
     Hypothesis (prev : ∀ (t : Term Σ (ty.list σ)), P (term_unop uop.rev t)).
 
-    Equations(noeqns) Term_list_case (t : Term Σ (ty.list σ)) : P t :=
-    | term_var_in lIn             => pvar lIn
-    | term_val _ v                => pval v
-    | term_binop bop.cons t1 t2   => pcons t1 t2
-    | term_binop bop.append t1 t2 => pappend t1 t2
-    | term_unop uop.rev t         => prev t.
+    Definition Term_list_case (t : Term Σ (ty.list σ)) : P t :=
+      match t as t' in Term _ s return cases.motive_list (Term Σ) σ P s t' with
+      | @term_var _ l s lIn => cases.intro_list _ σ P (@term_var Σ l) (@pvar l) s lIn
+      | term_val s v        => cases.intro_list _ σ P (@term_val Σ) pval s v
+      | term_binop op t1 t2 =>
+          cases.binop_list _ σ P (@term_binop Σ) pcons pappend _ _ _ op t1 t2
+      | term_unop op t      => cases.unop_list _ σ P (@term_unop Σ) prev _ _ op t
+      | _                   => tt
+      end eq_refl.
 
   End Term_list_case.
 
@@ -351,10 +809,14 @@ Module Type TermsOn (Import TY : Types).
     Hypothesis (pval : ∀ (v : Val (ty.prod σ1 σ2)), P (term_val (ty.prod σ1 σ2) v)).
     Hypothesis (ppair : ∀ (t1 : Term Σ σ1) (t2 : Term Σ σ2), P (term_binop bop.pair t1 t2)).
 
-    Equations(noeqns) Term_prod_case (t : Term Σ (ty.prod σ1 σ2)) : P t :=
-    | term_var_in lIn         => pvar lIn
-    | term_val _ p            => pval p
-    | term_binop bop.pair s t => ppair s t.
+    Definition Term_prod_case (t : Term Σ (ty.prod σ1 σ2)) : P t :=
+      match t as t' in Term _ s return cases.motive_prod (Term Σ) σ1 σ2 P s t' with
+      | @term_var _ l s lIn => cases.intro_prod _ σ1 σ2 P (@term_var Σ l) (@pvar l) s lIn
+      | term_val s v        => cases.intro_prod _ σ1 σ2 P (@term_val Σ) pval s v
+      | term_binop op t1 t2 => cases.binop_prod _ σ1 σ2 P (@term_binop Σ) ppair _ _ _ op t1 t2
+      | term_unop op t      => cases.unop_prod _ σ1 σ2 P (@term_unop Σ) _ _ op t
+      | _                   => tt
+      end eq_refl eq_refl.
 
   End Term_prod_case.
 
@@ -367,11 +829,14 @@ Module Type TermsOn (Import TY : Types).
     Hypothesis (pinl : ∀ (t1 : Term Σ σ1), P (term_unop uop.inl t1)).
     Hypothesis (pinr : ∀ (t2 : Term Σ σ2), P (term_unop uop.inr t2)).
 
-    Equations(noeqns) Term_sum_case (t : Term Σ (ty.sum σ1 σ2)) : P t :=
-    | term_var_in lIn     => pvar lIn
-    | term_val _ v        => pval v
-    | term_unop uop.inl t => pinl t
-    | term_unop uop.inr t => pinr t.
+    Definition Term_sum_case (t : Term Σ (ty.sum σ1 σ2)) : P t :=
+      match t as t' in Term _ s return cases.motive_sum (Term Σ) σ1 σ2 P s t' with
+      | @term_var _ l s lIn => cases.intro_sum _ σ1 σ2 P (@term_var Σ l) (@pvar l) s lIn
+      | term_val s v        => cases.intro_sum _ σ1 σ2 P (@term_val Σ) pval s v
+      | term_binop op t1 t2 => cases.binop_sum _ σ1 σ2 P (@term_binop Σ) _ _ _ op t1 t2
+      | term_unop op t      => cases.unop_sum _ σ1 σ2 P (@term_unop Σ) pinl pinr _ _ op t
+      | _                   => tt
+      end eq_refl eq_refl.
 
   End Term_sum_case.
 
@@ -405,30 +870,18 @@ Module Type TermsOn (Import TY : Types).
     Hypothesis (pbvdrop : ∀ m n (t : Term Σ (ty.bvec (m + n))), P (term_unop (uop.bvdrop m) t)).
     Hypothesis (pbvtake : ∀ m n (t : Term Σ (ty.bvec (m + n))), P (term_unop (uop.bvtake m) t)).
 
-    Equations(noeqns) Term_bvec_case [n] (t : Term Σ (ty.bvec n)) : P t :=
-    | term_var_in lIn                                   => pvar lIn
-    | term_val _ v                                      => pval v
-    | term_binop bop.bvadd t1 t2                        => pbvadd t1 t2
-    | term_binop bop.bvsub t1 t2                        => pbvsub t1 t2
-    | term_binop bop.bvmul t1 t2                        => pbvmul t1 t2
-    | term_binop bop.bvand t1 t2                        => pbvand t1 t2
-    | term_binop bop.bvor t1 t2                         => pbvor t1 t2
-    | term_binop bop.bvxor t1 t2                        => pbvxor t1 t2
-    | term_binop bop.shiftr t1 t2                       => pshiftr t1 t2
-    | term_binop bop.shiftl t1 t2                       => pshiftl t1 t2
-    | term_binop bop.bvapp t1 t2                        => pbvapp t1 t2
-    | term_binop bop.bvcons t1 t2                       => pbvcons t1 t2
-    | term_binop (bop.update_vector_subrange _ _) t1 t2 => pupdate_subrange t1 t2
-    | term_unop uop.bvnot t                             => pbvnot t
-    | term_unop uop.negate t                            => pnegate t
-    | term_unop uop.sext t                              => psext _ _ t
-    | term_unop uop.zext t                              => pzext _ _ t
-    | term_unop uop.get_slice_int t                     => pgetslice _ _
-    | term_unop (uop.truncate _) t                      => ptruncate _ _ t
-    | term_unop (uop.vector_subrange _ _) t             => psubrange _ _ _ t
-    | term_unop (uop.bvdrop _) t                        => pbvdrop _ _ t
-    | term_unop (uop.bvtake _) t                        => pbvtake _ _ t
-    .
+    Definition Term_bvec_case [n] (t : Term Σ (ty.bvec n)) : P t :=
+      match t as t' in Term _ σ return cases.motive_bvec (Term Σ) P σ t' with
+      | @term_var _ l σ lIn => cases.intro_bvec _ P (@term_var Σ l) (fun n => @pvar n l) σ lIn
+      | term_val σ v        => cases.intro_bvec _ P (@term_val Σ) pval σ v
+      | term_binop op t1 t2 =>
+          cases.binop_bvec _ P (@term_binop Σ) pbvadd pbvsub pbvmul pbvand pbvor pbvxor
+            pshiftr pshiftl pbvapp pbvcons (@pupdate_subrange) _ _ _ op t1 t2
+      | term_unop op t      =>
+          cases.unop_bvec _ P (@term_unop Σ) pbvnot pnegate psext pzext pgetslice
+            ptruncate psubrange pbvdrop pbvtake _ _ op t
+      | _                   => tt
+      end.
 
   End Term_bvec_case.
 
@@ -498,10 +951,15 @@ Module Type TermsOn (Import TY : Types).
     Hypothesis (pval : ∀ (v : Val (ty.tuple σs)), P (term_val (ty.tuple σs) v)).
     Hypothesis (ptuple : ∀ (ts : Env (Term Σ) σs), P (term_tuple ts)).
 
-    Equations(noeqns) Term_tuple_case (t : Term Σ (ty.tuple σs)) : P t :=
-    | term_var_in lIn => pvar lIn
-    | term_val _ v    => pval v
-    | term_tuple ts   => ptuple ts.
+    Definition Term_tuple_case (t : Term Σ (ty.tuple σs)) : P t :=
+      match t as t' in Term _ s return cases.motive_tuple (Term Σ) σs P s t' with
+      | @term_var _ l s lIn => cases.intro_tuple _ σs P (@term_var Σ l) (@pvar l) s lIn
+      | term_val s v        => cases.intro_tuple _ σs P (@term_val Σ) pval s v
+      | term_binop op t1 t2 => cases.binop_tuple _ σs P (@term_binop Σ) _ _ _ op t1 t2
+      | term_unop op t      => cases.unop_tuple _ σs P (@term_unop Σ) _ _ op t
+      | @term_tuple _ τs ts => cases.ctor_tuple _ σs P (@term_tuple Σ) ptuple τs ts
+      | _                   => tt
+      end eq_refl.
 
   End Term_tuple_case.
 
@@ -513,10 +971,15 @@ Module Type TermsOn (Import TY : Types).
     Hypothesis (pval : ∀ (v : Val (ty.union U)), P (term_val (ty.union U) v)).
     Hypothesis (punion : ∀ K (t : Term Σ (unionk_ty U K)), P (term_union U K t)).
 
-    Equations(noeqns) Term_union_case (t : Term Σ (ty.union U)) : P t :=
-    | term_var_in lIn  => pvar lIn
-    | term_val _ v     => pval v
-    | term_union U K t => punion K t.
+    Definition Term_union_case (t : Term Σ (ty.union U)) : P t :=
+      match t as t' in Term _ s return cases.motive_union (Term Σ) U P s t' with
+      | @term_var _ l s lIn => cases.intro_union _ U P (@term_var Σ l) (@pvar l) s lIn
+      | term_val s v        => cases.intro_union _ U P (@term_val Σ) pval s v
+      | term_binop op t1 t2 => cases.binop_union _ U P (@term_binop Σ) _ _ _ op t1 t2
+      | term_unop op t      => cases.unop_union _ U P (@term_unop Σ) _ _ op t
+      | term_union V K t    => cases.ctor_union _ U P (@term_union Σ) punion V K t
+      | _                   => tt
+      end eq_refl.
 
   End Term_union_case.
 
@@ -528,10 +991,15 @@ Module Type TermsOn (Import TY : Types).
     Variable (pval : ∀ (v : Val (ty.record R)), P (term_val (ty.record R) v)).
     Variable (precord : ∀ (ts : NamedEnv (Term Σ) (recordf_ty R)), P (term_record R ts)).
 
-    Equations(noeqns) Term_record_case (t : Term Σ (ty.record R)) : P t :=
-    | term_var_in lIn => pvar lIn
-    | term_val _ v    => pval v
-    | term_record ts  => precord ts.
+    Definition Term_record_case (t : Term Σ (ty.record R)) : P t :=
+      match t as t' in Term _ s return cases.motive_record (Term Σ) R P s t' with
+      | @term_var _ l s lIn => cases.intro_record _ R P (@term_var Σ l) (@pvar l) s lIn
+      | term_val s v        => cases.intro_record _ R P (@term_val Σ) pval s v
+      | term_binop op t1 t2 => cases.binop_record _ R P (@term_binop Σ) _ _ _ op t1 t2
+      | term_unop op t      => cases.unop_record _ R P (@term_unop Σ) _ _ op t
+      | term_record R' ts   => cases.ctor_record _ R P (@term_record Σ) precord R' ts
+      | _                   => tt
+      end eq_refl.
 
   End Term_record_case.
 
