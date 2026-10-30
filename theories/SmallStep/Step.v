@@ -39,7 +39,7 @@ From Katamaran Require Import
 
 Set Implicit Arguments.
 
-Module Type SmallStepOn (Import B : Base) (Import P : Program B).
+Module Type SmallStepOn (Import GLOBAL : GlobalState) (Import P : Program GLOBAL).
 
   Import ctx.notations.
   Import env.notations.

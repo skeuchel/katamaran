@@ -55,9 +55,9 @@ Create Rewrite HintDb punfold.
 Create Rewrite HintDb uniflogic.
 
 Module Type UnifLogicOn
-  (Import B : Base)
-  (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P).
+  (Import GLOBAL : GlobalState)
+  (Import P      : PredicateKit GLOBAL)
+  (Import W      : WorldsMixin GLOBAL P).
 
   Ltac punfold_connectives :=
     change (@interface.bi_and (@bi_pred ?w) ?P ?Q ?ι) with (P ι /\ Q ι) in * ||
@@ -1319,7 +1319,7 @@ Module Type UnifLogicOn
       RInst (fun Σ => NamedEnv (Term Σ) Δ) (NamedEnv Val Δ).
     Definition REnv (Δ : Ctx Ty) : Rel _ _ :=
       RInst (fun Σ : LCtx => Env (Term Σ) Δ) (Env Val Δ).
-    Definition RUnit : Rel B.Unit unit := RInst B.Unit unit.
+    Definition RUnit : Rel (fun _ => unit) unit := RInst (fun _ => unit) unit.
 
     Definition RPathCondition : Rel PathCondition Prop := RInstPropIff PathCondition.
     Arguments RPathCondition : simpl never.

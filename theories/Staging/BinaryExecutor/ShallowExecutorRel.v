@@ -61,10 +61,10 @@ Set Implicit Arguments.
  *)
 
 Module Type ShallowExecRelOn
-  (Import B : Base)
-  (Import SIG : Signature B)
-  (Import PROG : Program B)
-  (Import SPEC : Specification B SIG PROG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SPEC   : Specification GLOBAL SIG PROG).
 
   (* The following definitions are relational variants of the ones in ShallowExecutor.v.
    *)
@@ -939,11 +939,11 @@ Module Type ShallowExecRelOn
 End ShallowExecOn.
 
 Module MakeShallowExecutor
-  (Import B    : Base)
-  (Import SIG  : Signature B)
-  (Import PROG : Program B)
-  (Import SPEC : Specification B SIG PROG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SPEC   : Specification GLOBAL SIG PROG).
 
-  Include ShallowExecOn B SIG PROG SPEC.
+  Include ShallowExecOn GLOBAL SIG PROG SPEC.
 
 End MakeShallowExecutor.

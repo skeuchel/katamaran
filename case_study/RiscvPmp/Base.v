@@ -1313,6 +1313,31 @@ Module Export RiscvPmpBase <: Base.
 
   #[export] Instance varkit : VarKit := DefaultVarKit.
 
+  Section Inhabited.
+      #[export] Instance val_inhabited σ: Inhabited (Val σ).
+      Proof. generalize dependent σ.
+            induction σ as [| | | | | | | E | | | U | R]; try apply _; cbn.
+            - destruct E; repeat constructor.
+            - induction σs; first apply _.
+              cbn. inversion IH. apply prod_inhabited; [apply IHσs |]; auto.
+            - destruct U;  repeat constructor. all: try apply bv.bv_inhabited.
+            - destruct R;  repeat constructor.
+      Qed.
+
+  End Inhabited.
+
+  Include BaseMixin.
+
+End RiscvPmpBase.
+
+Module Export RiscvPmpGlobalState <: GlobalState.
+  Module BASE := RiscvPmpBase.
+
+  Import ctx.notations.
+  Import ctx.resolution.
+  Import env.notations.
+  Import stdpp.finite.
+
   Section RegDeclKit.
 
     Inductive Reg : Ty -> Set :=
@@ -1672,19 +1697,6 @@ Module Export RiscvPmpBase <: Base.
 
   End RegDeclKit.
 
-  Section Inhabited.
-      #[export] Instance val_inhabited σ: Inhabited (Val σ).
-      Proof. generalize dependent σ.
-            induction σ as [| | | | | | | E | | | U | R]; try apply _; cbn.
-            - destruct E; repeat constructor.
-            - induction σs; first apply _.
-              cbn. inversion IH. apply prod_inhabited; [apply IHσs |]; auto.
-            - destruct U;  repeat constructor. all: try apply bv.bv_inhabited.
-            - destruct R;  repeat constructor.
-      Qed.
-
-  End Inhabited.
-
   Section MemoryModel.
     Import Bitvector.bv.notations.
 
@@ -1812,7 +1824,4 @@ Module Export RiscvPmpBase <: Base.
 
   End MemoryModel.
 
-
-  Include BaseMixin.
-
-End RiscvPmpBase.
+End RiscvPmpGlobalState.

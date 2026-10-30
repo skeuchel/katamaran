@@ -35,8 +35,8 @@ From Katamaran Require Import
      Syntax.FunDecl
      Syntax.Statements.
 
-Module Type FunDefKit (Import B : Base) (Import F : FunDecl B).
-  Include RegStoreKit B.
+Module Type FunDefKit (Import GLOBAL : GlobalState) (Import F : FunDecl GLOBAL).
+  Include RegStoreKit GLOBAL.
 
   (* Step relation for calling an external function. The complete function call
      is done in one step. The result of an external call is either a failure

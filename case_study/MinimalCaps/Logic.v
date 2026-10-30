@@ -36,17 +36,17 @@ From Katamaran Require Import
      MicroSail.Soundness.
 
 Module MinCapsProgramLogic :=
-  MakeProgramLogic MinCapsBase MinCapsSignature MinCapsProgram.
+  MakeProgramLogic MinCapsGlobalState MinCapsSignature MinCapsProgram.
 
 Module MinCapsExecutor :=
-  MakeExecutor MinCapsBase MinCapsSignature MinCapsProgram MinCapsProgramLogic.
+  MakeExecutor MinCapsGlobalState MinCapsSignature MinCapsProgram MinCapsProgramLogic.
 Module MinCapsShallowExec :=
-  MakeShallowExecutor MinCapsBase MinCapsSignature MinCapsProgram MinCapsProgramLogic.
+  MakeShallowExecutor MinCapsGlobalState MinCapsSignature MinCapsProgram MinCapsProgramLogic.
 
 (* Import the soundness proofs for the shallow and symbolic executors. *)
 Module MinCapsShallowSoundness :=
-  MakeShallowSoundness MinCapsBase MinCapsSignature MinCapsProgram
+  MakeShallowSoundness MinCapsGlobalState MinCapsSignature MinCapsProgram
     MinCapsProgramLogic MinCapsShallowExec.
 Module MinCapsSymbolicSoundness :=
-  MakeSymbolicSoundness MinCapsBase MinCapsSignature MinCapsProgram
+  MakeSymbolicSoundness MinCapsGlobalState MinCapsSignature MinCapsProgram
     MinCapsProgramLogic MinCapsShallowExec MinCapsExecutor.

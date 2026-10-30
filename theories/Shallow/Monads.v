@@ -79,9 +79,9 @@ Proof. intros pf a. apply pf. Qed.
   Monotonic eq a.
 Proof. easy. Qed.
 
-Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P) (Import SP : SymPropOn B P W)
-  (Import AS : AssertionsOn B P W).
+Module Type ShallowMonadsOn (Import GLOBAL : GlobalState) (Import P : PredicateKit GLOBAL)
+  (Import W : WorldsMixin GLOBAL P) (Import SP : SymPropOn GLOBAL P W)
+  (Import AS : AssertionsOn GLOBAL P W).
 
   (* This is used by potentially multiple instances, but ultimately should be
      moved somewhere else. *)

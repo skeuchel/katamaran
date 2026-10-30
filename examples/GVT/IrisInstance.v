@@ -50,7 +50,7 @@ Module ns := stdpp.namespaces.
 Set Implicit Arguments.
 Import bv.notations.
 
-Module RiscvPmpIrisAdeqParameters <: IrisAdeqParameters RiscvPmpBase RiscvPmpIrisBase.
+Module RiscvPmpIrisAdeqParameters <: IrisAdeqParameters RiscvPmpGlobalState RiscvPmpIrisBase.
   (* Pull in the definition of the LanguageMixin and register ghost state. *)
   Import RiscvPmpIrisPrelims RiscvPmpIrisBase.
 
@@ -479,7 +479,7 @@ Module RiscvPmpIrisInstancePredicates.
 End RiscvPmpIrisInstancePredicates.
 
 Module RiscvPmpIrisInstance <:
-  IrisInstance RiscvPmpBase RiscvPmpSignature RiscvPmpProgram RiscvPmpSemantics
+  IrisInstance RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram RiscvPmpSemantics
     RiscvPmpProgramLogic RiscvPmpIrisPrelims RiscvPmpIrisBase.
   Import RiscvPmpIrisPrelims RiscvPmpIrisBase.
   Import RiscvPmpProgram.
@@ -972,9 +972,9 @@ Module RiscvPmpIrisInstance <:
   End RiscVPmpIrisInstanceProofs.
 
 
-  Include IrisSignatureRules RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  Include IrisSignatureRules RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpSemantics RiscvPmpProgramLogic RiscvPmpIrisPrelims RiscvPmpIrisBase.
-  Include IrisAdequacy RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  Include IrisAdequacy RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpSemantics RiscvPmpProgramLogic RiscvPmpIrisPrelims RiscvPmpIrisBase RiscvPmpIrisAdeqParameters.
 
   Lemma gprs_equiv `{sailGS Σ, iostateG IOState Σ} : ∀ {Σ} (ι : Valuation Σ) (exclude : gset (Reg ty_xlenbits)),

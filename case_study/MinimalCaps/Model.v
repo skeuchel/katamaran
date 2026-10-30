@@ -71,8 +71,8 @@ Set Implicit Arguments.
 
 Module gh := iris.base_logic.lib.gen_heap.
 
-Module MinCapsSemantics <: Semantics MinCapsBase MinCapsProgram :=
-  MakeSemantics MinCapsBase MinCapsProgram.
+Module MinCapsSemantics <: Semantics MinCapsGlobalState MinCapsProgram :=
+  MakeSemantics MinCapsGlobalState MinCapsProgram.
 
 (* destruct_syminstance is a tactic that destructs the given symbolic instance
    ι. It uses views to get information about ι. *)
@@ -105,11 +105,11 @@ Import MinCapsProgram.
 Import MinCapsProgramLogic.
 Import MinCapsSpecification.
 
-Module Import MinCapsIrisPrelims <: IrisPrelims MinCapsBase MinCapsProgram MinCapsSemantics.
-  Include IrisPrelims MinCapsBase MinCapsProgram MinCapsSemantics.
+Module Import MinCapsIrisPrelims <: IrisPrelims MinCapsGlobalState MinCapsProgram MinCapsSemantics.
+  Include IrisPrelims MinCapsGlobalState MinCapsProgram MinCapsSemantics.
 End MinCapsIrisPrelims.
 
-Module Import MinCapsIrisBase <: IrisBase MinCapsBase MinCapsProgram MinCapsSemantics MinCapsIrisPrelims.
+Module Import MinCapsIrisBase <: IrisBase MinCapsGlobalState MinCapsProgram MinCapsSemantics MinCapsIrisPrelims.
 
   Parameter maxAddr : nat.
 
@@ -154,13 +154,13 @@ Module Import MinCapsIrisBase <: IrisBase MinCapsBase MinCapsProgram MinCapsSema
 
   End WithIrisNotations.
 
-  Include IrisResources MinCapsBase MinCapsProgram MinCapsSemantics MinCapsIrisPrelims.
-  Include IrisWeakestPre MinCapsBase MinCapsProgram MinCapsSemantics MinCapsIrisPrelims.
-  Include IrisTotalWeakestPre MinCapsBase MinCapsProgram MinCapsSemantics MinCapsIrisPrelims.
-  Include IrisTotalPartialWeakestPre MinCapsBase MinCapsProgram MinCapsSemantics MinCapsIrisPrelims.
+  Include IrisResources MinCapsGlobalState MinCapsProgram MinCapsSemantics MinCapsIrisPrelims.
+  Include IrisWeakestPre MinCapsGlobalState MinCapsProgram MinCapsSemantics MinCapsIrisPrelims.
+  Include IrisTotalWeakestPre MinCapsGlobalState MinCapsProgram MinCapsSemantics MinCapsIrisPrelims.
+  Include IrisTotalPartialWeakestPre MinCapsGlobalState MinCapsProgram MinCapsSemantics MinCapsIrisPrelims.
 End MinCapsIrisBase.
 
-Module MinCapsIrisAdeqParameters <: IrisAdeqParameters MinCapsBase MinCapsIrisBase.
+Module MinCapsIrisAdeqParameters <: IrisAdeqParameters MinCapsGlobalState MinCapsIrisBase.
   Import iris.base_logic.lib.gen_heap.
 
   Definition memGpreS : gFunctors -> Set := fun Σ => gh.gen_heapGpreS Z MemVal Σ.
@@ -190,7 +190,7 @@ Module MinCapsIrisAdeqParameters <: IrisAdeqParameters MinCapsBase MinCapsIrisBa
 
 End MinCapsIrisAdeqParameters.
 
-Module Import MinCapsIrisInstance <: IrisInstance MinCapsBase MinCapsSignature MinCapsProgram MinCapsSemantics MinCapsProgramLogic MinCapsIrisPrelims MinCapsIrisBase.
+Module Import MinCapsIrisInstance <: IrisInstance MinCapsGlobalState MinCapsSignature MinCapsProgram MinCapsSemantics MinCapsProgramLogic MinCapsIrisPrelims MinCapsIrisBase.
   Import env.notations.
   Import iris.bi.interface.
   Import iris.bi.big_op.
@@ -533,14 +533,14 @@ Module Import MinCapsIrisInstance <: IrisInstance MinCapsBase MinCapsSignature M
 
   End MinimalCapsPredicates.
 
-  Include IrisSignatureRules MinCapsBase MinCapsSignature MinCapsProgram MinCapsSemantics MinCapsProgramLogic MinCapsIrisPrelims MinCapsIrisBase.
-  Include IrisAdequacy MinCapsBase MinCapsSignature MinCapsProgram MinCapsSemantics MinCapsProgramLogic MinCapsIrisPrelims MinCapsIrisBase MinCapsIrisAdeqParameters.
+  Include IrisSignatureRules MinCapsGlobalState MinCapsSignature MinCapsProgram MinCapsSemantics MinCapsProgramLogic MinCapsIrisPrelims MinCapsIrisBase.
+  Include IrisAdequacy MinCapsGlobalState MinCapsSignature MinCapsProgram MinCapsSemantics MinCapsProgramLogic MinCapsIrisPrelims MinCapsIrisBase MinCapsIrisAdeqParameters.
 
 End MinCapsIrisInstance.
 
 Module MinCapsIrisInstanceWithContracts.
 
-  Include IrisInstanceWithContracts MinCapsBase MinCapsSignature MinCapsProgram MinCapsSemantics
+  Include IrisInstanceWithContracts MinCapsGlobalState MinCapsSignature MinCapsProgram MinCapsSemantics
     MinCapsProgramLogic MinCapsIrisPrelims MinCapsIrisBase MinCapsIrisInstance.
 
   Section LemProofs.

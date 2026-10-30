@@ -34,12 +34,12 @@ From Katamaran Require Export
      Syntax.Statements
      Base.
 
-Module Type FunDeclMixin (B : Base) :=
-  StatementsOn B.
+Module Type FunDeclMixin (GLOBAL : GlobalState) :=
+  StatementsOn GLOBAL.
 
-Module Type ProgramMixin (Import B : Base)
-  (Import FDecl : FunDecl B)
-  (Import FDK : FunDefKit B FDecl).
+Module Type ProgramMixin (Import GLOBAL : GlobalState)
+  (Import FDecl : FunDecl GLOBAL)
+  (Import FDK : FunDefKit GLOBAL FDecl).
 
   (* We use callgraphs of Sail programs to define a very coarse termination
      metric on functions, e.g. all non-recursive functions or said differently
@@ -237,9 +237,9 @@ Module Type ProgramMixin (Import B : Base)
   End AccessibleTactics.
 End ProgramMixin.
 
-Module Type WellFoundedKit (B : Base) (Import FDecl : FunDecl B)
-  (Import FDK : FunDefKit B FDecl)
-  (Import PM : ProgramMixin B FDecl FDK).
+Module Type WellFoundedKit (GLOBAL : GlobalState) (Import FDecl : FunDecl GLOBAL)
+  (Import FDK : FunDefKit GLOBAL FDecl)
+  (Import PM : ProgramMixin GLOBAL FDecl FDK).
 
   Import callgraph.
 
@@ -258,5 +258,5 @@ Module Type WellFoundedKit (B : Base) (Import FDecl : FunDecl B)
 
 End WellFoundedKit.
 
-Module Type Program (B : Base) :=
-  FunDeclKit B <+ FunDeclMixin B <+ FunDefKit B <+ ProgramMixin B <+ WellFoundedKit B.
+Module Type Program (GLOBAL : GlobalState) :=
+  FunDeclKit GLOBAL <+ FunDeclMixin GLOBAL <+ FunDefKit GLOBAL <+ ProgramMixin GLOBAL <+ WellFoundedKit GLOBAL.

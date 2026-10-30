@@ -774,7 +774,7 @@ Module Type RiscvPmpIrisInstanceWithContracts
   (Import RVPPRED : RiscvPmpIrisInstancePredicates LOR RVPCOM RVPBASE)
   (Import RVPINST : RiscvPmpIrisInstance LOR RVPCOM RVPBASE RVPPRED).
 
-  Include IrisInstanceWithContracts RiscvPmpBase RiscvPmpSignature
+  Include IrisInstanceWithContracts RiscvPmpGlobalState RiscvPmpSignature
     RiscvPmpProgram RiscvPmpSemantics RiscvPmpProgramLogic
     RVPCOM RVPBASE RVPINST.
   Import RiscvPmpBlockVerifSpec.

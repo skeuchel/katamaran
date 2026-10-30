@@ -92,7 +92,7 @@ Module Type RiscvPmpModel
   (Import RVPINST : RiscvPmpIrisInstance LOR RVPCOM RVPBASE RVPPRED).
   Import RiscvPmpSpecification.
 
-  Include IrisInstanceWithContracts RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  Include IrisInstanceWithContracts RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpSemantics RiscvPmpProgramLogic RVPCOM RVPBASE RVPINST.
 
   Section ForeignProofs.

@@ -62,10 +62,10 @@ Import env.notations.
 Set Implicit Arguments.
 
 Module Type IrisAdeqParameters2
-  (Import B       : BaseKit)
-  (IPleft  : IrisParameters B)
-  (IPright : IrisParameters B)
-  (Import IPP     : IrisParameters2 B IPleft IPright).
+  (Import GLOBAL  : GlobalState)
+  (IPleft  : IrisParameters GLOBAL)
+  (IPright : IrisParameters GLOBAL)
+  (Import IPP     : IrisParameters2 GLOBAL IPleft IPright).
 
   Parameter Inline memGpreS2 : gFunctors -> Set.
   Parameter memΣ2 : gFunctors.
@@ -83,18 +83,18 @@ Module Type IrisAdeqParameters2
 End IrisAdeqParameters2.
 
 Module Type IrisAdequacy2
-  (Import B       : Base)
-  (Import SIG     : Signature B)
-  (Import PROG    : Program B)
-  (Import SEM     : Semantics B PROG)
-  (Import PLOG    : ProgramLogic B SIG PROG)
-  (Import IPre    : IrisPrelims B PROG SEM)
-  (IBleft         : IrisBase B PROG SEM IPre)
-  (IBright        : IrisBase B PROG SEM IPre)
-  (Import IB2     : IrisBase2 B PROG SEM IPre IBleft IBright)
-  (Import IAP2    : IrisAdeqParameters2 B IBleft IBright IB2)
-  (Import IPred2  : IrisPredicates2 B SIG PROG SEM IPre IBleft IBright IB2)
-  (Import IRules2 : IrisSignatureRules2 B SIG PROG SEM PLOG IPre IBleft IBright IB2 IPred2).
+  (Import GLOBAL  : GlobalState)
+  (Import SIG     : Signature GLOBAL)
+  (Import PROG    : Program GLOBAL)
+  (Import SEM     : Semantics GLOBAL PROG)
+  (Import PLOG    : ProgramLogic GLOBAL SIG PROG)
+  (Import IPre    : IrisPrelims GLOBAL PROG SEM)
+  (IBleft         : IrisBase GLOBAL PROG SEM IPre)
+  (IBright        : IrisBase GLOBAL PROG SEM IPre)
+  (Import IB2     : IrisBase2 GLOBAL PROG SEM IPre IBleft IBright)
+  (Import IAP2    : IrisAdeqParameters2 GLOBAL IBleft IBright IB2)
+  (Import IPred2  : IrisPredicates2 GLOBAL SIG PROG SEM IPre IBleft IBright IB2)
+  (Import IRules2 : IrisSignatureRules2 GLOBAL SIG PROG SEM PLOG IPre IBleft IBright IB2 IPred2).
 
   Import SmallStepNotations.
 
