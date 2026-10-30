@@ -43,9 +43,9 @@ Import env.notations.
 
 #[local] Set Implicit Arguments.
 
-Module Type SymbolicMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P) (Import SP : SymPropOn B P W)
-  (Import AS : AssertionsOn B P W).
+Module Type SymbolicMonadClassesOn (Import GLOBAL : GlobalState) (Import P : PredicateKit GLOBAL)
+  (Import W : WorldsMixin GLOBAL P) (Import SP : SymPropOn GLOBAL P W)
+  (Import AS : AssertionsOn GLOBAL P W).
 
   Import ModalNotations.
   Import Erasure.

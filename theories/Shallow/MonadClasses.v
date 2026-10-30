@@ -72,8 +72,8 @@ Proof. intros pf ? ? <-. apply pf. Qed.
 #[export] Hint Extern 1 (Proper _ (match ?p with left _ => _ | right _ => _ end)) =>
   destruct p : monotonic.
 
-Module Type ShallowMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P) (Import AS : AssertionsOn B P W).
+Module Type ShallowMonadClassesOn (Import GLOBAL : GlobalState) (Import P : PredicateKit GLOBAL)
+  (Import W : WorldsMixin GLOBAL P) (Import AS : AssertionsOn GLOBAL P W).
 
   (* Interface of monads with the verification effects and a heap. *)
   Module CHeapSpecM.

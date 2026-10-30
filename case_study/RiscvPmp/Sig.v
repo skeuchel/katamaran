@@ -101,7 +101,7 @@ Derive EqDec for PurePredicate.
 Derive EqDec for Exec.
 Derive EqDec for Predicate.
 
-Module Export RiscvPmpSignature <: Signature RiscvPmpBase.
+Module Export RiscvPmpSignature <: Signature RiscvPmpGlobalState.
 
   Section PredicateKit.
     Import bv.notations.
@@ -586,8 +586,8 @@ Module Export RiscvPmpSignature <: Signature RiscvPmpBase.
 
   End PredicateKit.
 
-  Include PredicateMixin RiscvPmpBase.
-  Include WorldsMixin RiscvPmpBase.
+  Include PredicateMixin RiscvPmpGlobalState.
+  Include WorldsMixin RiscvPmpGlobalState.
 
   Import Entailment.
 
@@ -1213,7 +1213,7 @@ Module Export RiscvPmpSignature <: Signature RiscvPmpBase.
     apply solveruseronly_to_solver_spec, simplify_user_spec.
   Qed.
 
-  Include SignatureMixin RiscvPmpBase.
+  Include SignatureMixin RiscvPmpGlobalState.
 
   Section ContractDefKit.
 

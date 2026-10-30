@@ -39,9 +39,9 @@ Set Implicit Arguments.
 
 (* Unused, but don't let it bitrot. *)
 Module Type UnusedWorldInstance
-  (Import B : Base)
-  (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P).
+  (Import GLOBAL : GlobalState)
+  (Import P      : PredicateKit GLOBAL)
+  (Import W      : WorldsMixin GLOBAL P).
 
   Import ModalNotations.
   Local Open Scope modal.

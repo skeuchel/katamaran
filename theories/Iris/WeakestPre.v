@@ -47,12 +47,12 @@ Import env.notations.
 Set Implicit Arguments.
 
 Module Type IrisWeakestPre
-  (Import B    : Base)
-  (Import PROG : Program B)
-  (Import SEM  : Semantics B PROG)
-  (Import IPre : IrisPrelims B PROG SEM)
-  (Import IP   : IrisParameters B)
-  (Import IR   : IrisResources B PROG SEM IPre IP).
+  (Import GLOBAL : GlobalState)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (Import IP     : IrisParameters GLOBAL)
+  (Import IR     : IrisResources GLOBAL PROG SEM IPre IP).
 
   Definition semWP {Σ} `{sG : sailGS Σ} [Γ τ] (δ : CStore Γ) (s : Stm Γ τ)
     (Q : Post Γ τ) : iProp Σ :=

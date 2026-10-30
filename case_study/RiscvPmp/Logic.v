@@ -36,17 +36,17 @@ From Katamaran Require Import
      MicroSail.Soundness.
 
 Module RiscvPmpProgramLogic :=
-  MakeProgramLogic RiscvPmpBase RiscvPmpSignature RiscvPmpProgram.
+  MakeProgramLogic RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram.
 
 Module RiscvPmpExecutor :=
-  MakeExecutor RiscvPmpBase RiscvPmpSignature RiscvPmpProgram RiscvPmpProgramLogic.
+  MakeExecutor RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram RiscvPmpProgramLogic.
 Module RiscvPmpShallowExec :=
-  MakeShallowExecutor RiscvPmpBase RiscvPmpSignature RiscvPmpProgram RiscvPmpProgramLogic.
+  MakeShallowExecutor RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram RiscvPmpProgramLogic.
 
 (* Import the soundness proofs for the shallow and symbolic executors. *)
 Module RiscvPmpShallowSoundness :=
-  MakeShallowSoundness RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  MakeShallowSoundness RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpProgramLogic RiscvPmpShallowExec.
 Module RiscvPmpSymbolicSoundness :=
-  MakeSymbolicSoundness RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  MakeSymbolicSoundness RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpProgramLogic RiscvPmpShallowExec RiscvPmpExecutor.

@@ -35,7 +35,7 @@ From Katamaran Require Import
 
 Local Set Implicit Arguments.
 
-Module Type RegStoreKit (Import B : BaseKit).
+Module Type RegStoreKit (Import GLOBAL : GlobalState).
 
   (* We choose to make [RegStore] a parameter so the users of the module would be able to
      instantiate it with their own data structure and [read_register]/[write_register]
@@ -54,7 +54,7 @@ Module Type RegStoreKit (Import B : BaseKit).
 
 End RegStoreKit.
 
-Module DefaultRegStoreKit (Import B : BaseKit) <: RegStoreKit B.
+Module DefaultRegStoreKit (Import GLOBAL : GlobalState) <: RegStoreKit GLOBAL.
 
   Definition RegStore : Type := forall σ, 𝑹𝑬𝑮 σ -> Val σ.
 

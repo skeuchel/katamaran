@@ -51,11 +51,11 @@ Declare Scope pred_scope.
 Delimit Scope pred_scope with P.
 
 Module Type WorldsOn
-  (Import B : Base)
-  (Import P : PredicateKit B)
-  (Import PE : PartialEvaluationOn B)
-  (Import F : FormulasOn B P)
-  (Import C : ChunksOn B P PE F).
+  (Import GLOBAL : GlobalState)
+  (Import P      : PredicateKit GLOBAL)
+  (Import PE     : PartialEvaluationOn GLOBAL.BASE)
+  (Import F      : FormulasOn GLOBAL P)
+  (Import C      : ChunksOn GLOBAL P PE F).
 
   Section Worlds.
 
@@ -1452,10 +1452,10 @@ Module Type WorldsOn
 
 End WorldsOn.
 
-Module Type WorldsMixin (B : Base) (PK : PredicateKit B) :=
-  PartialEvaluationOn B <+ FormulasOn B PK <+ ChunksOn B PK <+ WorldsOn B PK.
+Module Type WorldsMixin (GLOBAL : GlobalState) (PK : PredicateKit GLOBAL) :=
+  PartialEvaluationOn GLOBAL.BASE <+ FormulasOn GLOBAL PK <+ ChunksOn GLOBAL PK <+ WorldsOn GLOBAL PK.
 
-Module Type SolverKit (B : Base) (P : PredicateKit B) (Import W : WorldsMixin B P).
+Module Type SolverKit (GLOBAL : GlobalState) (P : PredicateKit GLOBAL) (Import W : WorldsMixin GLOBAL P).
   Local Set Implicit Arguments.
 
   Parameter solver      : Solver.

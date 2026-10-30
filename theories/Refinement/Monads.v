@@ -55,20 +55,20 @@ Import env.notations.
 Set Implicit Arguments.
 
 Module Type RefinementMonadsOn
-  (Import B : Base)
-  (Import PK : PredicateKit B)
-  (Import WR : WorldsMixin B PK)
-  (Import SK : SolverKit B PK WR)
-  (Import SP : SymPropOn B PK WR)
-  (Import UL : UnifLogicOn B PK WR)
-  (Import LSP : LogSymPropOn B PK WR SP UL)
-  (Import GS : GenericSolverOn B PK WR SK SP UL LSP)
-  (Import AS : AssertionsOn B PK WR)
-  (Import SHC : ShallowMonadClassesOn B PK WR AS)
-  (Import SHAL : ShallowMonadsOn B PK WR SP AS SHC)
-  (Import SC : SymbolicMonadClassesOn B PK WR SP AS)
-  (Import SYMB : SymbolicMonadsOn B PK WR SK SP UL LSP GS AS SC)
-  (Import RHC : RefinementMonadClassesOn B PK WR SP UL AS SHC SC).
+  (Import GLOBAL : GlobalState)
+  (Import PK : PredicateKit GLOBAL)
+  (Import WR : WorldsMixin GLOBAL PK)
+  (Import SK : SolverKit GLOBAL PK WR)
+  (Import SP : SymPropOn GLOBAL PK WR)
+  (Import UL : UnifLogicOn GLOBAL PK WR)
+  (Import LSP : LogSymPropOn GLOBAL PK WR SP UL)
+  (Import GS : GenericSolverOn GLOBAL PK WR SK SP UL LSP)
+  (Import AS : AssertionsOn GLOBAL PK WR)
+  (Import SHC : ShallowMonadClassesOn GLOBAL PK WR AS)
+  (Import SHAL : ShallowMonadsOn GLOBAL PK WR SP AS SHC)
+  (Import SC : SymbolicMonadClassesOn GLOBAL PK WR SP AS)
+  (Import SYMB : SymbolicMonadsOn GLOBAL PK WR SK SP UL LSP GS AS SC)
+  (Import RHC : RefinementMonadClassesOn GLOBAL PK WR SP UL AS SHC SC).
 
   Import ModalNotations.
   Import LogicalSoundness.

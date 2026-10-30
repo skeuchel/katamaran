@@ -824,9 +824,9 @@ Module LinearProgramming.
 End LinearProgramming.
 
 (* Module Type LPKatamaran *)
-(*   (Import B : Base) *)
-(*   (Import P : PredicateKit B) *)
-(*   (Import W : WorldsMixin B P). *)
+(*   (Import GLOBAL : GlobalState) *)
+(*   (Import P : PredicateKit GLOBAL) *)
+(*   (Import W : WorldsMixin GLOBAL P). *)
 
 (*   Import Vector. *)
 (*   Import PolyRed. *)

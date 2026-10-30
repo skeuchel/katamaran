@@ -42,14 +42,14 @@ From Katamaran Require Import
 #[local] Set Implicit Arguments.
 
 Module Type RefinementMonadClassesOn
-  (Import B : Base)
-  (Import PK : PredicateKit B)
-  (Import WR : WorldsMixin B PK)
-  (Import SP : SymPropOn B PK WR)
-  (Import UL : UnifLogicOn B PK WR)
-  (Import AS : AssertionsOn B PK WR)
-  (Import SHC : ShallowMonadClassesOn B PK WR AS)
-  (Import SYC : SymbolicMonadClassesOn B PK WR SP AS).
+  (Import GLOBAL : GlobalState)
+  (Import PK : PredicateKit GLOBAL)
+  (Import WR : WorldsMixin GLOBAL PK)
+  (Import SP : SymPropOn GLOBAL PK WR)
+  (Import UL : UnifLogicOn GLOBAL PK WR)
+  (Import AS : AssertionsOn GLOBAL PK WR)
+  (Import SHC : ShallowMonadClassesOn GLOBAL PK WR AS)
+  (Import SYC : SymbolicMonadClassesOn GLOBAL PK WR SP AS).
 
   Import ModalNotations.
   Import logicalrelation logicalrelation.notations proofmode.

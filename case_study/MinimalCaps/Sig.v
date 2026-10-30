@@ -77,7 +77,7 @@ End TransparentObligations.
 Derive EqDec for PurePredicate.
 Derive EqDec for Predicate.
 
-Module Import MinCapsSignature <: Signature MinCapsBase.
+Module Import MinCapsSignature <: Signature MinCapsGlobalState.
 
 
   Section PredicateKit.
@@ -202,8 +202,8 @@ Module Import MinCapsSignature <: Signature MinCapsBase.
 
   End PredicateKit.
 
-  Include PredicateMixin MinCapsBase.
-  Include WorldsMixin MinCapsBase.
+  Include PredicateMixin MinCapsGlobalState.
+  Include WorldsMixin MinCapsGlobalState.
 
   (* In the MinCapsSolverKit we provide simplification procedures for the pure
      predicates and prove that these simplifiers are sound. *)
@@ -303,7 +303,7 @@ Module Import MinCapsSignature <: Signature MinCapsBase.
 
   End MinCapsSolverKit.
 
-  Include SignatureMixin MinCapsBase.
+  Include SignatureMixin MinCapsGlobalState.
 
   Module MinCapsContractNotations.
     Export asn.notations.

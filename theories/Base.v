@@ -268,17 +268,13 @@ Module Type BaseMixin (Import TY : Types).
 
 End BaseMixin.
 
-Module Type OperationalModel.
+Module Type Base := Types <+ BaseMixin.
+
+(* The global state of programs, i.e. registers and memory, on top of a [Base]. *)
+Module Type GlobalState.
+  Declare Module Export BASE : Base.
+  Include RegDeclKit BASE.
 
   (* Memory model *)
   Parameter Memory : Type.
-  
-End OperationalModel.
-
-
-(* The part of [Base] without the mixin. Functors that only need these
-   declarations should take a [BaseKit] instead of a [Base] parameter: every
-   functor parameter stores a full copy of its signature, and [Base] is large. *)
-Module Type BaseKit := Types <+ RegDeclKit <+ OperationalModel.
-
-Module Type Base := Types <+ RegDeclKit <+ OperationalModel <+ BaseMixin.
+End GlobalState.

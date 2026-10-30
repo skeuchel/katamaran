@@ -33,7 +33,7 @@ From Katamaran Require Import
      SmallStep.Step
      Program.
 
-Module ProgressOn (Import B : Base) (Import P : Program B) (Import STEP : SmallStepOn B P).
+Module ProgressOn (Import GLOBAL : GlobalState) (Import P : Program GLOBAL) (Import STEP : SmallStepOn GLOBAL P).
 
   Local Ltac progress_can_form :=
     match goal with

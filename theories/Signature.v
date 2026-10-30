@@ -45,13 +45,13 @@ From Katamaran Require Export
   Syntax.Predicates.
 
 Module Type SignatureMixin
-  (B : Base) (P : PredicateKit B) (W : WorldsMixin B P) (S : SolverKit B P W) :=
-  SymPropOn B P W <+ UnifLogicOn B P W <+ LogSymPropOn B P W  <+
-  AssertionsOn B P W <+ ContractNotationsOn B P W <+
-    GenericSolverOn B P W S <+
-    ShallowMonadClassesOn B P W <+ ShallowMonadsOn B P W <+
-    SymbolicMonadClassesOn B P W <+ SymbolicMonadsOn B P W S <+
-    RefinementMonadClassesOn B P W <+ RefinementMonadsOn B P W S.
+  (GLOBAL : GlobalState) (P : PredicateKit GLOBAL) (W : WorldsMixin GLOBAL P) (S : SolverKit GLOBAL P W) :=
+  SymPropOn GLOBAL P W <+ UnifLogicOn GLOBAL P W <+ LogSymPropOn GLOBAL P W  <+
+  AssertionsOn GLOBAL P W <+ ContractNotationsOn GLOBAL P W <+
+    GenericSolverOn GLOBAL P W S <+
+    ShallowMonadClassesOn GLOBAL P W <+ ShallowMonadsOn GLOBAL P W <+
+    SymbolicMonadClassesOn GLOBAL P W <+ SymbolicMonadsOn GLOBAL P W S <+
+    RefinementMonadClassesOn GLOBAL P W <+ RefinementMonadsOn GLOBAL P W S.
 
-Module Type Signature (B : Base) :=
-  PredicateKit B <+ WorldsMixin B <+ SolverKit B <+ SignatureMixin B.
+Module Type Signature (GLOBAL : GlobalState) :=
+  PredicateKit GLOBAL <+ WorldsMixin GLOBAL <+ SolverKit GLOBAL <+ SignatureMixin GLOBAL.
