@@ -83,28 +83,34 @@ Abbreviation llist := (ty.option ptr).
 
 Module Import ExampleBase <: Base.
 
+  (* We use default instances because this example does not use any types other
+     than the standard ones already available. *)
+  #[export] Instance typedeclkit : TypeDeclKit := DefaultTypeDeclKit.
+  #[export] Instance typedenotekit : TypeDenoteKit typedeclkit := DefaultTypeDenoteKit.
+  #[export] Instance typedefkit : TypeDefKit typedenotekit := DefaultTypeDefKit.
+  #[export] Instance varkit : VarKit := DefaultVarKit.
+
+  Include BaseMixin.
+End ExampleBase.
+
+Module Import ExampleGlobalState <: GlobalState.
+  Module BASE := ExampleBase.
+
   Section MemoryModel.
     (* The type of memory we use for this example. A mapping from addresses
        represented as integers to pairs. *)
     Definition Memory : Set := gmap.gmap Z (Z * (Z + unit)).
   End MemoryModel.
 
-  (* We use default instances because this example does not use any types other
-     than the standard ones already available. We also don't make any use of
-     registers (global variables). *)
-  #[export] Instance typedeclkit : TypeDeclKit := DefaultTypeDeclKit.
-  #[export] Instance typedenotekit : TypeDenoteKit typedeclkit := DefaultTypeDenoteKit.
-  #[export] Instance typedefkit : TypeDefKit typedenotekit := DefaultTypeDefKit.
-  #[export] Instance varkit : VarKit := DefaultVarKit.
+  (* We don't make any use of registers (global variables). *)
+  Include DefaultRegDeclKit BASE.
 
-  Include DefaultRegDeclKit.
-  Include BaseMixin.
-End ExampleBase.
+End ExampleGlobalState.
 
 
 (* The [Program] module contains the declaration and definition of the functions
    that make up the program. *)
-Module Import ExampleProgram <: Program ExampleBase.
+Module Import ExampleProgram <: Program ExampleGlobalState.
 
   Section FunDeclKit.
     (* We define the signatures of μSail functions. Their bodies are defined
@@ -146,7 +152,7 @@ Module Import ExampleProgram <: Program ExampleBase.
 
   (* A mixin provided by the library pulling in definitions of statements etc.
      which rely on the declared functions and ghost lemmas. *)
-  Include FunDeclMixin ExampleBase.
+  Include FunDeclMixin ExampleGlobalState.
 
   Section FunDefKit.
 
@@ -270,7 +276,7 @@ Module Import ExampleProgram <: Program ExampleBase.
   End FunDefKit.
 
   (* We pull in the default implementation of a store for registers. *)
-  Include DefaultRegStoreKit ExampleBase.
+  Include DefaultRegStoreKit ExampleGlobalState.
 
   (* In this section we define the foreign functions. *)
   Section ForeignKit.
@@ -334,7 +340,7 @@ Module Import ExampleProgram <: Program ExampleBase.
 
   End ForeignKit.
 
-  Include ProgramMixin ExampleBase.
+  Include ProgramMixin ExampleGlobalState.
 
   Import callgraph.
 
@@ -383,7 +389,7 @@ Derive EqDec for Predicate.
    pertaining to user-defined pure and spatial predicates. These definitions
    are enough to instantiate the assertion language for pre- and
    postconditions used in function contracts. *)
-Module Import ExampleSignature <: Signature ExampleBase.
+Module Import ExampleSignature <: Signature ExampleGlobalState.
   Import ExampleBase.
 
   Definition 𝑷 := PurePredicate.
@@ -432,8 +438,8 @@ Module Import ExampleSignature <: Signature ExampleBase.
 
   (* A mixin that defines Formulas, Chunks and assertions to write contract and
      that defines Worlds and symbolic propositions for the executor. *)
-  Include PredicateMixin ExampleBase.
-  Include WorldsMixin ExampleBase.
+  Include PredicateMixin ExampleGlobalState.
+  Include WorldsMixin ExampleGlobalState.
 
   (* The SolverKit module is the user-defined part of the solver that is linked
      with a generic part in MakeSolver. Here we can automatically simplify or
@@ -527,11 +533,11 @@ Module Import ExampleSignature <: Signature ExampleBase.
 
   End ExampleSolverKit.
 
-  Include SignatureMixin ExampleBase.
+  Include SignatureMixin ExampleGlobalState.
 End ExampleSignature.
 
 Module Import ExampleProgramLogic :=
-  MakeProgramLogic ExampleBase ExampleSignature ExampleProgram.
+  MakeProgramLogic ExampleGlobalState ExampleSignature ExampleProgram.
 
 (* The specification module contains the contracts for all μSail and foreign functions. *)
 Module Import ExampleSpecification.
@@ -750,7 +756,7 @@ End ExampleSpecification.
 (* Use the specification and the solver module to compose the symbolic executor
    and symbolic verification condition generator. *)
 Module Import ExampleExecutor :=
-  MakeExecutor ExampleBase ExampleSignature ExampleProgram ExampleProgramLogic.
+  MakeExecutor ExampleGlobalState ExampleSignature ExampleProgram ExampleProgramLogic.
 
 Section DebugExample.
   Import SymProp.notations.
@@ -813,11 +819,11 @@ End ContractVerification.
 (* Also instantiate the shallow executor for the soundness proofs and the
    statistics. *)
 Module Import ExampleShalExec :=
-  MakeShallowExecutor ExampleBase ExampleSignature ExampleProgram ExampleProgramLogic.
+  MakeShallowExecutor ExampleGlobalState ExampleSignature ExampleProgram ExampleProgramLogic.
 
 (* Instantiate the operational semantics which is an input to the Iris model. *)
-Module ExampleSemantics <: Semantics ExampleBase ExampleProgram :=
-  MakeSemantics ExampleBase ExampleProgram.
+Module ExampleSemantics <: Semantics ExampleGlobalState ExampleProgram :=
+  MakeSemantics ExampleGlobalState ExampleProgram.
 
 (* This module contains the instantiation of the Iris model. It contains the
    definition of several user-defined modules that are inputs to the generic
@@ -833,11 +839,11 @@ Module ExampleModel.
      contracts. *)
   (* Instantiates with the step relation and sets up the ghost state for
      registers. *)
-  Module Import ExampleIrisPrelims <: IrisPrelims ExampleBase ExampleProgram ExampleSemantics.
-    Include IrisPrelims ExampleBase ExampleProgram ExampleSemantics.
+  Module Import ExampleIrisPrelims <: IrisPrelims ExampleGlobalState ExampleProgram ExampleSemantics.
+    Include IrisPrelims ExampleGlobalState ExampleProgram ExampleSemantics.
   End ExampleIrisPrelims.
 
-  Module Import ExampleIrisBase <: IrisBase ExampleBase ExampleProgram ExampleSemantics ExampleIrisPrelims.
+  Module Import ExampleIrisBase <: IrisBase ExampleGlobalState ExampleProgram ExampleSemantics ExampleIrisPrelims.
 
     (* The [IrisParameters] define the ghost state for memory which is provided
        by the user. This is then combined with the ghost state for registers in
@@ -878,14 +884,14 @@ Module ExampleModel.
         fun {Σ} hG μ => (gen_heap_interp (hG := mc_ghGS (mcMemGS := hG)) μ)%I.
     End ExampleIrisParameters.
 
-    Include IrisResources ExampleBase ExampleProgram ExampleSemantics ExampleIrisPrelims.
-    Include IrisWeakestPre ExampleBase ExampleProgram ExampleSemantics ExampleIrisPrelims.
-    Include IrisTotalWeakestPre ExampleBase ExampleProgram ExampleSemantics ExampleIrisPrelims.
-    Include IrisTotalPartialWeakestPre ExampleBase ExampleProgram ExampleSemantics ExampleIrisPrelims.
+    Include IrisResources ExampleGlobalState ExampleProgram ExampleSemantics ExampleIrisPrelims.
+    Include IrisWeakestPre ExampleGlobalState ExampleProgram ExampleSemantics ExampleIrisPrelims.
+    Include IrisTotalWeakestPre ExampleGlobalState ExampleProgram ExampleSemantics ExampleIrisPrelims.
+    Include IrisTotalPartialWeakestPre ExampleGlobalState ExampleProgram ExampleSemantics ExampleIrisPrelims.
 
   End ExampleIrisBase.
 
-  Module ExampleIrisAdeqParams <: IrisAdeqParameters ExampleBase ExampleIrisBase.
+  Module ExampleIrisAdeqParams <: IrisAdeqParameters ExampleGlobalState ExampleIrisBase.
     Import iris.base_logic.lib.gen_heap.
     Import iris.proofmode.proofmode.
 
@@ -917,7 +923,7 @@ Module ExampleModel.
      this logic. This is then provided to the library as part of the
      [IrisInstance] module. *)
   Module Import ExampleIrisInstance <:
-    IrisInstance ExampleBase ExampleSignature ExampleProgram ExampleSemantics
+    IrisInstance ExampleGlobalState ExampleSignature ExampleProgram ExampleSemantics
       ExampleProgramLogic ExampleIrisPrelims ExampleIrisBase.
 
     Import iris.base_logic.lib.gen_heap.
@@ -960,8 +966,8 @@ Module ExampleModel.
 
     (* At this point we have enough information to instantiate the program logic
        rules of Iris that do not refer to specific contracts. *)
-    Include IrisSignatureRules ExampleBase ExampleSignature ExampleProgram ExampleSemantics ExampleProgramLogic ExampleIrisPrelims ExampleIrisBase.
-    Include IrisAdequacy ExampleBase ExampleSignature ExampleProgram ExampleSemantics ExampleProgramLogic ExampleIrisPrelims ExampleIrisBase ExampleIrisAdeqParams.
+    Include IrisSignatureRules ExampleGlobalState ExampleSignature ExampleProgram ExampleSemantics ExampleProgramLogic ExampleIrisPrelims ExampleIrisBase.
+    Include IrisAdequacy ExampleGlobalState ExampleSignature ExampleProgram ExampleSemantics ExampleProgramLogic ExampleIrisPrelims ExampleIrisBase ExampleIrisAdeqParams.
 
   End ExampleIrisInstance.
 
@@ -975,14 +981,14 @@ Module ExampleModel.
     (* Include our axiomatic program logic. Note that the program logic is
        parameterized over a given set of contracts so it is included here
        instead of [IrisInstance].  *)
-    Include IrisInstanceWithContracts ExampleBase ExampleSignature
+    Include IrisInstanceWithContracts ExampleGlobalState ExampleSignature
       ExampleProgram ExampleSemantics ExampleProgramLogic ExampleIrisPrelims
       ExampleIrisBase ExampleIrisInstance.
 
     (* Import the soundness proofs for the shallow and symbolic executors. *)
-    Include MicroSail.ShallowSoundness.Soundness ExampleBase ExampleSignature
+    Include MicroSail.ShallowSoundness.Soundness ExampleGlobalState ExampleSignature
       ExampleProgram ExampleProgramLogic ExampleShalExec.
-    Include MicroSail.RefineExecutor.RefineExecOn ExampleBase ExampleSignature
+    Include MicroSail.RefineExecutor.RefineExecOn ExampleGlobalState ExampleSignature
       ExampleProgram ExampleProgramLogic ExampleShalExec ExampleExecutor.
 
     (* In this section we verify the contracts of the foreign functions defined in

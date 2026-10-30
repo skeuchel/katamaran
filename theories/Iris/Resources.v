@@ -53,7 +53,7 @@ Section TransparentObligations.
 End TransparentObligations.
 
 Module Type IrisParameters
-  (Import B    : BaseKit).
+  (Import GLOBAL : GlobalState).
 
   (* The memGS field will normally always be instantiated to a type class. We
      inline this field, so that instances declared by the library, e.g. the
@@ -73,9 +73,9 @@ End IrisParameters.
 
 (* TODO: export, back to module instead of module type *)
 Module Type IrisPrelims
-    (Import B    : Base)
-    (Import PROG : Program B)
-    (Import SEM  : Semantics B PROG).
+    (Import GLOBAL : GlobalState)
+    (Import PROG   : Program GLOBAL)
+    (Import SEM    : Semantics GLOBAL PROG).
 
   Import SmallStepNotations.
 
@@ -436,11 +436,11 @@ Module Type IrisPrelims
 End IrisPrelims.
 
 Module Type IrisResources
-  (Import B    : Base)
-  (Import PROG : Program B)
-  (Import SEM  : Semantics B PROG)
-  (Import IPre : IrisPrelims B PROG SEM)
-  (Import IP   : IrisParameters B).
+  (Import GLOBAL : GlobalState)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (Import IP     : IrisParameters GLOBAL).
   Class sailGS Σ := SailGS { (* resources for the implementation side *)
                        sailGS_invGS : invGS Σ; (* for fancy updates, invariants... *)
                        sailGS_sailRegGS : sailRegGS Σ;

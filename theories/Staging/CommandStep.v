@@ -41,7 +41,7 @@ Import env.notations.
 
 Set Implicit Arguments.
 
-Module Type CommandsOn (Import B : Base) (Import F : FunDeclKit B).
+Module Type CommandsOn (Import GLOBAL : GlobalState) (Import F : FunDeclKit GLOBAL).
 
   Inductive Command (A : Type) : Type :=
   | cmd_return (a : A)
@@ -67,9 +67,9 @@ Module Type CommandsOn (Import B : Base) (Import F : FunDeclKit B).
 
 End CommandsOn.
 
-Module Type CFunDefKit (Import B : Base) (Import F : FunDeclKit B) (Import C : CommandsOn B F).
+Module Type CFunDefKit (Import GLOBAL : GlobalState) (Import F : FunDeclKit GLOBAL) (Import C : CommandsOn GLOBAL F).
 
-  Include RegStoreKit B.
+  Include RegStoreKit GLOBAL.
 
   (* Memory model *)
   Parameter Memory : Type.
@@ -93,9 +93,9 @@ Module Type CFunDefKit (Import B : Base) (Import F : FunDeclKit B) (Import C : C
 
 End CFunDefKit.
 
-Module Type CProgram (B : Base) := FunDeclKit B <+ CommandsOn B <+ CFunDefKit B.
+Module Type CProgram (GLOBAL : GlobalState) := FunDeclKit GLOBAL <+ CommandsOn GLOBAL <+ CFunDefKit GLOBAL.
 
-Module SmallStepOn (Import B : Base) (Import P : CProgram B).
+Module SmallStepOn (Import GLOBAL : GlobalState) (Import P : CProgram GLOBAL).
 
   Reserved Notation "⟨ γ1 , μ1 , c1 ⟩ ---> ⟨ γ2 , μ2 , s2 ⟩" (at level 0, no associativity).
 
@@ -126,9 +126,9 @@ Module SmallStepOn (Import B : Base) (Import P : CProgram B).
 
 End SmallStepOn.
 
-Module CInterpreter (Import B : Base)
-  (Import F : FunDeclKit B) (Import C : CommandsOn B F)
-  (Import S : StatementsOn B F).
+Module CInterpreter (Import GLOBAL : GlobalState)
+  (Import F : FunDeclKit GLOBAL) (Import C : CommandsOn GLOBAL F)
+  (Import S : StatementsOn GLOBAL F).
 
   Definition M (Γ1 Γ2 : PCtx) (A : Type) : Type :=
     CStore Γ1 -> Command (CStore Γ2 * A).

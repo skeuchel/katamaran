@@ -136,7 +136,7 @@ End RiscvNotations.
 (* Similarly for *_{from,to}_bits functions, ideally we would move to actual bitvectors for values... *)
 Axiom pure_decode : bv 32 -> string + AST.
 
-Module Import RiscvPmpProgram <: Program RiscvPmpBase.
+Module Import RiscvPmpProgram <: Program RiscvPmpGlobalState.
 
   Section FunDeclKit.
   Definition width_constraint (width : nat) : bool :=
@@ -281,7 +281,7 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
   Definition 𝑳  : PCtx -> Set := Lem.
   End FunDeclKit.
 
-  Include FunDeclMixin RiscvPmpBase.
+  Include FunDeclMixin RiscvPmpGlobalState.
 
   Module RiscvμSailNotations.
     Notation "'rs'"           := (@exp_var _ "rs" _ _) : exp_scope.
@@ -1971,7 +1971,7 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
 
   End FunDefKit.
 
-  Include DefaultRegStoreKit RiscvPmpBase.
+  Include DefaultRegStoreKit RiscvPmpGlobalState.
 
   Section ForeignKit.
   Import bv.notations.
@@ -2103,7 +2103,7 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
     stm_bindfree (FunDef f).
   Proof. destruct f; now vm_compute. Qed.
 
-  Include ProgramMixin RiscvPmpBase.
+  Include ProgramMixin RiscvPmpGlobalState.
 
   Import callgraph.
 
@@ -2326,5 +2326,5 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
 
 End RiscvPmpProgram.
 
-Module RiscvPmpSemantics <: Semantics RiscvPmpBase RiscvPmpProgram :=
-  MakeSemantics RiscvPmpBase RiscvPmpProgram.
+Module RiscvPmpSemantics <: Semantics RiscvPmpGlobalState RiscvPmpProgram :=
+  MakeSemantics RiscvPmpGlobalState RiscvPmpProgram.

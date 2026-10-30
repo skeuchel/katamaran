@@ -57,7 +57,7 @@ Module Type RiscvPmpIrisAdeqParams2
   (RVPBASEl : RiscvPmpIrisBase LeftOrRightLeft RVPCOM)
   (RVPBASEr : RiscvPmpIrisBase LeftOrRightRight RVPCOM)
   (Import RVPBASE2 : RiscvPmpIrisBase2 RVPCOM RVPBASEl RVPBASEr)
-<: IrisAdeqParameters2 RiscvPmpBase RVPBASEl RVPBASEr RVPBASE2.
+<: IrisAdeqParameters2 RiscvPmpGlobalState RVPBASEl RVPBASEr RVPBASE2.
 
 
   Definition memGpreS2 : gFunctors -> Set := memGpreS.
@@ -294,7 +294,7 @@ Module Type RiscvPmpIrisInstance2
   (Import RVPBASE2 : RiscvPmpIrisBase2 RVPCOM RVPBASEl RVPBASEr)
   (Import RVPPRED2 : RiscvPmpIrisInstancePredicates2 RVPCOM RVPBASEl RVPPREDl RVPBASEr RVPPREDr RVPBASE2)
   (Import RVPADEQ2 : RiscvPmpIrisAdeqParams2 RVPCOM RVPBASEl RVPBASEr RVPBASE2)
-<: IrisInstance2 RiscvPmpBase RiscvPmpSignature RiscvPmpProgram RiscvPmpSemantics RiscvPmpProgramLogic
+<: IrisInstance2 RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram RiscvPmpSemantics RiscvPmpProgramLogic
      RVPCOM RVPBASEl RVPBASEr RVPBASE2 RVPADEQ2.
 
   Import RiscvPmpProgram.
@@ -463,15 +463,15 @@ Module Type RiscvPmpIrisInstance2
     Qed.
   End RiscVPmpIrisInstanceProofs.
 
-  Include IrisBinaryWP RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  Include IrisBinaryWP RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpSemantics
     RVPCOM RVPBASEl RVPBASEr RVPBASE2.
 
-  Include IrisSignatureRules2 RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  Include IrisSignatureRules2 RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpSemantics RiscvPmpProgramLogic
     RVPCOM RVPBASEl RVPBASEr RVPBASE2.
 
-  Include IrisAdequacy2 RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  Include IrisAdequacy2 RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpSemantics RiscvPmpProgramLogic
     RVPCOM RVPBASEl RVPBASEr RVPBASE2 RVPADEQ2.
 

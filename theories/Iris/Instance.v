@@ -78,12 +78,12 @@ Class trivGS (Σ : gFunctors) : Set := MkTrivGS {}.
    code with known code verifications, e.g. as in the RiscvPmp.BlockVerification
    proofs. *)
 Module Type IrisPredicates
-  (Import B    : Base)
-  (Import SIG  : Signature B)
-  (Import PROG : Program B)
-  (Import SEM  : Semantics B PROG)
-  (Import IPre : IrisPrelims B PROG SEM)
-  (Import IB   : IrisBase B PROG SEM IPre).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (Import IB     : IrisBase GLOBAL PROG SEM IPre).
 
   (* Additional ghost state assumptions necessary for instantiating predicates. *)
   Parameter Inline resGS : gFunctors -> Set.
@@ -97,14 +97,14 @@ Module Type IrisPredicates
 End IrisPredicates.
 
 Module Type IrisSignatureRules
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import PLOG  : ProgramLogic B SIG PROG)
-  (Import IPre  : IrisPrelims B PROG SEM)
-  (Import IB    : IrisBase B PROG SEM IPre)
-  (Import IPred : IrisPredicates B SIG PROG SEM IPre IB).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (Import IB     : IrisBase GLOBAL PROG SEM IPre)
+  (Import IPred  : IrisPredicates GLOBAL SIG PROG SEM IPre IB).
 Section Soundness.
 
   Import SmallStepNotations.
@@ -781,8 +781,8 @@ End Soundness.
 End IrisSignatureRules.
 
 Module Type IrisAdeqParameters
-  (Import B : BaseKit)
-  (Import IP : IrisParameters B).
+  (Import GLOBAL : GlobalState)
+  (Import IP     : IrisParameters GLOBAL).
 
   Parameter Inline memGpreS : gFunctors -> Set.
   Parameter memΣ : gFunctors.
@@ -794,16 +794,16 @@ Module Type IrisAdeqParameters
 End IrisAdeqParameters.
 
 Module Type IrisAdequacy
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import PLOG  : ProgramLogic B SIG PROG)
-  (Import IPre  : IrisPrelims B PROG SEM)
-  (Import IB    : IrisBase B PROG SEM IPre)
-  (Import IAP   : IrisAdeqParameters B IB)
-  (Import IPred : IrisPredicates B SIG PROG SEM IPre IB)
-  (Import IRules : IrisSignatureRules B SIG PROG SEM PLOG IPre IB IPred).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (Import IB     : IrisBase GLOBAL PROG SEM IPre)
+  (Import IAP    : IrisAdeqParameters GLOBAL IB)
+  (Import IPred  : IrisPredicates GLOBAL SIG PROG SEM IPre IB)
+  (Import IRules : IrisSignatureRules GLOBAL SIG PROG SEM PLOG IPre IB IPred).
 
   Import SmallStepNotations.
 
@@ -949,22 +949,22 @@ Module Type IrisAdequacy
 
 End IrisAdequacy.
 
-Module Type IrisInstance (B : Base) (SIG : Signature B) (PROG : Program B) (SEM : Semantics B PROG) (PLOG : ProgramLogic B SIG PROG) (IPre : IrisPrelims B PROG SEM) (IB : IrisBase B PROG SEM IPre) :=
-  IrisPredicates B SIG PROG SEM IPre IB <+ IrisSignatureRules B SIG PROG SEM PLOG IPre IB.
+Module Type IrisInstance (GLOBAL : GlobalState) (SIG : Signature GLOBAL) (PROG : Program GLOBAL) (SEM : Semantics GLOBAL PROG) (PLOG : ProgramLogic GLOBAL SIG PROG) (IPre : IrisPrelims GLOBAL PROG SEM) (IB : IrisBase GLOBAL PROG SEM IPre) :=
+  IrisPredicates GLOBAL SIG PROG SEM IPre IB <+ IrisSignatureRules GLOBAL SIG PROG SEM PLOG IPre IB.
 
 (*
  * The following module defines the parts of the Iris model that must depend on the Specification, not just on the Signature.
  * This is kept to a minimum (see comment for the IrisPredicates module).
  *)
 Module IrisInstanceWithContracts
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import PLOG  : ProgramLogic B SIG PROG)
-  (Import IPre  : IrisPrelims B PROG SEM)
-  (Import IB    : IrisBase B PROG SEM IPre)
-  (Import II    : IrisInstance B SIG PROG SEM PLOG IPre IB).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (Import IB     : IrisBase GLOBAL PROG SEM IPre)
+  (Import II     : IrisInstance GLOBAL SIG PROG SEM PLOG IPre IB).
 
   Section WithSailGS.
     Import ProgLog.

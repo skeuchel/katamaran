@@ -88,9 +88,9 @@ Class irisGS2 (Λ1 Λ2 : language) (Σ : gFunctors) := IrisG {
 Global Opaque iris_invGS2.
 
 Module Type IrisParameters2
-  (Import B    : BaseKit)
-  (IBleft   : IrisParameters B)
-  (IBright   : IrisParameters B).
+  (Import GLOBAL : GlobalState)
+  (IBleft   : IrisParameters GLOBAL)
+  (IBright   : IrisParameters GLOBAL).
 
   Parameter Inline memGS2 : gFunctors -> Set.
   Existing Class memGS2.
@@ -102,13 +102,13 @@ Module Type IrisParameters2
 End IrisParameters2.
 
 Module Type IrisResources2
-  (Import B    : Base)
-  (Import PROG : Program B)
-  (Import SEM  : Semantics B PROG)
-  (Import IPre : IrisPrelims B PROG SEM)
-  (IBleft      : IrisBase B PROG SEM IPre)
-  (IBright     : IrisBase B PROG SEM IPre)
-  (Import IP2  : IrisParameters2 B IBleft IBright).
+  (Import GLOBAL : GlobalState)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (IBleft        : IrisBase GLOBAL PROG SEM IPre)
+  (IBright       : IrisBase GLOBAL PROG SEM IPre)
+  (Import IP2    : IrisParameters2 GLOBAL IBleft IBright).
 
   Class sailRegGS2 Σ := SailRegGS2 {
                             sailRegGS2_sailRegGS_left : sailRegGS Σ;
@@ -163,7 +163,7 @@ Module Type IrisResources2
 
 End IrisResources2.
 
-Module Type IrisBase2 (B : Base) (PROG : Program B) (SEM : Semantics B PROG)
-  (IPre : IrisPrelims B PROG SEM)
-  (IBleft IBright : IrisBase B PROG SEM IPre) :=
-  IrisParameters2 B IBleft IBright <+ IrisResources2 B PROG SEM IPre IBleft IBright.
+Module Type IrisBase2 (GLOBAL : GlobalState) (PROG : Program GLOBAL) (SEM : Semantics GLOBAL PROG)
+  (IPre : IrisPrelims GLOBAL PROG SEM)
+  (IBleft IBright : IrisBase GLOBAL PROG SEM IPre) :=
+  IrisParameters2 GLOBAL IBleft IBright <+ IrisResources2 GLOBAL PROG SEM IPre IBleft IBright.

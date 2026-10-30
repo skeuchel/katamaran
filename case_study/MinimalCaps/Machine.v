@@ -50,7 +50,7 @@ Open Scope string_scope.
 (*** Program ***)
 
 Import MinCapsBase.
-Module Export MinCapsProgram <: Program MinCapsBase.
+Module Export MinCapsProgram <: Program MinCapsGlobalState.
 
 Section FunDeclKit.
   Inductive Fun : PCtx -> Ty -> Set :=
@@ -133,7 +133,7 @@ Section FunDeclKit.
   Definition 𝑳  : PCtx -> Set := Lem.
 End FunDeclKit.
 
-Include FunDeclMixin MinCapsBase.
+Include FunDeclMixin MinCapsGlobalState.
 
 Section FunDefKit.
 
@@ -844,7 +844,7 @@ Section FunDefKit.
 
 End FunDefKit.
 
-Include DefaultRegStoreKit MinCapsBase.
+Include DefaultRegStoreKit MinCapsGlobalState.
 
 Section ForeignKit.
   Definition fun_rM (μ : Memory) (addr : Val ty.int) : Val ty.memval :=
@@ -871,7 +871,7 @@ Section ForeignKit.
   Proof. destruct f; env.destroy args; repeat econstructor. Qed.
 End ForeignKit.
 
-Include ProgramMixin MinCapsBase.
+Include ProgramMixin MinCapsGlobalState.
 
   Import callgraph.
 

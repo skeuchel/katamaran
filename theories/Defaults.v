@@ -73,7 +73,7 @@ Module DefaultRegDeclKit (Import T : Types) <: RegDeclKit T.
 
 End DefaultRegDeclKit.
 
-Module DefaultPurePredicateKit (Import B : BaseKit) <: PurePredicateKit B.
+Module DefaultPurePredicateKit (Import GLOBAL : GlobalState) <: PurePredicateKit GLOBAL.
 
   Definition 𝑷 := Empty_set.
   Definition 𝑷_Ty : 𝑷 -> Ctx Ty := fun p => match p with end.
@@ -82,7 +82,7 @@ Module DefaultPurePredicateKit (Import B : BaseKit) <: PurePredicateKit B.
 
 End DefaultPurePredicateKit.
 
-Module DefaultHeapPredicateKit (Import B : BaseKit) <: HeapPredicateKit B.
+Module DefaultHeapPredicateKit (Import GLOBAL : GlobalState) <: HeapPredicateKit GLOBAL.
 
   Definition 𝑯 := Empty_set.
   Definition 𝑯_Ty : 𝑯 -> Ctx Ty := fun p => match p with end.
@@ -92,25 +92,28 @@ Module DefaultHeapPredicateKit (Import B : BaseKit) <: HeapPredicateKit B.
 
 End DefaultHeapPredicateKit.
 
-Module DefaultPredicateKit (B : BaseKit) :=
-  DefaultPurePredicateKit B <+ DefaultHeapPredicateKit B.
+Module DefaultPredicateKit (GLOBAL : GlobalState) :=
+  DefaultPurePredicateKit GLOBAL <+ DefaultHeapPredicateKit GLOBAL.
 
 Module DefaultBase <: Base.
-
-  Definition Memory : Set := unit.
 
   #[export] Instance typedeclkit : TypeDeclKit := DefaultTypeDeclKit.
   #[export] Instance typedenotekit : TypeDenoteKit typedeclkit := DefaultTypeDenoteKit.
   #[export] Instance typedefkit : TypeDefKit typedenotekit := DefaultTypeDefKit.
   #[export] Instance varkit : VarKit := DefaultVarKit.
 
-  Include DefaultRegDeclKit.
   Include BaseMixin.
 
 End DefaultBase.
 
-Module DefaultSolverKit (B : Base) (P : PredicateKit B)
-  (Import W : WorldsMixin B P) <: SolverKit B P W.
+Module DefaultGlobalState <: GlobalState.
+  Module BASE := DefaultBase.
+  Include DefaultRegDeclKit BASE.
+  Definition Memory : Set := unit.
+End DefaultGlobalState.
+
+Module DefaultSolverKit (GLOBAL : GlobalState) (P : PredicateKit GLOBAL)
+  (Import W : WorldsMixin GLOBAL P) <: SolverKit GLOBAL P W.
 
   Definition solver : Solver := solver_null.
   Definition solver_spec : SolverSpec solver := solver_null_spec.

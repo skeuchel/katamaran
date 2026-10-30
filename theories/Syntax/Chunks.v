@@ -78,10 +78,10 @@ Proof.
 Qed.
 
 Module Type ChunksOn
-  (Import B : Base)
-  (Import P : PredicateKit B)
-  (Import PE : PartialEvaluationOn B)
-  (Import F : FormulasOn B P).
+  (Import GLOBAL : GlobalState)
+  (Import P      : PredicateKit GLOBAL)
+  (Import PE     : PartialEvaluationOn GLOBAL.BASE)
+  (Import F      : FormulasOn GLOBAL P).
 
   Inductive GChunk (V : Ty -> Set) : Type :=
   | chunk_user   (p : 𝑯) (ts : Env V (𝑯_Ty p))

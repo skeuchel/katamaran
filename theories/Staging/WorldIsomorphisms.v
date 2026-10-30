@@ -49,10 +49,10 @@ From iris Require bi.derived_connectives bi.interface proofmode.proofmode.
 Set Implicit Arguments.
 
 Module Type WorldIsomorphisms
-  (Import B : Base)
-  (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P)
-  (Import UL : UnifLogicOn B P W).
+  (Import GLOBAL : GlobalState)
+  (Import P      : PredicateKit GLOBAL)
+  (Import W      : WorldsMixin GLOBAL P)
+  (Import UL     : UnifLogicOn GLOBAL P W).
 
   Import ctx.notations.
   Import ModalNotations.

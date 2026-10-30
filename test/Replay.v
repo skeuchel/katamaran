@@ -59,13 +59,13 @@ Import env.notations.
 Open Scope string_scope.
 Open Scope Z_scope.
 Open Scope ctx_scope.
-Import DefaultBase.
+Import DefaultBase DefaultGlobalState.
 
 Definition ty_X := ty.list ty.int.
 
 (*** PROGRAM ***)
 
-Module Import ReplayProgram <: Program DefaultBase.
+Module Import ReplayProgram <: Program DefaultGlobalState.
 
   Section FunDeclKit.
     Inductive Fun : PCtx -> Ty -> Set :=
@@ -81,7 +81,7 @@ Module Import ReplayProgram <: Program DefaultBase.
     Definition 𝑳 : PCtx -> Set := Lem.
   End FunDeclKit.
 
-  Include FunDeclMixin DefaultBase.
+  Include FunDeclMixin DefaultGlobalState.
 
   Section FunDefKit.
     Import ctx.resolution.
@@ -116,10 +116,9 @@ Module Import ReplayProgram <: Program DefaultBase.
       end.
   End FunDefKit.
 
-  Include DefaultRegStoreKit DefaultBase.
+  Include DefaultRegStoreKit DefaultGlobalState.
 
   Section ForeignKit.
-    Definition Memory : Set := unit.
     Definition ForeignCall {σs σ} (f : 𝑭𝑿 σs σ) (args : NamedEnv Val σs)
       (res : string + Val σ) (γ γ' : RegStore) (μ μ' : Memory) : Prop := False.
     Lemma ForeignProgress {σs σ} (f : 𝑭𝑿 σs σ) (args : NamedEnv Val σs) γ μ :
@@ -127,7 +126,7 @@ Module Import ReplayProgram <: Program DefaultBase.
     Proof. destruct f. Qed.
   End ForeignKit.
 
-  Include ProgramMixin DefaultBase.
+  Include ProgramMixin DefaultGlobalState.
 
   Import callgraph.
 
@@ -228,7 +227,7 @@ Module Import ReplayPredicates.
   Derive EqDec for Predicate.
 End ReplayPredicates.
 
-Module Import ReplaySig <: Signature DefaultBase.
+Module Import ReplaySig <: Signature DefaultGlobalState.
   Section PredicateKit.
     Definition 𝑷 := PurePredicate.
     Definition 𝑷_Ty (p : 𝑷) : Ctx Ty :=
@@ -272,8 +271,8 @@ Module Import ReplaySig <: Signature DefaultBase.
       end.
   End PredicateKit.
 
-  Include PredicateMixin DefaultBase.
-  Include WorldsMixin DefaultBase.
+  Include PredicateMixin DefaultGlobalState.
+  Include WorldsMixin DefaultGlobalState.
 
   Section ReplaySolverKit.
     Import List.ListNotations.
@@ -393,22 +392,22 @@ Module Import ReplaySig <: Signature DefaultBase.
     Qed.
   End ReplaySolverKit.
 
-  Include SignatureMixin DefaultBase.
+  Include SignatureMixin DefaultGlobalState.
 
 End ReplaySig.
 
 Module Import ReplayProgramLogic :=
-  MakeProgramLogic DefaultBase ReplaySig ReplayProgram.
+  MakeProgramLogic DefaultGlobalState ReplaySig ReplayProgram.
 (* Compose the symbolic executor and symbolic verification condition generator. *)
 Module Import ReplayExecutor :=
-  MakeExecutor DefaultBase ReplaySig ReplayProgram ReplayProgramLogic.
+  MakeExecutor DefaultGlobalState ReplaySig ReplayProgram ReplayProgramLogic.
 (* Also instantiate the shallow executor for the soundness proofs and the
    statistics. *)
 Module Import ReplayShalExec :=
-  MakeShallowExecutor DefaultBase ReplaySig ReplayProgram ReplayProgramLogic.
+  MakeShallowExecutor DefaultGlobalState ReplaySig ReplayProgram ReplayProgramLogic.
 (* Instantiate the operational semantics which is an input to the Iris model. *)
-Module ReplaySemantics <: Semantics DefaultBase ReplayProgram :=
-  MakeSemantics DefaultBase ReplayProgram.
+Module ReplaySemantics <: Semantics DefaultGlobalState ReplayProgram :=
+  MakeSemantics DefaultGlobalState ReplayProgram.
 
 (* The specification module contains the contracts for all μSail and foreign functions. *)
 Module Import ReplaySpecification.

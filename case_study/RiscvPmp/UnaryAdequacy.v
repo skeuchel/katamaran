@@ -59,7 +59,7 @@ Module Type RiscvPmpIrisAdeqParams
   (Import LOR : LeftOrRight)
   (Import RVPCOM : RiscvPmpIrisBaseCommon)
   (Import RVPBASE : RiscvPmpIrisBase LOR RVPCOM)
-<: IrisAdeqParameters RiscvPmpBase RVPBASE.
+<: IrisAdeqParameters RiscvPmpGlobalState RVPBASE.
 
   Definition memGpreS : gFunctors -> Set := RVPCOM.memGpreS.
   Definition memΣ : gFunctors := RVPCOM.memΣ.
@@ -190,8 +190,8 @@ Module RVPADEQl : RiscvPmpIrisAdeqParams LeftOrRightLeft RVPCOM RVPBASEl.
   Include RiscvPmpIrisAdeqParams LeftOrRightLeft RVPCOM RVPBASEl.
 End RVPADEQl.
 
-Module RVPADEQUACYl : IrisAdequacy RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+Module RVPADEQUACYl : IrisAdequacy RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
                         RiscvPmpSemantics RiscvPmpProgramLogic RVPCOM RVPBASEl RVPADEQl RVPINSTl RVPINSTl.
-  Include IrisAdequacy RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  Include IrisAdequacy RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpSemantics RiscvPmpProgramLogic RVPCOM RVPBASEl RVPADEQl RVPINSTl RVPINSTl.
 End RVPADEQUACYl.

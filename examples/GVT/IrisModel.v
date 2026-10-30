@@ -44,11 +44,11 @@ Import RiscvPmpProgram.
    this point we do not commit to a set of contracts nor to a set of
    user-defined predicates. *)
 (* Pull in the definition of the LanguageMixin and register ghost state. *)
-Module RiscvPmpIrisPrelims <: IrisPrelims RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics.
-  Include IrisPrelims RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics.
+Module RiscvPmpIrisPrelims <: IrisPrelims RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics.
+  Include IrisPrelims RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics.
 End RiscvPmpIrisPrelims.
 
-Module RiscvPmpIrisBase <: IrisBase RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RiscvPmpIrisPrelims.
+Module RiscvPmpIrisBase <: IrisBase RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RiscvPmpIrisPrelims.
   Import RiscvPmpIrisPrelims.
 
   Section RiscvPmpIrisParams.
@@ -78,10 +78,10 @@ Module RiscvPmpIrisBase <: IrisBase RiscvPmpBase RiscvPmpProgram RiscvPmpSemanti
 
   End RiscvPmpIrisParams.
 
-  Include IrisResources RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RiscvPmpIrisPrelims.
-  Include IrisWeakestPre RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RiscvPmpIrisPrelims.
-  Include IrisTotalWeakestPre RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RiscvPmpIrisPrelims.
-  Include IrisTotalPartialWeakestPre RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RiscvPmpIrisPrelims.
+  Include IrisResources RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RiscvPmpIrisPrelims.
+  Include IrisWeakestPre RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RiscvPmpIrisPrelims.
+  Include IrisTotalWeakestPre RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RiscvPmpIrisPrelims.
+  Include IrisTotalPartialWeakestPre RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RiscvPmpIrisPrelims.
 
   Import iris.program_logic.weakestpre.
 

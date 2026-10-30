@@ -30,13 +30,9 @@
 From Equations Require Import
      Equations.
 From Katamaran Require Import
-     Context
-     Syntax.TypeDecl
-     Syntax.Variables.
+     Base.
 
-Module Type FunDeclKit (Import T : Types).
-
-  Local Abbreviation PCtx := (NCtx PVar ty.Ty).
+Module Type FunDeclKit (Import GLOBAL : GlobalState).
 
   (* Names of functions. *)
   Parameter Inline 𝑭 : PCtx -> Ty -> Set.

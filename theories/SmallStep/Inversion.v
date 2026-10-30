@@ -39,7 +39,7 @@ Set Implicit Arguments.
 Import ctx.notations.
 Import env.notations.
 
-Module Type InversionOn (Import B : Base) (Import P : Program B) (Import STEP : SmallStepOn B P).
+Module Type InversionOn (Import GLOBAL : GlobalState) (Import P : Program GLOBAL) (Import STEP : SmallStepOn GLOBAL P).
 
   Import SmallStepNotations.
 

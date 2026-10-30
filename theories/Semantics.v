@@ -33,7 +33,7 @@ From Katamaran Require Export
      (* SmallStep.Inversion *)
      SmallStep.Progress.
 
-Module Type Semantics (B : Base) (P : Program B) :=
-  SmallStepOn B P <+ (* InversionOn B P <+ *) ProgressOn B P.
-Module MakeSemantics (B : Base) (P : Program B) <: Semantics B P :=
-  Equalities.Nop <+ SmallStepOn B P <+ (* InversionOn B P <+ *) ProgressOn B P.
+Module Type Semantics (GLOBAL : GlobalState) (P : Program GLOBAL) :=
+  SmallStepOn GLOBAL P <+ (* InversionOn GLOBAL P <+ *) ProgressOn GLOBAL P.
+Module MakeSemantics (GLOBAL : GlobalState) (P : Program GLOBAL) <: Semantics GLOBAL P :=
+  Equalities.Nop <+ SmallStepOn GLOBAL P <+ (* InversionOn GLOBAL P <+ *) ProgressOn GLOBAL P.

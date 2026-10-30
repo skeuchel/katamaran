@@ -74,11 +74,11 @@ Open Scope ctx_scope.
 (* We use the default base because this example does not use any types other
    than the standard ones already available. We also don't make any use of
    registers (global variables). *)
-Import DefaultBase.
+Import DefaultBase DefaultGlobalState.
 
 (* The [Program] module defines the program consisting of only the [summaxlen]
    function. *)
-Module Import ExampleProgram <: Program DefaultBase.
+Module Import ExampleProgram <: Program DefaultGlobalState.
 
   Section FunDeclKit.
 
@@ -94,7 +94,7 @@ Module Import ExampleProgram <: Program DefaultBase.
   End FunDeclKit.
 
   (* Include the definition of statements etc to define the body of [summaxlen]. *)
-  Include FunDeclMixin DefaultBase.
+  Include FunDeclMixin DefaultGlobalState.
 
   Section FunDefKit.
     Import ctx.resolution.
@@ -146,12 +146,11 @@ Module Import ExampleProgram <: Program DefaultBase.
   End FunDefKit.
 
   (* We pull in the default implementation of a store for registers. *)
-  Include DefaultRegStoreKit DefaultBase.
+  Include DefaultRegStoreKit DefaultGlobalState.
 
   (* We do not have any foreign functions in this example and therefore
      instantiate the library with some dummy definitions. *)
   Section ForeignKit.
-    Definition Memory : Set := unit.
     Definition ForeignCall {σs σ} (f : 𝑭𝑿 σs σ) (args : NamedEnv Val σs)
       (res : string + Val σ) (γ γ' : RegStore) (μ μ' : Memory) : Prop := False.
     Lemma ForeignProgress {σs σ} (f : 𝑭𝑿 σs σ) (args : NamedEnv Val σs) γ μ :
@@ -159,7 +158,7 @@ Module Import ExampleProgram <: Program DefaultBase.
     Proof. destruct f. Qed.
   End ForeignKit.
 
-  Include ProgramMixin DefaultBase.
+  Include ProgramMixin DefaultGlobalState.
 
   Import callgraph.
 
@@ -181,18 +180,18 @@ End ExampleProgram.
 (* The program logic signature contains all the necessary definitions
    pertaining to user-defined pure and spatial predicates. We do not have
    any in this example, so use default definitions provided by the library. *)
-Module Import ExampleSig <: Signature DefaultBase.
-  Include DefaultPredicateKit DefaultBase.
-  Include PredicateMixin DefaultBase.
-  Include WorldsMixin DefaultBase.
+Module Import ExampleSig <: Signature DefaultGlobalState.
+  Include DefaultPredicateKit DefaultGlobalState.
+  Include PredicateMixin DefaultGlobalState.
+  Include WorldsMixin DefaultGlobalState.
   (* We do not provide any user-defined simplifier/solver. Just rely on the
      generic one defined by the framework. *)
-  Include DefaultSolverKit DefaultBase.
-  Include SignatureMixin DefaultBase.
+  Include DefaultSolverKit DefaultGlobalState.
+  Include SignatureMixin DefaultGlobalState.
 End ExampleSig.
 
 Module Import ExampleProgramLogic :=
-  MakeProgramLogic DefaultBase ExampleSig ExampleProgram.
+  MakeProgramLogic DefaultGlobalState ExampleSig ExampleProgram.
 
 (* The specification module defines the contract for the [summaxlen] function. *)
 Module Import ExampleSpecification.
@@ -260,10 +259,10 @@ Local Ltac solve :=
 (* Use the specification and the solver module to compose the symbolic executor
    and symbolic verification condition generator. *)
 Module Import ExampleExecutor :=
-  MakeExecutor DefaultBase ExampleSig ExampleProgram ExampleProgramLogic.
+  MakeExecutor DefaultGlobalState ExampleSig ExampleProgram ExampleProgramLogic.
 (* Also instantiate the shallow verification condition generator. *)
 Module Import ExampleShalExec :=
-  MakeShallowExecutor DefaultBase ExampleSig ExampleProgram ExampleProgramLogic.
+  MakeShallowExecutor DefaultGlobalState ExampleSig ExampleProgram ExampleProgramLogic.
 
 (* This computes and proves the shallow VC. Make sure to not unfold the
    definition of the binary operators and Coq predicates used in the example. *)
@@ -349,8 +348,8 @@ Section Debug.
 End Debug.
 
 (* Instantiate the operational semantics. *)
-Module ExampleSemantics <: Semantics DefaultBase ExampleProgram :=
-  MakeSemantics DefaultBase ExampleProgram.
+Module ExampleSemantics <: Semantics DefaultGlobalState ExampleProgram :=
+  MakeSemantics DefaultGlobalState ExampleProgram.
 
 (* This module contains the instantiation of the Iris model with trivial
    definitions for this example. *)
@@ -366,24 +365,24 @@ Module Import ExampleModel.
 
   (* There is no memory, so use trivial definitions to instantiate the ghost
      state and its requirements. *)
-  Module Import ExampleIrisPrelims <: IrisPrelims DefaultBase ExampleProgram ExampleSemantics.
-    Include IrisPrelims DefaultBase ExampleProgram ExampleSemantics.
+  Module Import ExampleIrisPrelims <: IrisPrelims DefaultGlobalState ExampleProgram ExampleSemantics.
+    Include IrisPrelims DefaultGlobalState ExampleProgram ExampleSemantics.
   End ExampleIrisPrelims.
 
-  Module Import ExampleIrisBase <: IrisBase DefaultBase ExampleProgram ExampleSemantics ExampleIrisPrelims.
+  Module Import ExampleIrisBase <: IrisBase DefaultGlobalState ExampleProgram ExampleSemantics ExampleIrisPrelims.
 
     Definition memGS : gFunctors -> Set := fun Σ => True.
     Definition mem_state_interp : forall {Σ}, memGS Σ -> Memory -> iProp Σ := fun Σ mG μ => True%I.
 
     (* Combine the memory and register ghost states. *)
-    Include IrisResources DefaultBase ExampleProgram ExampleSemantics ExampleIrisPrelims.
-    Include IrisWeakestPre DefaultBase ExampleProgram ExampleSemantics ExampleIrisPrelims.
-    Include IrisTotalWeakestPre DefaultBase ExampleProgram ExampleSemantics ExampleIrisPrelims.
-    Include IrisTotalPartialWeakestPre DefaultBase ExampleProgram ExampleSemantics ExampleIrisPrelims.
+    Include IrisResources DefaultGlobalState ExampleProgram ExampleSemantics ExampleIrisPrelims.
+    Include IrisWeakestPre DefaultGlobalState ExampleProgram ExampleSemantics ExampleIrisPrelims.
+    Include IrisTotalWeakestPre DefaultGlobalState ExampleProgram ExampleSemantics ExampleIrisPrelims.
+    Include IrisTotalPartialWeakestPre DefaultGlobalState ExampleProgram ExampleSemantics ExampleIrisPrelims.
 
   End ExampleIrisBase.
 
-  Module ExampleIrisAdeqParams <: IrisAdeqParameters DefaultBase ExampleIrisBase.
+  Module ExampleIrisAdeqParams <: IrisAdeqParameters DefaultGlobalState ExampleIrisBase.
     Import iris.base_logic.lib.gen_heap.
     Import iris.proofmode.proofmode.
 
@@ -400,7 +399,7 @@ Module Import ExampleModel.
   (* Finally, include the constructed operational model, the axiomatic program
      logic, and the Iris implementation of the axioms. *)
   Module Import ExampleIrisInstance <:
-    IrisInstance DefaultBase ExampleSig ExampleProgram ExampleSemantics
+    IrisInstance DefaultGlobalState ExampleSig ExampleProgram ExampleSemantics
       ExampleProgramLogic ExampleIrisPrelims ExampleIrisBase.
 
     (* There are no user-defined spatial predicates, also use trivial definitions
@@ -418,11 +417,11 @@ Module Import ExampleModel.
 
     End ExampleIrisPredicates.
 
-    Include IrisSignatureRules DefaultBase ExampleSig ExampleProgram
+    Include IrisSignatureRules DefaultGlobalState ExampleSig ExampleProgram
       ExampleSemantics ExampleProgramLogic ExampleIrisPrelims ExampleIrisBase.
-    Include IrisAdequacy DefaultBase ExampleSig ExampleProgram ExampleSemantics
+    Include IrisAdequacy DefaultGlobalState ExampleSig ExampleProgram ExampleSemantics
       ExampleProgramLogic ExampleIrisPrelims ExampleIrisBase ExampleIrisAdeqParams.
-    Include IrisInstanceWithContracts DefaultBase ExampleSig ExampleProgram
+    Include IrisInstanceWithContracts DefaultGlobalState ExampleSig ExampleProgram
       ExampleSemantics ExampleProgramLogic ExampleIrisPrelims ExampleIrisBase.
 
     (* Verification of the absent foreign functions. *)
@@ -434,9 +433,9 @@ Module Import ExampleModel.
     Proof. intros Γ l. destruct l. Qed.
 
     (* Import the soundness proofs for the shallow and symbolic executors. *)
-    Include MicroSail.ShallowSoundness.Soundness DefaultBase ExampleSig ExampleProgram
+    Include MicroSail.ShallowSoundness.Soundness DefaultGlobalState ExampleSig ExampleProgram
       ExampleProgramLogic ExampleShalExec.
-    Include MicroSail.RefineExecutor.RefineExecOn DefaultBase ExampleSig
+    Include MicroSail.RefineExecutor.RefineExecOn DefaultGlobalState ExampleSig
       ExampleProgram ExampleProgramLogic ExampleShalExec ExampleExecutor.
 
     (* Show that all the contracts are sound in the Iris model. *)

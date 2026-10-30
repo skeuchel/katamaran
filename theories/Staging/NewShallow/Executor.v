@@ -59,10 +59,10 @@ Set Implicit Arguments.
 Open Scope signature_scope.
 
 Module Type NewShallowExecOn
-  (Import B : Base)
-  (Import SIG : Signature B)
-  (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG).
 
   Import iris.proofmode.proofmode.
 
@@ -1287,11 +1287,11 @@ Module Type NewShallowExecOn
 End NewShallowExecOn.
 
 Module MakeNewShallowExecutor
-  (Import B    : Base)
-  (Import SIG  : Signature B)
-  (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG).
 
-  Include NewShallowExecOn B SIG PROG PLOG.
+  Include NewShallowExecOn GLOBAL SIG PROG PLOG.
 
 End MakeNewShallowExecutor.

@@ -45,9 +45,9 @@ Import ctx.notations.
 Import env.notations.
 
 Module Type ProgramLogic
-  (Import B : Base)
-  (Import SIG : Signature B)
-  (Import PROG : Program B).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL).
 
   Definition SepContractEnv : Type :=
     forall Δ τ (f : 𝑭 Δ τ), option (SepContract Δ τ).
@@ -365,6 +365,6 @@ Module Type ProgramLogic
 End ProgLog.
 End ProgramLogic.
 
-Module MakeProgramLogic (B : Base) (SIG : Signature B) (PROG : Program B) <:
-  ProgramLogic B SIG PROG :=
-  Equalities.Nop <+ ProgramLogic B SIG PROG.
+Module MakeProgramLogic (GLOBAL : GlobalState) (SIG : Signature GLOBAL) (PROG : Program GLOBAL) <:
+  ProgramLogic GLOBAL SIG PROG :=
+  Equalities.Nop <+ ProgramLogic GLOBAL SIG PROG.

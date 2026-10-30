@@ -52,7 +52,7 @@ Module Type RiscvPmpIrisBase2
   (Import RVPCOM : RiscvPmpIrisBaseCommon)
   (RVPBASEl : RiscvPmpIrisBase LeftOrRightLeft RVPCOM)
   (RVPBASEr : RiscvPmpIrisBase LeftOrRightRight RVPCOM)
-  <: IrisBase2 RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RVPCOM RVPBASEl RVPBASEr.
+  <: IrisBase2 RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RVPCOM RVPBASEl RVPBASEr.
 
   (* Defines the memory ghost state. *)
   Section RiscvPmpIrisParams2.
@@ -91,5 +91,5 @@ Module Type RiscvPmpIrisBase2
 
   End RiscvPmpIrisParams2.
 
-  Include IrisResources2 RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RVPCOM RVPBASEl RVPBASEr.
+  Include IrisResources2 RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RVPCOM RVPBASEl RVPBASEr.
 End RiscvPmpIrisBase2.

@@ -55,13 +55,13 @@ Local Set Implicit Arguments.
 Local Set Equations Transparent.
 
 Module Type GenericSolverOn
-  (Import B : Base)
-  (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P)
-  (Import S : SolverKit B P W)
-  (Import SP : SymPropOn B P W)
-  (Import UL : UnifLogicOn B P W)
-  (Import LSP : LogSymPropOn B P W SP UL).
+  (Import GLOBAL : GlobalState)
+  (Import P      : PredicateKit GLOBAL)
+  (Import W      : WorldsMixin GLOBAL P)
+  (Import S      : SolverKit GLOBAL P W)
+  (Import SP     : SymPropOn GLOBAL P W)
+  (Import UL     : UnifLogicOn GLOBAL P W)
+  (Import LSP    : LogSymPropOn GLOBAL P W SP UL).
 
   Import iris.bi.interface iris.proofmode.proofmode proofmode LogicalSoundness.
   Import AutorewriteUnifLogic.

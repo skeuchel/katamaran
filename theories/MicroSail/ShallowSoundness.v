@@ -42,11 +42,11 @@ Import ctx.notations.
 Import env.notations.
 
 Module Type Soundness
-  (Import B : Base)
-  (Import SIG : Signature B)
-  (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG)
-  (Import EXEC : ShallowExecOn B SIG PROG PLOG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG)
+  (Import EXEC   : ShallowExecOn GLOBAL SIG PROG PLOG).
 
   Import CStoreSpec.
   Import ProgLog.
@@ -448,12 +448,12 @@ Module Type Soundness
 End Soundness.
 
 Module MakeShallowSoundness
-  (Import B : Base)
-  (Import SIG : Signature B)
-  (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG)
-  (Import EXEC : ShallowExecOn B SIG PROG PLOG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG)
+  (Import EXEC   : ShallowExecOn GLOBAL SIG PROG PLOG).
 
-  Include Soundness B SIG PROG PLOG EXEC.
+  Include Soundness GLOBAL SIG PROG PLOG EXEC.
 
 End MakeShallowSoundness.

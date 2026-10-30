@@ -63,10 +63,10 @@ Import (hints) bv.finite.
 Set Implicit Arguments.
 
 Module Type SymbolicExecOn
-  (Import B : Base)
-  (Import SIG : Signature B)
-  (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG).
 
   Import Entailment.
   Import Erasure.
@@ -935,11 +935,11 @@ Module Type SymbolicExecOn
 End SymbolicExecOn.
 
 Module MakeExecutor
-  (Import B    : Base)
-  (Import SIG  : Signature B)
-  (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG).
 
-  Include SymbolicExecOn B SIG PROG PLOG.
+  Include SymbolicExecOn GLOBAL SIG PROG PLOG.
 
 End MakeExecutor.
