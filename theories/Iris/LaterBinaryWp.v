@@ -77,11 +77,11 @@ Set Implicit Arguments.
    proofs. *)
 
 Module Type IrisPredicates2
-  (Import B    : Base)
-  (Import SIG  : Signature B)
-  (Import PROG : Program B)
-  (Import SEM  : Semantics B PROG)
-  (Import IB   : IrisBase2 B PROG SEM).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IB     : IrisBase2 GLOBAL PROG SEM).
 
   Parameter resGS2 : gFunctors -> Set.
   Existing Class resGS2.
@@ -93,13 +93,13 @@ Module Type IrisPredicates2
 End IrisPredicates2.
 
 Module Type IrisBinaryWPParameters
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import IP    : IrisParameters B)
-  (Import IB    : IrisBase2 B PROG SEM)
-  (Import IPred : IrisPredicates2 B SIG PROG SEM IB).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IP     : IrisParameters GLOBAL)
+  (Import IB     : IrisBase2 GLOBAL PROG SEM)
+  (Import IPred  : IrisPredicates2 GLOBAL SIG PROG SEM IB).
 
   Parameter reg_inv2       : forall `{sG : sailRegGS2 Σ}, RegStore -> RegStore -> iProp Σ.
   (* Parameter reg_inv_l      : forall `{sG : sailRegGS Σ}, RegStore -> iProp Σ.
@@ -119,10 +119,10 @@ End IrisBinaryWPParameters.
    program is allowed to take zero or one step, the right one always needs to
    be able to take a step. *)
 
-Module IrisBinaryWPAsymmetric (B : Base) (SIG : Signature B) (PROG : Program B)
-  (SEM : Semantics B PROG) (IP : IrisParameters B) (IB : IrisBase2 B PROG SEM) (IPred : IrisPredicates2 B SIG PROG SEM IB)
-  <: IrisBinaryWPParameters B SIG PROG SEM IP IB IPred.
-  Import B SIG PROG SEM IP IB IPred.
+Module IrisBinaryWPAsymmetric (GLOBAL : GlobalState) (SIG : Signature GLOBAL) (PROG : Program GLOBAL)
+  (SEM : Semantics GLOBAL PROG) (IP : IrisParameters GLOBAL) (IB : IrisBase2 GLOBAL PROG SEM) (IPred : IrisPredicates2 GLOBAL SIG PROG SEM IB)
+  <: IrisBinaryWPParameters GLOBAL SIG PROG SEM IP IB IPred.
+  Import GLOBAL SIG PROG SEM IP IB IPred.
 
   Definition reg_inv2   := @regs_inv2.
   Lemma reg_inv2_split : forall `{sG : sailRegGS2 Σ} (γl γr : RegStore),
@@ -137,14 +137,14 @@ Module IrisBinaryWPAsymmetric (B : Base) (SIG : Signature B) (PROG : Program B)
 End IrisBinaryWPAsymmetric.
 
 Module IrisBinaryWP
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import IP    : IrisParameters B)
-  (Import IB    : IrisBase2 B PROG SEM)
-  (Import IPred : IrisPredicates2 B SIG PROG SEM IB)
-  (Import IWP   : IrisBinaryWPParameters B SIG PROG SEM IP IB IPred).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IP     : IrisParameters GLOBAL)
+  (Import IB     : IrisBase2 GLOBAL PROG SEM)
+  (Import IPred  : IrisPredicates2 GLOBAL SIG PROG SEM IB)
+  (Import IWP    : IrisBinaryWPParameters GLOBAL SIG PROG SEM IP IB IPred).
 
   Section WithSailGS2.
   Context `{sG : sailGS2 Σ, resGS2}.
@@ -310,16 +310,16 @@ Module IrisBinaryWP
 End IrisBinaryWP.
 
 Module IrisBinaryWPAsymmetricLaws
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import IP    : IrisParameters B)
-  (Import IB    : IrisBase2 B PROG SEM)
-  (Import IPred : IrisPredicates2 B SIG PROG SEM IB).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IP     : IrisParameters GLOBAL)
+  (Import IB     : IrisBase2 GLOBAL PROG SEM)
+  (Import IPred  : IrisPredicates2 GLOBAL SIG PROG SEM IB).
 
-  Module Export IWPP := IrisBinaryWPAsymmetric B SIG PROG SEM IP IB IPred.
-  Module Export IWP := IrisBinaryWP B SIG PROG SEM IP IB IPred IWPP.
+  Module Export IWPP := IrisBinaryWPAsymmetric GLOBAL SIG PROG SEM IP IB IPred.
+  Module Export IWP := IrisBinaryWP GLOBAL SIG PROG SEM IP IB IPred IWPP.
 
   Section WithSailGS2.
   Context `{sG : sailGS2 Σ}.
@@ -840,16 +840,16 @@ Module IrisBinaryWPAsymmetricLaws
 End IrisBinaryWPAsymmetricLaws.
 
 Module Type IrisSignatureRules2
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import IB    : IrisBase2 B PROG SEM)
-  (Import IPred : IrisPredicates2 B SIG PROG SEM IB).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IB     : IrisBase2 GLOBAL PROG SEM)
+  (Import IPred  : IrisPredicates2 GLOBAL SIG PROG SEM IB).
 
   (* We fix the binary wp to the asymmetric one. A different one would have
      different laws. *)
-  Module Export IWPLaws := IrisBinaryWPAsymmetricLaws B SIG PROG SEM IB IPred.
+  Module Export IWPLaws := IrisBinaryWPAsymmetricLaws GLOBAL SIG PROG SEM IB IPred.
 
   Section WithSailGS2.
   Context `{sG : sailGS2 Σ}.

@@ -93,7 +93,7 @@ Module Type RiscvPmpModel2
   Import RiscvPmpSpecification.
   Import RiscvPmpProgram.
 
-  Include IrisInstanceWithContracts2 RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  Include IrisInstanceWithContracts2 RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpSemantics RiscvPmpProgramLogic
     RVPCOM RVPBASEl RVPBASEr RVPBASE2 RVPADEQ2 RVPINST2.
 

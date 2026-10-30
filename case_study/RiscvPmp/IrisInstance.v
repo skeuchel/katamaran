@@ -50,7 +50,7 @@ Set Implicit Arguments.
 Import bv.notations.
 
 (* Module RiscvPmpIrisAdeqParameters (LOR : LeftOrRight) <: *)
-(*   IrisAdeqParameters RiscvPmpBase. *)
+(*   IrisAdeqParameters RiscvPmpGlobalState. *)
 (*   (* Pull in the definition of the LanguageMixin and register ghost state. *) *)
 (*   Include RiscvPmpIrisBase LOR. *)
 (*   (* Make Rocq automatically pick up the mcMemGS we want (left or right one, depending on LOR) *) *)
@@ -372,7 +372,7 @@ Module Type RiscvPmpIrisInstance (LOR : LeftOrRight)
   (Import RVPCOM : RiscvPmpIrisBaseCommon)
   (Import RVPBASE : RiscvPmpIrisBase LOR RVPCOM)
   (Import RVPPRED : RiscvPmpIrisInstancePredicates LOR RVPCOM RVPBASE)
-<: IrisInstance RiscvPmpBase RiscvPmpSignature RiscvPmpProgram RiscvPmpSemantics RiscvPmpProgramLogic RVPCOM RVPBASE.
+<: IrisInstance RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram RiscvPmpSemantics RiscvPmpProgramLogic RVPCOM RVPBASE.
 
   Import RiscvPmpProgram.
 
@@ -702,9 +702,9 @@ Module Type RiscvPmpIrisInstance (LOR : LeftOrRight)
   End RiscVPmpIrisInstanceProofs.
 
 
-  Include IrisSignatureRules RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
+  Include IrisSignatureRules RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram
     RiscvPmpSemantics RiscvPmpProgramLogic RVPCOM RVPBASE.
-  (* Include IrisAdequacy RiscvPmpBase RiscvPmpSignature RiscvPmpProgram *)
+  (* Include IrisAdequacy RiscvPmpGlobalState RiscvPmpSignature RiscvPmpProgram *)
   (*   RiscvPmpSemantics RiscvPmpProgramLogic RiscvPmpIrisBase RiscvPmpIrisAdeqParameters. *)
 
   Lemma gprs_equiv `{sailGS Σ} : ∀ {Σ} (ι : Valuation Σ) (exclude : gset (Reg ty_xlenbits)),

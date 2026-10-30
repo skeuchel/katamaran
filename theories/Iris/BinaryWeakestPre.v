@@ -75,14 +75,14 @@ Set Implicit Arguments.
    proofs. *)
 
 Module Type IrisPredicates2
-  (Import B    : Base)
-  (Import SIG  : Signature B)
-  (Import PROG : Program B)
-  (Import SEM  : Semantics B PROG)
-  (Import IPre : IrisPrelims B PROG SEM)
-  (IBleft : IrisBase B PROG SEM IPre)
-  (IBright : IrisBase B PROG SEM IPre)
-  (Import IB   : IrisBase2 B PROG SEM IPre IBleft IBright).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (IBleft : IrisBase GLOBAL PROG SEM IPre)
+  (IBright : IrisBase GLOBAL PROG SEM IPre)
+  (Import IB     : IrisBase2 GLOBAL PROG SEM IPre IBleft IBright).
   Parameter luser_inst2 : forall `{sRG : sailRegGS2 Σ} `{invGS Σ} `{mG : memGS2 Σ} (p : 𝑯) (ts : Env Val (𝑯_Ty p)), iProp Σ.
   Parameter lduplicate_inst2 : forall `{sRG : sailRegGS2 Σ} `{invGS Σ} {mG : memGS2 Σ} (p : 𝑯) (ts : Env Val (𝑯_Ty p)),
       is_duplicable p = true ->
@@ -91,15 +91,15 @@ Module Type IrisPredicates2
 End IrisPredicates2.
 
 Module IrisBinaryWP
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import IPre : IrisPrelims B PROG SEM)
-  (IBleft : IrisBase B PROG SEM IPre)
-  (IBright : IrisBase B PROG SEM IPre)
-  (Import IB2   : IrisBase2 B PROG SEM IPre IBleft IBright)
-  (Import IPred : IrisPredicates2 B SIG PROG SEM IPre IBleft IBright IB2).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IPre : IrisPrelims GLOBAL PROG SEM)
+  (IBleft : IrisBase GLOBAL PROG SEM IPre)
+  (IBright : IrisBase GLOBAL PROG SEM IPre)
+  (Import IB2    : IrisBase2 GLOBAL PROG SEM IPre IBleft IBright)
+  (Import IPred  : IrisPredicates2 GLOBAL SIG PROG SEM IPre IBleft IBright IB2).
 
   Section WithSailGS2.
     Context `{sG : sailGS2 Σ}.
@@ -907,18 +907,18 @@ Module IrisBinaryWP
 End IrisBinaryWP.
 
 Module Type IrisSignatureRules2
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import PLOG  : ProgramLogic B SIG PROG)
-  (Import IPre  : IrisPrelims B PROG SEM)
-  (IBleft : IrisBase B PROG SEM IPre)
-  (IBright : IrisBase B PROG SEM IPre)
-  (Import IB2   : IrisBase2 B PROG SEM IPre IBleft IBright)
-  (Import IPred : IrisPredicates2 B SIG PROG SEM IPre IBleft IBright IB2).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (IBleft : IrisBase GLOBAL PROG SEM IPre)
+  (IBright : IrisBase GLOBAL PROG SEM IPre)
+  (Import IB2    : IrisBase2 GLOBAL PROG SEM IPre IBleft IBright)
+  (Import IPred  : IrisPredicates2 GLOBAL SIG PROG SEM IPre IBleft IBright IB2).
 
-  Module Export IWP := IrisBinaryWP B SIG PROG SEM IPre IBleft IBright IB2 IPred.
+  Module Export IWP := IrisBinaryWP GLOBAL SIG PROG SEM IPre IBleft IBright IB2 IPred.
 
   Section WithSailGS2.
   Context `{sG : sailGS2 Σ}.

@@ -62,9 +62,9 @@ Local Set Implicit Arguments.
 Local Obligation Tactic := idtac.
 
 Module Type SymPropOn
-  (Import B : Base)
-  (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P).
+  (Import GLOBAL : GlobalState)
+  (Import P      : PredicateKit GLOBAL)
+  (Import W      : WorldsMixin GLOBAL P).
 
   Section Messages.
 
@@ -2581,11 +2581,11 @@ Module Type SymPropOn
 End SymPropOn.
 
 Module Type LogSymPropOn
-  (Import B : Base)
-  (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P)
-  (Import SP : SymPropOn B P W)
-  (Import UL : UnifLogicOn B P W).
+  (Import GLOBAL : GlobalState)
+  (Import P      : PredicateKit GLOBAL)
+  (Import W      : WorldsMixin GLOBAL P)
+  (Import SP     : SymPropOn GLOBAL P W)
+  (Import UL     : UnifLogicOn GLOBAL P W).
 
   Module LogicalSoundness.
     Import iris.bi.interface iris.proofmode.proofmode.

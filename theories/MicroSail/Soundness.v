@@ -36,12 +36,12 @@ From Katamaran Require Import
   MicroSail.RefineExecutor.
 
 Module MakeSymbolicSoundness
-  (Import B    : Base)
-  (Import SIG  : Signature B)
-  (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG)
-  (Import SHAL : ShallowExecOn B SIG PROG PLOG)
-  (Import SYMB : SymbolicExecOn B SIG PROG PLOG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG)
+  (Import SHAL   : ShallowExecOn GLOBAL SIG PROG PLOG)
+  (Import SYMB   : SymbolicExecOn GLOBAL SIG PROG PLOG).
 
-Include RefineExecOn B SIG PROG PLOG SHAL SYMB.
+Include RefineExecOn GLOBAL SIG PROG PLOG SHAL SYMB.
 End MakeSymbolicSoundness.

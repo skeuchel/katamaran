@@ -209,17 +209,22 @@ Module Import ExampleBase <: Base.
 
   #[export] Instance varkit : VarKit := DefaultVarKit.
 
-  Include DefaultRegDeclKit.
-
-  Definition Memory : Set := unit.
-
   Include BaseMixin.
 
 End ExampleBase.
 
+Module Import ExampleGlobalState <: GlobalState.
+  Module BASE := ExampleBase.
+
+  Include DefaultRegDeclKit BASE.
+
+  Definition Memory : Set := unit.
+
+End ExampleGlobalState.
+
 (*** PROGRAM ***)
 
-Module Import ExampleProgram <: Program ExampleBase.
+Module Import ExampleProgram <: Program ExampleGlobalState.
 
   Section FunDeclKit.
     Inductive Fun : PCtx -> Ty -> Set :=
@@ -243,7 +248,7 @@ Module Import ExampleProgram <: Program ExampleBase.
     Definition 𝑳 : PCtx -> Set := fun _ => Empty_set.
   End FunDeclKit.
 
-  Include FunDeclMixin ExampleBase.
+  Include FunDeclMixin ExampleGlobalState.
 
   Section FunDefKit.
     Import ctx.resolution.
@@ -372,7 +377,7 @@ Module Import ExampleProgram <: Program ExampleBase.
       end.
   End FunDefKit.
 
-  Include DefaultRegStoreKit ExampleBase.
+  Include DefaultRegStoreKit ExampleGlobalState.
 
   Section ForeignKit.
     Definition ForeignCall {σs σ} (f : 𝑭𝑿 σs σ) (args : NamedEnv Val σs)
@@ -382,7 +387,7 @@ Module Import ExampleProgram <: Program ExampleBase.
     Proof. destruct f. Qed.
   End ForeignKit.
 
-  Include ProgramMixin ExampleBase.
+  Include ProgramMixin ExampleGlobalState.
 
   Import callgraph.
 
@@ -432,16 +437,16 @@ Module Import ExampleProgram <: Program ExampleBase.
 
 End ExampleProgram.
 
-Module Import ExampleSig <: Signature ExampleBase.
-  Include DefaultPredicateKit ExampleBase.
-  Include PredicateMixin ExampleBase.
-  Include WorldsMixin ExampleBase.
-  Include DefaultSolverKit ExampleBase.
-  Include SignatureMixin ExampleBase.
+Module Import ExampleSig <: Signature ExampleGlobalState.
+  Include DefaultPredicateKit ExampleGlobalState.
+  Include PredicateMixin ExampleGlobalState.
+  Include WorldsMixin ExampleGlobalState.
+  Include DefaultSolverKit ExampleGlobalState.
+  Include SignatureMixin ExampleGlobalState.
 End ExampleSig.
 
 Module Import ExampleProgramLogic :=
-  MakeProgramLogic ExampleBase ExampleSig ExampleProgram.
+  MakeProgramLogic ExampleGlobalState ExampleSig ExampleProgram.
 
 Module Import ExampleSpecification.
 
@@ -583,7 +588,7 @@ Module Import ExampleSpecification.
 End ExampleSpecification.
 
 Module Import ExampleExecutor :=
-  MakeExecutor ExampleBase ExampleSig ExampleProgram ExampleProgramLogic.
+  MakeExecutor ExampleGlobalState ExampleSig ExampleProgram ExampleProgramLogic.
 
 Local Ltac solve :=
   repeat

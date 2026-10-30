@@ -55,10 +55,10 @@ Import SignatureNotations.
 Set Implicit Arguments.
 
 Module Type ShallowExecOn
-  (Import B : Base)
-  (Import SIG : Signature B)
-  (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG).
 
   (* The main specification monad that we use for execution. It is indexed by
      two program variable contexts Γ1 Γ2 that encode the shape of the program
@@ -507,11 +507,11 @@ Module Type ShallowExecOn
 End ShallowExecOn.
 
 Module MakeShallowExecutor
-  (Import B    : Base)
-  (Import SIG  : Signature B)
-  (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG).
 
-  Include ShallowExecOn B SIG PROG PLOG.
+  Include ShallowExecOn GLOBAL SIG PROG PLOG.
 
 End MakeShallowExecutor.

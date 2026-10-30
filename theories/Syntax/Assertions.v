@@ -45,9 +45,9 @@ Import env.notations.
 Local Set Implicit Arguments.
 
 Module Type AssertionsOn
-  (Import B : Base)
-  (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P).
+  (Import GLOBAL : GlobalState)
+  (Import P      : PredicateKit GLOBAL)
+  (Import W      : WorldsMixin GLOBAL P).
 Module Import asn.
 
   Local Obligation Tactic := idtac.
