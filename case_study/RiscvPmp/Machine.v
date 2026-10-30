@@ -1940,15 +1940,10 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
     stm_val ty_retired RETIRE_FAIL.
 
   Definition fun_execute_CSR : Stm [csr :: ty_csridx; rs1 :: ty_regno; rd :: ty_regno; is_imm :: ty.bool; op :: ty_csrop] ty_retired :=
-    let: rs1_val := if: is_imm
-                    then exp_zext rs1
-                    else call rX rs1 in
-    let: isWrite := match: op in csrop with
-                    | CSRRW => exp_val ty.bool true
-                    | _     => if: is_imm
-                               then exp_unsigned rs1_val != exp_val ty.int 0%Z
-                               else exp_unsigned rs1 != exp_val ty.int 0%Z
-                    end in
+    (* Sail branches on op and is_imm here; both is_imm cases compare
+       unsigned rs1 with 0, and an expression avoids splitting the VC. *)
+    let: isWrite := (op = exp_val ty_csrop CSRRW) ||
+                    (exp_unsigned rs1 != exp_val ty.int 0%Z) in
     let: tmp1 := stm_read_register cur_privilege in
     let: tmp2 := call check_CSR csr tmp1 in
     if: tmp2 (* then and else branch switched, Sail model uses a not here *)
@@ -1956,7 +1951,12 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
       (use lemma open_pmp_entries ;;
        let: csr_val := call readCSR csr in
        (if: isWrite
-        then let: new_val := match: op in csrop with
+        then (* Sail reads rs1 before check_CSR; reading it only here is
+                equivalent (rX has no effects) and keeps the VC smaller. *)
+             let: rs1_val := if: is_imm
+                             then exp_zext rs1
+                             else call rX rs1 in
+             let: new_val := match: op in csrop with
                              | CSRRW => rs1_val
                              | CSRRS => exp_binop bop.bvor csr_val rs1_val
                              | CSRRC => exp_binop bop.bvand csr_val (exp_unop uop.bvnot rs1_val)
