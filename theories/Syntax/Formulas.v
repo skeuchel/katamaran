@@ -53,8 +53,8 @@ Import env.notations.
 Local Set Implicit Arguments.
 
 Module Type FormulasOn
-  (Import B : Base)
-  (Import P : PredicateKit B).
+  (Import GLOBAL : GlobalState)
+  (Import P      : PredicateKit GLOBAL).
 
   Local Obligation Tactic := idtac.
 

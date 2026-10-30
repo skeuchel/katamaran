@@ -43,14 +43,14 @@ From Katamaran Require Export
 
 (* TotalPartialWeakestPre adds some lemmas that involve both the twp and wp. *)
 Module Type IrisTotalPartialWeakestPre
-  (Import B    : Base)
-  (Import PROG : Program B)
-  (Import SEM  : Semantics B PROG)
-  (Import IPre : IrisPrelims B PROG SEM)
-  (Import IP   : IrisParameters B)
-  (Import IR   : IrisResources B PROG SEM IPre IP)
-  (Import IWP  : IrisWeakestPre B PROG SEM IPre IP IR)
-  (Import ITWP : IrisTotalWeakestPre B PROG SEM IPre IP IR).
+  (Import GLOBAL : GlobalState)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (Import IP     : IrisParameters GLOBAL)
+  (Import IR     : IrisResources GLOBAL PROG SEM IPre IP)
+  (Import IWP    : IrisWeakestPre GLOBAL PROG SEM IPre IP IR)
+  (Import ITWP   : IrisTotalWeakestPre GLOBAL PROG SEM IPre IP IR).
 
   Section WithSailGS.
     Context `{sG : sailGS Σ}.
@@ -61,5 +61,5 @@ Module Type IrisTotalPartialWeakestPre
   End WithSailGS.
 End IrisTotalPartialWeakestPre.
 
-Module Type IrisBase (B : Base) (PROG : Program B) (SEM : Semantics B PROG) (IPre : IrisPrelims B PROG SEM) :=
-  IrisParameters B <+ IrisResources B PROG SEM IPre <+ IrisWeakestPre B PROG SEM IPre <+ IrisTotalWeakestPre B PROG SEM IPre <+ IrisTotalPartialWeakestPre B PROG SEM IPre.
+Module Type IrisBase (GLOBAL : GlobalState) (PROG : Program GLOBAL) (SEM : Semantics GLOBAL PROG) (IPre : IrisPrelims GLOBAL PROG SEM) :=
+  IrisParameters GLOBAL <+ IrisResources GLOBAL PROG SEM IPre <+ IrisWeakestPre GLOBAL PROG SEM IPre <+ IrisTotalWeakestPre GLOBAL PROG SEM IPre <+ IrisTotalPartialWeakestPre GLOBAL PROG SEM IPre.

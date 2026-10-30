@@ -45,8 +45,8 @@ Set Implicit Arguments.
 Import RiscvPmpProgram.
 Import bv.notations.
 
-Module Type RiscvPmpIrisBaseCommon <: IrisPrelims RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics.
-  Include IrisPrelims RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics.
+Module Type RiscvPmpIrisBaseCommon <: IrisPrelims RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics.
+  Include IrisPrelims RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics.
 
   (* Defines the memory ghost state. *)
   Definition MemVal : Set := Byte.
@@ -370,7 +370,7 @@ End LeftOrRightRight.
    user-defined predicates. *)
 Module Type RiscvPmpIrisBase (Import leftOrRight : LeftOrRight)
   (Import RVPCOM : RiscvPmpIrisBaseCommon)
-  <: IrisBase RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RVPCOM.
+  <: IrisBase RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RVPCOM.
   (* Pull in the definition of the LanguageMixin and register ghost state. *)
 
   Section RiscvPmpIrisParams.
@@ -403,10 +403,10 @@ Module Type RiscvPmpIrisBase (Import leftOrRight : LeftOrRight)
 
   End RiscvPmpIrisParams.
 
-  Include IrisResources RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RVPCOM.
-  Include IrisWeakestPre RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RVPCOM.
-  Include IrisTotalWeakestPre RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RVPCOM.
-  Include IrisTotalPartialWeakestPre RiscvPmpBase RiscvPmpProgram RiscvPmpSemantics RVPCOM.
+  Include IrisResources RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RVPCOM.
+  Include IrisWeakestPre RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RVPCOM.
+  Include IrisTotalWeakestPre RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RVPCOM.
+  Include IrisTotalPartialWeakestPre RiscvPmpGlobalState RiscvPmpProgram RiscvPmpSemantics RVPCOM.
 
   Import iris.program_logic.weakestpre.
 

@@ -79,9 +79,9 @@ Proof. intros pf ? ? <-. apply pf. Qed.
 #[export] Hint Extern 1 (Proper _ (match ?p with left _ => _ | right _ => _ end)) =>
   destruct p : monotonic.
 
-Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P) (Import SP : SymPropOn B P W)
-  (Import AS : AssertionsOn B P W).
+Module Type ShallowMonadsOn (Import GLOBAL : GlobalState) (Import P : PredicateKit GLOBAL)
+  (Import W : WorldsMixin GLOBAL P) (Import SP : SymPropOn GLOBAL P W)
+  (Import AS : AssertionsOn GLOBAL P W).
 
   (* This is used by potentially multiple instances, but ultimately should be
      moved somewhere else. *)

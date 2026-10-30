@@ -395,6 +395,20 @@ Module Export MinCapsBase <: Base.
 
   #[export] Instance varkit : VarKit := DefaultVarKit.
 
+  Include BaseMixin.
+
+End MinCapsBase.
+
+Module Export MinCapsGlobalState <: GlobalState.
+  Module BASE := MinCapsBase.
+
+  Import ctx.notations.
+  Import ctx.resolution.
+  Import env.notations.
+  Import stdpp.finite.
+
+  #[local] Open Scope string_scope.
+
   Section RegDeclKit.
 
     Inductive Reg : Ty -> Set :=
@@ -433,6 +447,4 @@ Module Export MinCapsBase <: Base.
     Definition Memory := Addr -> (Z + Capability).
   End MemoryModel.
 
-  Include BaseMixin.
-
-End MinCapsBase.
+End MinCapsGlobalState.

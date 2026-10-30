@@ -93,7 +93,7 @@ Module RiscvPmpModel2.
   Import RiscvPmpProgram.
   Import RiscvPmpIrisInstance.
 
-  Include IrisInstanceWithContracts RiscvPmpBase RiscvPmpSignature
+  Include IrisInstanceWithContracts RiscvPmpGlobalState RiscvPmpSignature
     RiscvPmpProgram RiscvPmpSemantics RiscvPmpProgramLogic RiscvPmpIrisPrelims
     RiscvPmpIrisBase RiscvPmpIrisInstance.
 

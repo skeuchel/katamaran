@@ -42,7 +42,7 @@ Class IsDuplicable (T : Type) :=
   { is_duplicable : T -> bool
   }.
 
-Module Type PurePredicateKit (Import B : BaseKit).
+Module Type PurePredicateKit (Import GLOBAL : GlobalState).
   (** Pure Predicates *)
   (* Predicate names. *)
   Parameter Inline 𝑷  : Set.
@@ -54,7 +54,7 @@ Module Type PurePredicateKit (Import B : BaseKit).
 
 End PurePredicateKit.
 
-Module Type HeapPredicateKit (Import B : BaseKit).
+Module Type HeapPredicateKit (Import GLOBAL : GlobalState).
   (** Heap Predicates *)
   (* Predicate names. *)
   Parameter Inline 𝑯  : Set.
@@ -69,7 +69,7 @@ Module Type HeapPredicateKit (Import B : BaseKit).
 
 End HeapPredicateKit.
 
-Module Type PredicateMixin (Import B : BaseKit) (Import PP : PurePredicateKit B) (Import HP : HeapPredicateKit B).
+Module Type PredicateMixin (Import GLOBAL : GlobalState) (Import PP : PurePredicateKit GLOBAL) (Import HP : HeapPredicateKit GLOBAL).
   Class PredicateDef (HProp : bi) : Type :=
   { lptsreg    : forall {σ : Ty}, 𝑹𝑬𝑮 σ -> Val σ -> HProp;
     luser      : forall (p : 𝑯), Env Val (𝑯_Ty p) -> HProp;
@@ -80,5 +80,5 @@ Module Type PredicateMixin (Import B : BaseKit) (Import PP : PurePredicateKit B)
   Arguments luser {_ _} p _.
 End PredicateMixin.
 
-Module Type PredicateKit (B : BaseKit) :=
-  PurePredicateKit B <+ HeapPredicateKit B <+ PredicateMixin B.
+Module Type PredicateKit (GLOBAL : GlobalState) :=
+  PurePredicateKit GLOBAL <+ HeapPredicateKit GLOBAL <+ PredicateMixin GLOBAL.

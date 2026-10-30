@@ -62,29 +62,29 @@ Import env.notations.
 
 Set Implicit Arguments.
 
-Module Type IrisInstance2 (B : Base) (SIG : Signature B) (PROG : Program B)
-  (SEM : Semantics B PROG) (PLOG : ProgramLogic B SIG PROG)
-  (IPre : IrisPrelims B PROG SEM)
-  (IBleft IBright : IrisBase B PROG SEM IPre)
-  (IB2 : IrisBase2 B PROG SEM IPre IBleft IBright)
-  (IAP : IrisAdeqParameters2 B IBleft IBright IB2) :=
-  IrisPredicates2 B SIG PROG SEM IPre IBleft IBright IB2 <+ IrisSignatureRules2 B SIG PROG SEM PLOG IPre IBleft IBright IB2
-    <+ IrisAdequacy2 B SIG PROG SEM PLOG IPre IBleft IBright IB2 IAP.
+Module Type IrisInstance2 (GLOBAL : GlobalState) (SIG : Signature GLOBAL) (PROG : Program GLOBAL)
+  (SEM : Semantics GLOBAL PROG) (PLOG : ProgramLogic GLOBAL SIG PROG)
+  (IPre : IrisPrelims GLOBAL PROG SEM)
+  (IBleft IBright : IrisBase GLOBAL PROG SEM IPre)
+  (IB2 : IrisBase2 GLOBAL PROG SEM IPre IBleft IBright)
+  (IAP : IrisAdeqParameters2 GLOBAL IBleft IBright IB2) :=
+  IrisPredicates2 GLOBAL SIG PROG SEM IPre IBleft IBright IB2 <+ IrisSignatureRules2 GLOBAL SIG PROG SEM PLOG IPre IBleft IBright IB2
+    <+ IrisAdequacy2 GLOBAL SIG PROG SEM PLOG IPre IBleft IBright IB2 IAP.
 
 (*  * The following module defines the parts of the Iris model that must depend on the Specification, not just on the Signature. *)
 (*  * This is kept to a minimum (see comment for the IrisPredicates module). *)
 (*  *)
 Module IrisInstanceWithContracts2
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import PLOG  : ProgramLogic B SIG PROG)
-  (Import IPre  : IrisPrelims B PROG SEM)
-  (IBleft IBright : IrisBase B PROG SEM IPre)
-  (Import IB2   : IrisBase2 B PROG SEM IPre IBleft IBright)
-  (Import IAP   : IrisAdeqParameters2 B IBleft IBright IB2)
-  (Import II    : IrisInstance2 B SIG PROG SEM PLOG IPre IBleft IBright IB2 IAP).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import PLOG   : ProgramLogic GLOBAL SIG PROG)
+  (Import IPre   : IrisPrelims GLOBAL PROG SEM)
+  (IBleft IBright : IrisBase GLOBAL PROG SEM IPre)
+  (Import IB2    : IrisBase2 GLOBAL PROG SEM IPre IBleft IBright)
+  (Import IAP    : IrisAdeqParameters2 GLOBAL IBleft IBright IB2)
+  (Import II     : IrisInstance2 GLOBAL SIG PROG SEM PLOG IPre IBleft IBright IB2 IAP).
 
   Section WithSailGS.
   Import ProgLog.

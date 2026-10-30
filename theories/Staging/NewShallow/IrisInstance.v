@@ -73,11 +73,11 @@ Set Implicit Arguments.
    code with known code verifications, e.g. as in the RiscvPmp.BlockVerification
    proofs. *)
 Module Type IrisPredicates
-  (Import B    : Base)
-  (Import SIG  : Signature B)
-  (Import PROG : Program B)
-  (Import SEM  : Semantics B PROG)
-  (Import IB   : IrisBase B PROG SEM).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IB     : IrisBase GLOBAL PROG SEM).
   Parameter luser_inst : forall `{sRG : sailRegGS Σ} `{invGS Σ} (mG : memGS Σ) (p : 𝑯) (ts : Env Val (𝑯_Ty p)), iProp Σ.
   Parameter lduplicate_inst : forall `{sRG : sailRegGS Σ} `{invGS Σ} (mG : memGS Σ) (p : 𝑯) (ts : Env Val (𝑯_Ty p)),
       is_duplicable p = true -> bi_entails (luser_inst (sRG := sRG) mG ts) (luser_inst (sRG := sRG) mG ts ∗ luser_inst (sRG := sRG) mG ts).
@@ -85,12 +85,12 @@ Module Type IrisPredicates
 End IrisPredicates.
 
 Module Type IrisSignatureRules
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import IB    : IrisBase B PROG SEM)
-  (Import IPred : IrisPredicates B SIG PROG SEM IB).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IB     : IrisBase GLOBAL PROG SEM)
+  (Import IPred  : IrisPredicates GLOBAL SIG PROG SEM IB).
 Section Soundness.
 
   Import SmallStepNotations.
@@ -384,14 +384,14 @@ End Soundness.
 End IrisSignatureRules.
 
 Module Type IrisAdequacy
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import IB    : IrisBase B PROG SEM)
-  (Import IAP   : IrisAdeqParameters B IB)
-  (Import IPred : IrisPredicates B SIG PROG SEM IB)
-  (Import ISR   : IrisSignatureRules B SIG PROG SEM IB IPred).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import IB     : IrisBase GLOBAL PROG SEM)
+  (Import IAP    : IrisAdeqParameters GLOBAL IB)
+  (Import IPred  : IrisPredicates GLOBAL SIG PROG SEM IB)
+  (Import ISR    : IrisSignatureRules GLOBAL SIG PROG SEM IB IPred).
 
 
   Import SmallStepNotations.
@@ -619,24 +619,24 @@ Module Type IrisAdequacy
 
 End IrisAdequacy.
 
-Module Type IrisInstance (B : Base) (SIG : Signature B) (PROG : Program B)
-  (SEM : Semantics B PROG) (IB : IrisBase B PROG SEM) (IAP : IrisAdeqParameters B IB) :=
-  IrisPredicates B SIG PROG SEM IB <+ IrisSignatureRules B SIG PROG SEM IB <+ IrisAdequacy B SIG PROG SEM IB IAP.
+Module Type IrisInstance (GLOBAL : GlobalState) (SIG : Signature GLOBAL) (PROG : Program GLOBAL)
+  (SEM : Semantics GLOBAL PROG) (IB : IrisBase GLOBAL PROG SEM) (IAP : IrisAdeqParameters GLOBAL IB) :=
+  IrisPredicates GLOBAL SIG PROG SEM IB <+ IrisSignatureRules GLOBAL SIG PROG SEM IB <+ IrisAdequacy GLOBAL SIG PROG SEM IB IAP.
 
 (*
  * The following module defines the parts of the Iris model that must depend on the Specification, not just on the Signature.
  * This is kept to a minimum (see comment for the IrisPredicates module).
  *)
 Module IrisInstanceWithContracts
-  (Import B     : Base)
-  (Import SIG   : Signature B)
-  (Import PROG  : Program B)
-  (Import SEM   : Semantics B PROG)
-  (Import SPEC  : Specification B SIG PROG)
-  (Import IB    : IrisBase B PROG SEM)
-  (Import IAP   : IrisAdeqParameters B IB)
-  (Import II    : IrisInstance B SIG PROG SEM IB IAP)
-  (Import NS    : NewShallowExecOn B SIG PROG SPEC).
+  (Import GLOBAL : GlobalState)
+  (Import SIG    : Signature GLOBAL)
+  (Import PROG   : Program GLOBAL)
+  (Import SEM    : Semantics GLOBAL PROG)
+  (Import SPEC   : Specification GLOBAL SIG PROG)
+  (Import IB     : IrisBase GLOBAL PROG SEM)
+  (Import IAP    : IrisAdeqParameters GLOBAL IB)
+  (Import II     : IrisInstance GLOBAL SIG PROG SEM IB IAP)
+  (Import NS     : NewShallowExecOn GLOBAL SIG PROG SPEC).
 
   Section WithSailGS.
   Context {Σ} {sG : sailGS Σ}.

@@ -47,7 +47,7 @@ Import env.notations.
 Local Set Implicit Arguments.
 Local Set Transparent Obligations.
 
-Module Type StatementsOn (Import B : Base) (Import F : FunDeclKit B).
+Module Type StatementsOn (Import GLOBAL : GlobalState) (Import F : FunDeclKit GLOBAL).
 
   Inductive Stm (Γ : PCtx) (τ : Ty) : Type :=
   | stm_val           (v : Val τ)
@@ -738,4 +738,4 @@ Module Type StatementsOn (Import B : Base) (Import F : FunDeclKit B).
     (at level 10, no associativity) : exp_scope.
 End StatementsOn.
 
-Module Type FunDecl (B : Base) := FunDeclKit B <+ StatementsOn B.
+Module Type FunDecl (GLOBAL : GlobalState) := FunDeclKit GLOBAL <+ StatementsOn GLOBAL.
