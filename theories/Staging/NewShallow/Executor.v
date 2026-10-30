@@ -268,6 +268,18 @@ Module Type NewShallowExecOn
             produce ens ι
         end.
 
+      Definition read_register {τ} (reg : 𝑹𝑬𝑮 τ) : M (Val τ) :=
+        v <- angelic τ ;;
+        _ <- consume_chunk (chunk_ptsreg reg v) ;;
+        _ <- produce_chunk (chunk_ptsreg reg v) ;;
+        pure v.
+
+      Definition write_register {τ} (reg : 𝑹𝑬𝑮 τ) (vnew : Val τ) : M (Val τ) :=
+        vold <- angelic τ ;;
+        _ <- consume_chunk (chunk_ptsreg reg vold) ;;
+        _ <- produce_chunk (chunk_ptsreg reg vnew) ;;
+        pure vnew.
+
     End Derived.
 
   End CHeapSpecM.
@@ -327,7 +339,7 @@ Module Type NewShallowExecOn
       Definition pattern_match {N : Set} {A σ Γ1 Γ2} (v : Val σ) (pat : Pattern (N:=N) σ)
         (k : forall (c : PatternCase pat), NamedEnv Val (PatternCaseCtx c) -> CStoreT Γ1 Γ2 A) :
         CStoreT Γ1 Γ2 A :=
-        fun δ1 => let (pc,δpc) := pattern_match_val pat v in k pc δpc δ1.
+        let (pc,δpc) := pattern_match_val pat v in k pc δpc.
 
       #[local] Notation "x <- ma ;; mb" :=
         (bind ma (fun x => mb))
@@ -400,17 +412,10 @@ Module Type NewShallowExecOn
               pattern_match v pat
                 (fun pc δpc => pushspops δpc (exec (rhs pc)))
             | stm_read_register reg =>
-              v <- lift (angelic τ) ;;
-              let c := chunk_ptsreg reg v in
-              _ <- lift (consume_chunk c) ;;
-              _ <- lift (produce_chunk c) ;;
-              pure v
+              lift (read_register reg)
             | stm_write_register reg e =>
-              v__old <- lift (angelic τ) ;;
-              _    <- lift (consume_chunk (chunk_ptsreg reg v__old)) ;;
-              v__new <- eval_exp e ;;
-              _    <- lift (produce_chunk (chunk_ptsreg reg v__new)) ;;
-              pure v__new
+              v <- eval_exp e ;;
+              lift (write_register reg v)
             | stm_bind s k =>
               v <- exec s ;;
               exec (k v)
@@ -458,16 +463,8 @@ Module Type NewShallowExecOn
     Definition cexec_call_foreign : ExecCallForeign M :=
       fun Δ τ f args => call_contract (CEnvEx f) args.
 
-    Definition debug_lemma [Δ] (f : 𝑳 Δ) (args : CStore Δ) : M unit :=
-      pure tt.
-
     Definition cexec_lemma : ExecLemma M :=
-      fun Δ l args =>
-        _ <- debug_lemma l args ;;
-        call_lemma (LEnv l) args.
-
-    Definition debug_call [Δ τ] (f : 𝑭 Δ τ) (args : CStore Δ) : M unit :=
-      pure tt.
+      fun Δ l args => call_lemma (LEnv l) args.
 
     Definition cexec_fail : ExecFail M :=
       fun Γ τ s => CStoreT.lift (if fail_rule_pre then block else error).
@@ -477,7 +474,6 @@ Module Type NewShallowExecOn
        allowed levels before failing execution. *)
     Fixpoint cexec_call (inline_fuel : nat) : ExecCall M :=
       fun Δ τ f args =>
-        _ <- debug_call f args ;;
         (* Let's first see if we have a contract defined for function [f]
            and then if we have enough fuel for inlining. *)
         match CEnv f , inline_fuel with
