@@ -194,7 +194,6 @@ Module Type Soundness
     Lemma sound_cexec_call (fuel : nat) : SoundExecCall (cexec_call fuel).
     Proof.
       induction fuel; intros Γ τ Δ f es POST δ; cbn [cexec_call];
-        cbv [debug_call];
         destruct (CEnv f) as [c|] eqn:Heq.
       - eapply rule_stm_call; [exact Heq|apply (call_contract_sound c)].
       - eapply rule_consequence_left. apply rule_false. easy.
