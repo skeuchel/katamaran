@@ -2887,6 +2887,14 @@ Module Type LogSymPropOn
         FromPure false (RSat RProp P (w := w) SymProp.block) P.
       Proof. now constructor. Qed.
 
+      Lemma refine_symprop_block {w : World} {P : Prop} :
+        ⌜ P ⌝ ⊢ ℛ⟦RProp⟧ P (@block w).
+      Proof. now iIntros "HP _". Qed.
+
+      #[export] Instance refine_compat_symprop_block {w : World} {P : Prop} :
+        RSolve.RefineCompat RProp P w block ⌜ P ⌝ :=
+        RSolve.MkRefineCompat refine_symprop_block.
+
     End logicalrelation.
     Notation "'ℙ'" := (RProp) : rel_scope.
 

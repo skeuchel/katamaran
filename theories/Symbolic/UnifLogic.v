@@ -1425,8 +1425,7 @@ Module Type UnifLogicOn
       now iApply (refine_compat_lemma compatf with "Hcf").
     Qed.
 
-    (* Proof mode steps for [rsolve_step]. They replace [iApply], [iSplit] and
-       [iIntros], whose generic type class searches dominated its run time. *)
+    (* Proof mode steps for [rsolve_step]. *)
     Lemma tac_refine_compat `{R : Rel AT A} {v w vs Ob} {Δ : envs (Pred w)} :
       RefineCompat R v w vs Ob → envs_entails Δ Ob → envs_entails Δ (ℛ⟦R⟧ v vs).
     Proof. rewrite envs_entails_unseal. intros [H] HΔ. now rewrite HΔ. Qed.
@@ -1484,7 +1483,12 @@ Module Type UnifLogicOn
 
     Ltac rsolve :=
       iStartProof;
-      repeat rsolve_step; try done;
+      repeat rsolve_step;
+      (* [RSat] goals left by [rsolve_step] have no [RefineCompat] instance. *)
+      try lazymatch goal with
+        | |- envs_entails _ (ℛ⟦_⟧ _ _) => iAssumption
+        | |- _ => done
+        end;
       (* After walking through the symbolic computation using the above lemmas,
        * we try to apply induction hypotheses.
        * To do this, we determine the right world to apply the IH in by looking at the current goal.
@@ -1613,6 +1617,10 @@ Module Type UnifLogicOn
       ⊢ ℛ⟦ RUnit ⟧ u su : Pred w.
     Proof. destruct u, su. now crushPredEntails3. Qed.
     Hint Resolve refine_unit : core.
+
+    #[export] Instance refine_compat_unit {w} {u su} :
+      RefineCompat RUnit u w su emp :=
+      MkRefineCompat refine_unit.
 
     Lemma RProd_pair {AT A} {RA : Rel AT A} {BT B} {RB : Rel BT B} {w} {v1 v2 sv1} {sv2 : BT w}:
       ℛ⟦ RProd RA RB ⟧ (v1, v2) (sv1 , sv2) ⊣⊢ ℛ⟦ RA ⟧ v1 sv1 ∗ ℛ⟦ RB ⟧ v2 sv2.
@@ -1757,6 +1765,10 @@ Module Type UnifLogicOn
     Lemma refine_formula_bool {w : World} {v} {sv : Term w ty.bool} :
       ℛ⟦RVal ty.bool⟧ v sv ⊢ ℛ⟦RFormula⟧ (v = true) (formula_bool sv).
     Proof. unfold RVal, RInst. crushPredEntails3; cbn in *; now subst. Qed.
+
+    Lemma refine_formula_true {w : World} :
+      ⊢ ℛ⟦RFormula⟧ True%type (formula_true : Formula w).
+    Proof. unfold RFormula. crushPredEntails3. Qed.
 
     Lemma refine_formula_relop {w : World} {σ v1 v2} {sv1 sv2 : Term w σ}  {relop : RelOp σ}:
       ℛ⟦ RVal σ ⟧ v1 sv1 ∗ ℛ⟦ RVal σ ⟧ v2 sv2 ⊢
@@ -2115,6 +2127,10 @@ Module Type UnifLogicOn
     MkRefineCompat refine_term_binop.
   #[global] Opaque refine_compat_term_binop.
   #[export] Hint Extern 0 (RefineCompat (RVal _) _ _ (term_binop ?binop _ _) _) => ( refine (refine_compat_term_binop (op := binop)) ) : typeclass_instances.
+
+  #[export] Instance refine_compat_formula_true {w : World} :
+    RefineCompat RFormula True%type w formula_true _ :=
+    MkRefineCompat refine_formula_true.
 
   #[export] Instance refine_compat_formula_bool {w : World} {v} {sv : Term w ty.bool} :
     RefineCompat RFormula (v = true) w (formula_bool sv) _ :=
