@@ -1425,20 +1425,60 @@ Module Type UnifLogicOn
       now iApply (refine_compat_lemma compatf with "Hcf").
     Qed.
 
+    (* Proof mode steps for [rsolve_step]. They replace [iApply], [iSplit] and
+       [iIntros], whose generic type class searches dominated its run time. *)
+    Lemma tac_refine_compat `{R : Rel AT A} {v w vs Ob} {Δ : envs (Pred w)} :
+      RefineCompat R v w vs Ob → envs_entails Δ Ob → envs_entails Δ (ℛ⟦R⟧ v vs).
+    Proof. rewrite envs_entails_unseal. intros [H] HΔ. now rewrite HΔ. Qed.
+
+    Lemma tac_sep_split_pred {w} {Δ : envs (Pred w)} {P Q} :
+      envs_entails Δ P → envs_entails Δ Q → envs_entails Δ (P ∗ Q).
+    Proof.
+      rewrite envs_entails_unseal => HP HQ.
+      rewrite -bi.persistent_and_sep_1. now apply bi.and_intro.
+    Qed.
+
+    Lemma tac_rbox_intro `{R : Rel AT A} {v w} {vs : Box AT w} {Δ : envs (Pred w)} :
+      (∀ w2 (ω : w ⊒ w2), envs_entails Δ (assuming ω (ℛ⟦R⟧ v (vs w2 ω)))) →
+      envs_entails Δ (ℛ⟦□ᵣ R⟧ v vs).
+    Proof.
+      rewrite envs_entails_unseal => H.
+      apply bi.forall_intro => w2. apply bi.forall_intro => ω. apply H.
+    Qed.
+
+    Lemma tac_unconditionally_intro {w} {P : Box Pred w} {Δ : envs (Pred w)} :
+      (∀ w2 (ω : w ⊒ w2), envs_entails Δ (assuming ω (P w2 ω))) →
+      envs_entails Δ (unconditionally P).
+    Proof.
+      rewrite envs_entails_unseal => H.
+      apply bi.forall_intro => w2. apply bi.forall_intro => ω. apply H.
+    Qed.
+
+    Lemma tac_rimpl_intro `{RA : Rel AT A} `{RB : Rel BT B} {f w} {fs : Impl AT BT w}
+      {Δ : envs (Pred w)} :
+      (∀ a ta, envs_entails Δ (ℛ⟦RA⟧ a ta -∗ ℛ⟦RB⟧ (f a) (fs ta))) →
+      envs_entails Δ (ℛ⟦RA -> RB⟧ f fs).
+    Proof.
+      rewrite envs_entails_unseal => H.
+      apply bi.forall_intro => a. apply bi.forall_intro => ta. apply H.
+    Qed.
+
     Ltac rsolve_step :=
       first [
           (lazymatch goal with
-           | |- envs_entails _ (ℛ⟦□ᵣ _⟧ _ _) => iIntros (? ?) "!>"
+           | |- envs_entails _ (ℛ⟦□ᵣ _⟧ _ _) =>
+               notypeclasses refine (tac_rbox_intro _); intros ? ?; iModIntro
            | |- envs_entails _ (forgetting _ _) => iModIntro
-           | |- envs_entails _ (ℛ⟦_ -> _⟧ _ _) => iIntros (? ?) "#?"
+           | |- envs_entails _ (ℛ⟦_ -> _⟧ _ _) =>
+               notypeclasses refine (tac_rimpl_intro _); intros ? ?; iIntros "#?"
            end)
         | lazymatch goal with
           | |- envs_entails _ (ℛ⟦ ?R ⟧ ?v ?vs) =>
-              (iApply (refine_compat_lemma (R := R) (vs := vs));
-               lazymatch goal with | |- RefineCompat _ _ _ _ _ => fail | _ => idtac end
-              )
-          | |- envs_entails _ (_ ∗ _) => iSplit
-          | |- envs_entails _ (unconditionally _) => iIntros (? ?) "!>"
+              notypeclasses refine (tac_refine_compat (R := R) (v := v) (vs := vs) _ _);
+              [tc_solve|]
+          | |- envs_entails _ (_ ∗ _) => notypeclasses refine (tac_sep_split_pred _ _)
+          | |- envs_entails _ (unconditionally _) =>
+              notypeclasses refine (tac_unconditionally_intro _); intros ? ?; iModIntro
           end
         ].
 
