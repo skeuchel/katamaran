@@ -1,13 +1,8 @@
-
 Require
-  Katamaran.MinimalCaps.LoopVerification
   Katamaran.RiscvPmp.Everything
   Katamaran.RiscvPmp.FemtoKernel.Integrity
   Katamaran.RiscvPmp.FemtoKernel.Confidentiality.
 Import Stdlib.Numbers.BinNums Stdlib.Strings.String Bitvector.
-
-Goal True. idtac "Assumptions of MinimalCaps universal contract:". Abort.
-Print Assumptions MinimalCaps.LoopVerification.valid_semContract_loop2.
 
 Goal True. idtac "Assumptions of Risc-V PMP universal contract (left instance):". Abort.
 Print Assumptions RiscvPmp.Everything.LoopVerificationl.valid_semTriple_loop.
