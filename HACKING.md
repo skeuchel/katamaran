@@ -131,7 +131,7 @@ Uses:
   newest.
 - After `main` moved: `scripts/build-cache ci` takes CI's build.
 
-CI's builds lack `test/` and `case_study/Assumptions.v`, which aren't
+CI's builds lack `test/` and `case_study/Assumptions/`, which aren't
 installed, so those are always rebuilt from them. See `scripts/build-cache --help`
 for the details.
 
