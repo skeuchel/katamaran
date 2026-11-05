@@ -2338,9 +2338,28 @@ Module Type UnifLogicOn
     (* Close [Γ ⊢ P] with a hypothesis about the same context [Γ]: first one
        that matches [P] syntactically, then any one that unifies with [P], up
        to conversion and with evars in [P] instantiated. The first case is
-       cheap and the common one. *)
+       cheap and the common one.
+
+       For a relational goal [ℛ⟦R⟧ v vs], the second case only tries
+       relational hypotheses whose concrete side has the same head as [v],
+       and other hypotheses such as [repₚ v t]. A failing unification of two
+       different variables of the same type unfolds the relations on both
+       sides, which is slow for big monads such as [RStoreSpec]. The
+       symbolic sides may differ syntactically, e.g. by an [eq_rect]. *)
     Ltac rhyp_here :=
       lazymatch goal with
+      | |- @bi_entails _ ?Γ (@RSat _ _ _ ?v _ ?vs) =>
+          let h := get_head v in
+          first
+            [ match goal with H : @bi_entails _ Γ (@RSat _ _ _ v _ vs) |- _ => exact H end
+            | match goal with
+              | H : @bi_entails _ Γ (@RSat _ _ _ ?v' _ _) |- _ =>
+                  let h' := get_head v' in constr_eq h h'; exact H
+              end
+            | match goal with
+              | H : @bi_entails _ Γ ?Q |- _ =>
+                  lazymatch Q with @RSat _ _ _ _ _ _ => fail | _ => exact H end
+              end ]
       | |- @bi_entails _ ?Γ ?P =>
           first
             [ match goal with H : @bi_entails _ Γ P |- _ => exact H end
