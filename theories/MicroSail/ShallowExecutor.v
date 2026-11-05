@@ -241,10 +241,10 @@ Module Type ShallowExecOn
 
       Definition pushpop {A Γ1 Γ2 x σ} (v : Val σ)
         (d : CStoreSpec (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) A) : CStoreSpec Γ1 Γ2 A :=
-        fun POST δ0 => d (fun a δ1 => POST a (env.tail δ1)) (δ0 ► (x∷σ ↦ v)).
+        fun POST δ0 => d (fun a δ1 => POST a (nenv.tail δ1)) (δ0 ► (x∷σ ↦ v)).
       Definition pushspops {A} {Γ1 Γ2 Δ} (δΔ : CStore Δ)
         (d : CStoreSpec (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) A) : CStoreSpec Γ1 Γ2 A :=
-        fun POST δ0 => d (fun a δ1 => POST a (env.drop Δ δ1)) (δ0 ►► δΔ).
+        fun POST δ0 => d (fun a δ1 => POST a (nenv.drop Δ δ1)) (δ0 ►► δΔ).
       Definition get_local {Γ} : CStoreSpec Γ Γ (CStore Γ) :=
         fun POST δ => POST δ δ.
       Definition put_local {Γ1 Γ2} (δ : CStore Γ2) : CStoreSpec Γ1 Γ2 unit :=
@@ -382,7 +382,7 @@ Module Type ShallowExecOn
           lenv <- CHeapSpec.demonic_ctx lvars ;;
           _    <- CHeapSpec.produce req lenv ;;
           v    <- CStoreSpec.evalStoreSpec (exec s) (inst pats lenv) ;;
-          CHeapSpec.consume ens (env.snoc lenv (result∷τ) v)
+          CHeapSpec.consume ens (nenv.snoc lenv (result∷τ) v)
       end.
 
     Lemma mon_exec_contract {Δ τ} (c : SepContract Δ τ) (s : Stm Δ τ) :

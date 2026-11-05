@@ -54,7 +54,7 @@ Module Type SmallStepOn (Import B : Base) (Import P : Program B).
   | st_let
       (x : PVar) (σ : Ty) (s : Stm Γ σ) (k : Stm (Γ ▻ x∷σ) τ) :
       ⟨ γ , μ , δ , stm_let x σ s k ⟩ --->
-      ⟨ γ, μ , δ , stm_bind s (fun v => stm_block (env.snoc env.nil (x∷σ) v) k) ⟩
+      ⟨ γ, μ , δ , stm_bind s (fun v => stm_block (nenv.snoc nenv.nil (x∷σ) v) k) ⟩
 
   | st_block_value
       (Δ : PCtx) (δΔ : CStore Δ) (v : Val τ) :
@@ -328,9 +328,9 @@ Module Type SmallStepOn (Import B : Base) (Import P : Program B).
     induction H;
       intros δ1' δΔ1 Eδ1' δ2' Eδ2'.
     - rewrite Eδ1' in Eδ2'.
-      destruct (proj1 (env.inversion_eq_cat _ _ _ _) Eδ2') as (-> & ->).
+      destruct (proj1 (nenv.inversion_eq_cat _ _ _ _) Eδ2') as (-> & ->).
       apply step_refl.
-    - destruct (env.catView δ2). rewrite Eδ1' in H.
+    - destruct (nenv.catView δ2). rewrite Eδ1' in H.
       eapply step_trans. apply st_block_step.
       apply H. apply IHSteps; auto.
   Qed.

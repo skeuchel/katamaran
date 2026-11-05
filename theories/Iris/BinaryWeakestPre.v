@@ -319,17 +319,17 @@ Module IrisBinaryWP
 
     Lemma semWP2_block {Γ1 Γ2 τ Δ1 Δ2} (δΔ1 : CStore Δ1) (δΔ2 : CStore Δ2) (s1 : Stm (Γ1 ▻▻ Δ1) τ) (s2 : Stm (Γ2 ▻▻ Δ2) τ) :
       ⊢ ∀ (Q : Post2 Γ1 Γ2 τ) (δ1 : CStore Γ1) (δ2 : CStore Γ2),
-          semWP2 (δ1 ►► δΔ1) (δ2 ►► δΔ2) s1 s2 (fun v1 δ21 v2 δ22 => Q v1 (env.drop Δ1 δ21) v2 (env.drop Δ2 δ22)) -∗
+          semWP2 (δ1 ►► δΔ1) (δ2 ►► δΔ2) s1 s2 (fun v1 δ21 v2 δ22 => Q v1 (nenv.drop Δ1 δ21) v2 (nenv.drop Δ2 δ22)) -∗
           semWP2 δ1 δ2 (stm_block δΔ1 s1) (stm_block δΔ2 s2) Q.
     Proof.
       iIntros (Q δ1 δ2) "H". rewrite /semWP2. iIntros (γ21 μ21) "Hres".
       iSpecialize ("H" with "Hres"). iApply IBleft.semWP_block.
       iApply (IBleft.semWP_mono with "H").
       iIntros (v1 δ1') "(%γ22 & %μ22 & %δ2' & %s2' & %v2 & %Hsteps & %Hval & Hregs & Hmem & H)".
-      iExists γ22, μ22, (env.drop Δ2 δ2'), (of_ival v2), v2.
+      iExists γ22, μ22, (nenv.drop Δ2 δ2'), (of_ival v2), v2.
       iFrame "Hregs Hmem H". iPureIntro. split; last apply stm_to_val_of_ival.
-      destruct (env.catView δ2'). apply (Steps_trans (Steps_block Hsteps)).
-      rewrite env.drop_cat.
+      destruct (nenv.catView δ2'). apply (Steps_trans (Steps_block Hsteps)).
+      rewrite nenv.drop_cat.
       destruct (stm_to_val_Some_cases Hval) as [(? & -> & ->)|(? & -> & ->)];
         simpl in *; (eapply step_trans; [constructor|auto]); constructor.
     Qed.
@@ -355,9 +355,9 @@ Module IrisBinaryWP
       (k1 : Stm (Γ1 ▻ x∷σ) τ) (k2 : Stm (Γ2 ▻ x∷σ) τ)
       (Q : Post2 Γ1 Γ2 τ) (δ1 : CStore Γ1) (δ2 : CStore Γ2) :
       ⊢ semWP2 δ1 δ2 s1 s2 (λ v1 δ12 v2 δ22, match v1, v2 with
-                                             | inl v1, inl v2 => semWP2 δ12.[x∷σ ↦ v1] δ22.[x∷σ ↦ v2] k1 k2 (λ v12 δ13 v22 δ23, Q v12 (env.tail δ13) v22 (env.tail δ23))
-                                             | inr m1, inl v2 => semWP2 δ12 δ22.[x∷σ ↦ v2] (stm_fail _ m1) k2 (λ v12 δ13 v22 δ23, Q v12 δ13 v22 (env.tail δ23))
-                                             | inl v1, inr m2 => semWP2 δ12.[x∷σ ↦ v1] δ22 k1 (stm_fail _ m2) (λ v12 δ13 v22 δ23, Q v12 (env.tail δ13) v22 δ23)
+                                             | inl v1, inl v2 => semWP2 δ12.[x∷σ ↦ v1] δ22.[x∷σ ↦ v2] k1 k2 (λ v12 δ13 v22 δ23, Q v12 (nenv.tail δ13) v22 (nenv.tail δ23))
+                                             | inr m1, inl v2 => semWP2 δ12 δ22.[x∷σ ↦ v2] (stm_fail _ m1) k2 (λ v12 δ13 v22 δ23, Q v12 δ13 v22 (nenv.tail δ23))
+                                             | inl v1, inr m2 => semWP2 δ12.[x∷σ ↦ v1] δ22 k1 (stm_fail _ m2) (λ v12 δ13 v22 δ23, Q v12 (nenv.tail δ13) v22 δ23)
                                              | inr m1, inr m2 => semWP2 δ12 δ22 (of_ival (inr m1)) (of_ival (inr m2)) Q 
                                              end) -∗
         semWP2 δ1 δ2 (let: x ∷ σ := s1 in k1)%exp (let: x ∷ σ := s2 in k2)%exp Q.
@@ -369,9 +369,9 @@ Module IrisBinaryWP
       destruct v1 as [v1|m1], v2 as [v2|m2].
       - iSpecialize ("H" with "[$Hregs $Hmem]"). iApply (IBleft.semWP_mono with "H").
         iIntros (v1' δ1'') "(%γ23 & %μ23 & %δ2'' & %s2'' & %v2' & %Hsteps' & %Hval' & Hregs & Hmem & H)".
-        iExists γ23, μ23, (env.tail δ2''), (of_ival v2'), v2'.
+        iExists γ23, μ23, (nenv.tail δ2''), (of_ival v2'), v2'.
         iFrame "Hregs Hmem H". iPureIntro. split; last apply stm_to_val_of_ival.
-        destruct (env.view δ2'').
+        destruct (nenv.view δ2'').
         eapply step_trans. constructor. apply (Steps_trans (Steps_bind Hsteps)).
         rewrite (stm_to_val_eq Hval') in Hsteps'.
         destruct (stm_to_val_Some_cases Hval) as [(? & -> & Hv2)|(? & -> & Hm2)];
@@ -397,8 +397,8 @@ Module IrisBinaryWP
         iModIntro.
         iDestruct "H" as "(%γ23 & %μ23 & %δ2'' & %s2'' & %v2' & %Hsteps' & %Hval' & Hregs & Hmem & H)".
         pose proof (stm_to_val_Some_inl Hval) as Hs2'.
-        iExists γ23, μ23, (env.tail δ2''), (of_ival v2'), v2'.
-        destruct (env.view δ2'').
+        iExists γ23, μ23, (nenv.tail δ2''), (of_ival v2'), v2'.
+        destruct (nenv.view δ2'').
         iFrame "Hregs Hmem H". iPureIntro. split; last apply stm_to_val_of_ival.
         eapply step_trans. constructor. apply (Steps_trans (Steps_bind Hsteps)).
         destruct (stm_to_val_Some_cases Hval) as [(? & -> & Hv2)|(? & -> & Hm2)],
@@ -601,15 +601,15 @@ Module IrisBinaryWP
                   let (pc1,δpc1) := pattern_match_val pat vσ1 in
                   let (pc2,δpc2) := pattern_match_val pat vσ2 in
                   semWP2 (δ12 ►► δpc1) (δ22 ►► δpc2) (rhs1 pc1) (rhs2 pc2)
-                    (λ vτ1 δ21 vτ2 δ22, Q vτ1 (env.drop (PatternCaseCtx pc1) δ21) vτ2 (env.drop (PatternCaseCtx pc2) δ22))
+                    (λ vτ1 δ21 vτ2 δ22, Q vτ1 (nenv.drop (PatternCaseCtx pc1) δ21) vτ2 (nenv.drop (PatternCaseCtx pc2) δ22))
               | inr mσ1, inl vσ2 =>
                   let (pc2,δpc2) := pattern_match_val pat vσ2 in
                   semWP2 δ12 (δ22 ►► δpc2) (stm_fail _ mσ1) (rhs2 pc2)
-                    (λ vτ1 δ21 vτ2 δ22, Q vτ1 δ21 vτ2 (env.drop (PatternCaseCtx pc2) δ22))
+                    (λ vτ1 δ21 vτ2 δ22, Q vτ1 δ21 vτ2 (nenv.drop (PatternCaseCtx pc2) δ22))
               | inl vσ1, inr mσ2 =>
                   let (pc1,δpc1) := pattern_match_val pat vσ1 in
                   semWP2 (δ12 ►► δpc1) δ22 (rhs1 pc1) (stm_fail _ mσ2)
-                    (λ vτ1 δ21 vτ2 δ22, Q vτ1 (env.drop (PatternCaseCtx pc1) δ21) vτ2 δ22)
+                    (λ vτ1 δ21 vτ2 δ22, Q vτ1 (nenv.drop (PatternCaseCtx pc1) δ21) vτ2 δ22)
               | inr mσ1, inr mσ2 =>
                   semWP2 δ12 δ22 (stm_fail _ mσ1) (stm_fail _ mσ2) Q
               end
@@ -626,8 +626,8 @@ Module IrisBinaryWP
         try destruct (pattern_match_val pat v2) eqn:Ev2.
       - iSpecialize ("H" with "[$Hreg $Hmem]"). iApply (IBleft.semWP_mono with "H").
         iIntros (v1' δ1'') "(%γ23 & %μ23 & %δ2'' & %s2'' & %v2' & %Hs2'' & %Hval' & Hreg & Hmem & HQ)".
-        iExists γ23, μ23, (env.drop (PatternCaseCtx _) δ2''), (of_ival v2'), v2'.
-        iFrame "HQ Hreg Hmem". iPureIntro. destruct (env.catView δ2'').
+        iExists γ23, μ23, (nenv.drop (PatternCaseCtx _) δ2''), (of_ival v2'), v2'.
+        iFrame "HQ Hreg Hmem". iPureIntro. destruct (nenv.catView δ2'').
         split; last apply stm_to_val_of_ival.
         eapply step_trans. constructor. eapply Steps_trans. apply (Steps_bind Hs2').
         rewrite (stm_to_val_eq Hval') in Hs2''.
@@ -636,7 +636,7 @@ Module IrisBinaryWP
         eapply step_trans. constructor. inversion Heq; subst.
         rewrite Ev2. apply (Steps_trans (Steps_block Hs2'')).
         destruct (stm_to_val_Some_cases Hval') as [(? & -> & ->)|(? & -> & ->)];
-          simpl; eapply step_trans; try constructor; rewrite env.drop_cat;
+          simpl; eapply step_trans; try constructor; rewrite nenv.drop_cat;
           apply step_refl.
       - iSpecialize ("H" with "[$Hreg $Hmem]"). iApply (IBleft.semWP_mono with "H").
         iIntros (v1' δ1'') "(%γ23 & %μ23 & %δ2'' & %s2'' & %v2' & %Hs2'' & %Hval' & Hreg & Hmem & HQ)".
@@ -649,15 +649,15 @@ Module IrisBinaryWP
       - iSpecialize ("H" with "[$Hreg $Hmem]"). rewrite IBleft.semWP_fail.
         iMod "H" as "(%γ23 & %μ23 & %δ2'' & %s2'' & %v2' & %Hs2'' & %Hval' & Hreg & Hmem & HQ)".
         iModIntro.
-        iExists γ23, μ23, (env.drop (PatternCaseCtx _) δ2''), (of_ival v2'), v2'.
+        iExists γ23, μ23, (nenv.drop (PatternCaseCtx _) δ2''), (of_ival v2'), v2'.
         iFrame "HQ Hreg Hmem". iPureIntro.
         split; last apply stm_to_val_of_ival.
-        destruct (env.catView δ2'').
+        destruct (nenv.catView δ2'').
         eapply step_trans. constructor. eapply (Steps_trans (Steps_bind Hs2')).
         rewrite (stm_to_val_Some_inl Hval). eapply step_trans. constructor.
         rewrite Ev2. eapply (Steps_trans (Steps_block Hs2'')).
         destruct (stm_to_val_Some_cases Hval') as [(? & -> & ->)|(? & -> & ->)];
-          simpl; eapply step_trans; try constructor; rewrite env.drop_cat;
+          simpl; eapply step_trans; try constructor; rewrite nenv.drop_cat;
           apply step_refl.
       - iSpecialize ("H" with "[$Hreg $Hmem]"). rewrite IBleft.semWP_fail.
         iMod "H" as "(%γ23 & %μ23 & %δ2'' & %s2'' & %v2' & %Hs2'' & %Hval' & Hreg & Hmem & HQ)".
@@ -1022,7 +1022,7 @@ Section Soundness.
         (R : Val τ -> CStore Γ -> iProp Σ) :
         ⊢ (semTriple δ P s Q -∗
             (∀ (v : Val σ) (δ' : CStore Γ),
-               semTriple (env.snoc δ' (x∷σ) v) (Q v δ') k (fun v δ'' => R v (env.tail δ''))) -∗
+               semTriple (nenv.snoc δ' (x∷σ) v) (Q v δ') k (fun v δ'' => R v (nenv.tail δ''))) -∗
                semTriple δ P (let: x := s in k) R).
   Proof.
     iIntros "Hs Hk P".
@@ -1042,7 +1042,7 @@ Section Soundness.
         (Δ : PCtx) (δΔ : CStore Δ)
         (τ : Ty) (k : Stm (Γ ▻▻ Δ) τ)
         (P : iProp Σ) (R : Val τ -> CStore Γ -> iProp Σ) :
-        ⊢ (semTriple (δ ►► δΔ) P k (fun v δ'' => R v (env.drop Δ δ'')) -∗
+        ⊢ (semTriple (δ ►► δΔ) P k (fun v δ'' => R v (nenv.drop Δ δ'')) -∗
             semTriple δ P (stm_block δΔ k) R).
   Proof.
     iIntros "Hk P". iApply semWP2_block. iSpecialize ("Hk" with "P").
@@ -1117,7 +1117,7 @@ Section Soundness.
   Lemma iris_rule_stm_assign {Γ} (δ : CStore Γ)
         (x : PVar) (σ : Ty) (xIn : x∷σ ∈ Γ) (s : Stm Γ σ)
         (P : iProp Σ) (R : Val σ -> CStore Γ -> iProp Σ) :
-    ⊢ (semTriple δ P s (fun v δ' => R v (@env.update _ _ _ δ' (x∷_) _ v)) -∗
+    ⊢ (semTriple δ P s (fun v δ' => R v (@nenv.update _ _ _ _ δ' (x∷_) _ v)) -∗
            semTriple δ P (stm_assign x s) R).
   Proof.
     iIntros "Hk P". iApply semWP2_assign. iSpecialize ("Hk" with "P").
@@ -1211,7 +1211,7 @@ Section Soundness.
     ⊢ semTriple δΓ P s Q -∗
       (∀ pc δpc δΓ1,
                 semTriple (δΓ1 ►► δpc) (Q (pattern_match_val_reverse pat pc δpc) δΓ1) (rhs pc)
-                  (λ vτ (δ' : CStore (Γ ▻▻ PatternCaseCtx pc)), R vτ (env.drop (PatternCaseCtx pc) δ'))) -∗
+                  (λ vτ (δ' : CStore (Γ ▻▻ PatternCaseCtx pc)), R vτ (nenv.drop (PatternCaseCtx pc) δ'))) -∗
       semTriple δΓ P (stm_pattern_match s pat rhs) R.
   Proof.
     iIntros "Hs Hk P". iApply semWP2_pattern_match. iSpecialize ("Hs" with "P").
@@ -1233,7 +1233,7 @@ Section Soundness.
     | MkSepContract _ _ ctxΣ θΔ pre result post =>
       Sep.Logic.Forall (fun (ι : Valuation ctxΣ) =>
         semTriple (inst θΔ ι) (asn.interpret pre ι) body
-                  (fun v δ' => asn.interpret post (env.snoc ι (result∷σ) v)))
+                  (fun v δ' => asn.interpret post (nenv.snoc ι (result∷σ) v)))
     end.
 
   (* Uses projections rather than a match, so that using it for a concrete
@@ -1243,7 +1243,7 @@ Section Soundness.
       semTriple (inst (sep_contract_localstore contract) ι)
         (asn.interpret (sep_contract_precondition contract) ι) body
         (λ v δ, asn.interpret (sep_contract_postcondition contract)
-                  (env.snoc ι (sep_contract_result contract∷σ) v)).
+                  (nenv.snoc ι (sep_contract_result contract∷σ) v)).
 
   Definition ValidContractForeign {Δ τ} (contract : SepContract Δ τ) (f : 𝑭𝑿 Δ τ) : Prop :=
     forall Γ (es : NamedEnv (Exp Γ) Δ) (δ : CStore Γ),
@@ -1252,7 +1252,7 @@ Section Soundness.
         forall (ι : Valuation Σ'),
         evals es δ = inst θΔ ι ->
         ⊢ semTriple δ (asn.interpret req ι) (stm_foreign f es)
-          (λ v δ', asn.interpret ens (env.snoc ι (result∷τ) v) ∗ bi_pure (δ' = δ))
+          (λ v δ', asn.interpret ens (nenv.snoc ι (result∷τ) v) ∗ bi_pure (δ' = δ))
       end.
 
   Definition valid_contract_curry {Δ σ} (body : Stm Δ σ) (contract : SepContract Δ σ) :

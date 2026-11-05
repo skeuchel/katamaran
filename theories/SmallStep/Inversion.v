@@ -232,7 +232,7 @@ Module Type InversionOn (Import B : Base) (Import P : Program B) (Import STEP : 
     {δΔ : CStore Δ} {k : Stm (Γ ▻▻ Δ) σ} {t : Stm Γ σ} (final : Final t)
     (steps : ⟨ γ1, μ1, δ1, stm_block δΔ k ⟩ --->* ⟨ γ3, μ3, δ3, t ⟩) :
     exists δΔ' k',
-      ⟨ γ1, μ1, env.cat δ1 δΔ , k ⟩ --->* ⟨ γ3, μ3, env.cat δ3 δΔ' , k' ⟩ /\ Final k' /\
+      ⟨ γ1, μ1, nenv.cat δ1 δΔ , k ⟩ --->* ⟨ γ3, μ3, nenv.cat δ3 δΔ' , k' ⟩ /\ Final k' /\
       ⟨ γ3, μ3, δ3, stm_block δΔ' k' ⟩ ---> ⟨ γ3, μ3, δ3, t ⟩.
   Proof.
     remember (stm_block δΔ k) as s. revert steps δΔ k Heqs.
@@ -282,10 +282,10 @@ Module Type InversionOn (Import B : Base) (Import P : Program B) (Import STEP : 
     {δΔ : CStore Δ} {k : Stm (Γ ▻▻ Δ) σ} {t : Stm Γ σ} (final : Final t)
     (steps : ⟨ γ1, μ1, δ1, stm_block δΔ k ⟩ --->* ⟨ γ3, μ3, δ3, t ⟩) :
     (exists δΔ' msg,
-        ⟨ γ1, μ1, env.cat δ1 δΔ , k ⟩ --->* ⟨ γ3, μ3, env.cat δ3 δΔ' , stm_fail _ msg ⟩ /\
+        ⟨ γ1, μ1, nenv.cat δ1 δΔ , k ⟩ --->* ⟨ γ3, μ3, nenv.cat δ3 δΔ' , stm_fail _ msg ⟩ /\
         t = stm_fail _ msg) \/
     (exists δΔ' v,
-        ⟨ γ1, μ1, env.cat δ1 δΔ, k ⟩ --->* ⟨ γ3, μ3, env.cat δ3 δΔ', stm_val _ v ⟩ /\
+        ⟨ γ1, μ1, nenv.cat δ1 δΔ, k ⟩ --->* ⟨ γ3, μ3, nenv.cat δ3 δΔ', stm_val _ v ⟩ /\
         t = stm_val _ v).
   Proof.
     apply (steps_inversion_block final) in steps.
