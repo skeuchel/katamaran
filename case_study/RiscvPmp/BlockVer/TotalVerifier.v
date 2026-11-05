@@ -241,8 +241,9 @@ Module Type RiscvPmpBlockVerifTotalVerifier
     Section Relational.
 
       Import iris.proofmode.proofmode logicalrelation logicalrelation.notations.
+      Import RiscvPmpSymbolicSoundness RiscvPmpSymbolicSoundness.StoreSpec.
       Import RiscvPmpSignature.HeapSpec.
-      Import RSolve HeapSpec.
+      Import HeapSpec.
 
       Import RiscvPmpProgramLogic.
 
@@ -250,48 +251,30 @@ Module Type RiscvPmpBlockVerifTotalVerifier
 
       Import RiscvPmpShallowSoundness.
 
-      Lemma rexec_instruction (i : AST) {w} :
-        ⊢ ℛ⟦RVal ty_xlenbits -> RHeapSpec (RVal ty_xlenbits)⟧
-            (cexec_instruction i)
+      #[export] Instance rexec_instruction (i : AST) {w} :
+        Related (RVal ty_xlenbits -> RHeapSpec (RVal ty_xlenbits))
+            (cexec_instruction i) w
             (sexec_instruction (w := w) i).
       Proof.
-        unfold cexec_instruction, sexec_instruction. rsolve.
-        iApply RiscvPmpSymbolicSoundness.StoreSpec.refine_evalStoreSpec.
-        iApply RiscvPmpSymbolicSoundness.refine_exec.
-        rsolve.
+        unfold cexec_instruction, sexec_instruction. solve_related.
       Qed.
 
-      #[export] Instance refine_compat_exec_instruction {i : AST} {w} :
-        RefineCompat (RVal ty_xlenbits -> RHeapSpec (RVal ty_xlenbits))
-          (cexec_instruction i) w (sexec_instruction (w := w) i) _ :=
-        MkRefineCompat (rexec_instruction i).
-
-      Lemma rexec_block_addr (b : list AST) {w} :
-        ⊢ ℛ⟦RVal ty_xlenbits -> RVal ty_xlenbits -> RHeapSpec (RVal ty_xlenbits)⟧
-            (cexec_block_addr b)
+      #[export] Instance rexec_block_addr (b : list AST) {w} :
+        Related (RVal ty_xlenbits -> RVal ty_xlenbits -> RHeapSpec (RVal ty_xlenbits))
+            (cexec_block_addr b) w
             (sexec_block_addr b (w := w)).
       Proof.
-        iAssert (ℛ⟦□ᵣ (RVal ty_xlenbits -> RVal ty_xlenbits -> RHeapSpec (RVal ty_xlenbits))⟧
-                   (cexec_block_addr b)
-                   (fun w' θ => sexec_block_addr b (w := w'))) as "H".
-        {
-          iInduction b as [|*] "IHb"; cbn; rsolve.
-          iApply ("IHb" with "[] [$]").
-          now rsolve.
-        }
-        iApply (unconditionally_T with "H").
+        revert w; induction b; intros w; cbn; solve_related.
       Qed.
 
-      Lemma rexec_triple_addr {Σ : LCtx}
+      #[export] Instance rexec_triple_addr {Σ : LCtx}
         (req : Assertion (Σ ▻ "a"∷ty_xlenbits)) (b : list AST)
         (ens : Assertion (Σ ▻ "a"∷ty_xlenbits ▻ "an"∷ty_xlenbits)) {w} :
-        ⊢ ℛ⟦RHeapSpec RUnit⟧
-            (cexec_triple_addr req b ens)
+        Related (RHeapSpec RUnit)
+            (cexec_triple_addr req b ens) w
             (sexec_triple_addr req b ens (w := w)).
       Proof.
-        unfold cexec_triple_addr, sexec_triple_addr.
-        rsolve.
-        iApply rexec_block_addr; rsolve.
+        unfold cexec_triple_addr, sexec_triple_addr. solve_related.
       Qed.
 
       Lemma rblock_verification_condition {Σ : LCtx}
@@ -301,10 +284,7 @@ Module Type RiscvPmpBlockVerifTotalVerifier
             (cblock_verification_condition req b ens)
             (sblock_verification_condition req b ens w).
       Proof.
-        unfold cblock_verification_condition, sblock_verification_condition.
-        rsolve.
-        iApply refine_run.
-        iApply rexec_triple_addr.
+        unfold cblock_verification_condition, sblock_verification_condition. solve_related.
       Qed.
 
     End Relational.
@@ -744,34 +724,23 @@ Module Type RiscvPmpBlockVerifTotalVerifier
       Import proofmode.
       Import iris.proofmode.proofmode.
       Import RiscvPmpSignature.HeapSpec.
-      Import RSolve.
 
-      Lemma rexec_annotated_block_addr (b : list AnnotInstr) {w} :
-        ⊢ ℛ⟦RVal ty_xlenbits -> RVal ty_xlenbits -> RHeapSpec (RVal ty_xlenbits)⟧
-            (cexec_annotated_block_addr b)
+      #[export] Instance rexec_annotated_block_addr (b : list AnnotInstr) {w} :
+        Related (RVal ty_xlenbits -> RVal ty_xlenbits -> RHeapSpec (RVal ty_xlenbits))
+            (cexec_annotated_block_addr b) w
             (sexec_annotated_block_addr b (w := w)).
       Proof.
-        iAssert (ℛ⟦□ᵣ (RVal ty_xlenbits -> RVal ty_xlenbits -> RHeapSpec (RVal ty_xlenbits))⟧
-                   (cexec_annotated_block_addr b)
-                   (fun w' θ => sexec_annotated_block_addr b (w := w'))) as "H".
-        { iInduction b as [|instr b] "IHb"; rsolve.
-          - destruct instr; cbn; rsolve.
-            + iApply "IHb"; rsolve.
-            + iApply "IHb"; rsolve.
-        }
-        now iApply (unconditionally_T with "H").
+        revert w; induction b as [|instr b]; intros w; cbn; solve_related.
       Qed.
 
       Lemma rexec_annotated_block_triple_addr {Σ}
         (req : Assertion (Σ ▻ "a"∷ty_xlenbits)) (b : list AnnotInstr)
         (ens : Assertion (Σ ▻ "a"∷ty_xlenbits ▻ "an"∷ty_xlenbits)) {w} :
-        ⊢ ℛ⟦RHeapSpec RUnit⟧
-            (cexec_annotated_block_triple_addr req b ens)
+        Related (RHeapSpec RUnit)
+            (cexec_annotated_block_triple_addr req b ens) w
             (sexec_annotated_block_triple_addr req b ens (w := w)).
       Proof.
-        unfold cexec_annotated_block_triple_addr, sexec_annotated_block_triple_addr.
-        rsolve.
-        iApply rexec_annotated_block_addr; rsolve.
+        unfold cexec_annotated_block_triple_addr, sexec_annotated_block_triple_addr. solve_related.
       Qed.
 
       Lemma rannotated_block_verification_condition {Σ}
