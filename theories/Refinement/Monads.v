@@ -241,12 +241,12 @@ Module Type RefinementMonadsOn
         now rewrite <-obligation_equiv_pred.
     Qed.
 
-    Lemma refine_assert_pathcondition {w} :
-      ⊢ ℛ⟦RMsg _ (RPathCondition -> RPureSpec RUnit)⟧
-        CPureSpec.assert_pathcondition (SPureSpec.assert_pathcondition (w := w)).
+    #[export] Instance refine_assert_pathcondition {w msg} :
+      Related (RPathCondition -> RPureSpec RUnit)
+        CPureSpec.assert_pathcondition w (SPureSpec.assert_pathcondition (w := w) msg).
     Proof.
-      unfold SPureSpec.assert_pathcondition, CPureSpec.assert_pathcondition.
-      iIntros (msg cC sC) "HC %cΦ %sΦ rΦ HΦ".
+      unfold Related, SPureSpec.assert_pathcondition, CPureSpec.assert_pathcondition.
+      iIntros (cC sC) "HC %cΦ %sΦ rΦ HΦ".
       destruct (combined_solver_spec w sC) as [[w1 [ζ sc1]] Hsolver|Hsolver].
       - rewrite safe_assert_triangular.
         rewrite safe_assert_pathcondition_without_solver.
@@ -270,11 +270,6 @@ Module Type RefinementMonadsOn
       - cbn.
         by iDestruct "HΦ" as %[].
     Qed.
-
-    #[export] Instance refine_compat_assert_pathcondition {w msg} :
-      Related (RPathCondition -> RPureSpec RUnit)
-        CPureSpec.assert_pathcondition w (SPureSpec.assert_pathcondition (w := w) msg).
-    Proof. now iApply (refine_assert_pathcondition $! msg). Qed.
 
     #[export] Instance refine_assume_pathcondition {w} :
       Related (RPathCondition -> RPureSpec RUnit)
@@ -1098,8 +1093,8 @@ Module Type RefinementMonadsOn
       iDestruct (eval_ex sh') as "(%h' & Hh')".
       iIntros (K sK) "HK HSP".
       iAssert (⌜eq /\ K h'⌝)%I with "[HK HSP]" as "%HeqKh'".
-      { iPoseProof (refine_assert_pathcondition $! msg eq eqs with "Heq") as "Hapc".
-        iApply ("Hapc" $! (fun _ => K h') with "[HK] HSP").
+      { change (eq ∧ K h') with (CPureSpec.assert_pathcondition eq (λ _, K h')).
+        iApply (refine_assert_pathcondition with "Heq [HK] HSP").
         iIntros (w2 ω2) "!> %u %su _".
         rewrite forgetting_unconditionally.
         iApply (refine_T with "HK"); solve_related.
