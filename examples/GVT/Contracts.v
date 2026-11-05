@@ -274,7 +274,7 @@ Module Import RiscvPmpSpecification.
 
         Definition sep_contract_execute_EBREAK : SepContractFun execute_EBREAK :=
           {| sep_contract_logic_variables := ctx.nil;
-             sep_contract_localstore      := env.nil;
+             sep_contract_localstore      := nenv.nil;
              sep_contract_precondition    := ⊤;
              sep_contract_result          := "result_execute_EBREAK";
              sep_contract_postcondition   := ⊤;
@@ -634,7 +634,7 @@ Module Import RiscvPmpSpecification.
 
         Definition sep_contract_handle_illegal : SepContractFun handle_illegal :=
           {| sep_contract_logic_variables := [p :: ty_privilege; "pc" :: ty_xlenbits; tvec :: ty_xlenbits; "stvec" :: ty_xlenbits; "mepc" :: ty_xlenbits; "sepc" :: ty_xlenbits; "mpp" :: ty_privilege; "spp" :: ty_privilege; "mpie" :: ty.bool; "spie" :: ty.bool; "mie" :: ty.bool; "sie" :: ty.bool; "medeleg" :: ty_Medeleg; "mcause" :: ty_xlenbits];
-             sep_contract_localstore      := env.nil;
+             sep_contract_localstore      := nenv.nil;
              sep_contract_precondition    :=
                cur_privilege ↦ term_var p
                ∗ pc ↦ term_var "pc"
@@ -770,7 +770,7 @@ Module Import RiscvPmpSpecification.
 
         Definition sep_contract_get_arch_pc : SepContractFun get_arch_pc :=
           {| sep_contract_logic_variables := [v :: ty_xlenbits];
-             sep_contract_localstore      := env.nil;
+             sep_contract_localstore      := nenv.nil;
              sep_contract_precondition    := pc ↦ term_var v;
              sep_contract_result          := "result_get_arch_pc";
              sep_contract_postcondition   :=
@@ -790,7 +790,7 @@ Module Import RiscvPmpSpecification.
 
         Definition sep_contract_get_next_pc : SepContractFun get_next_pc :=
           {| sep_contract_logic_variables := [v :: ty_xlenbits];
-             sep_contract_localstore      := env.nil;
+             sep_contract_localstore      := nenv.nil;
              sep_contract_precondition    := nextpc ↦ term_var v;
              sep_contract_result          := "result_get_next_pc";
              sep_contract_postcondition   :=
@@ -800,7 +800,7 @@ Module Import RiscvPmpSpecification.
 
         Definition sep_contract_tick_pc : SepContractFun tick_pc :=
           {| sep_contract_logic_variables := ["npc" :: ty_xlenbits];
-             sep_contract_localstore      := env.nil;
+             sep_contract_localstore      := nenv.nil;
              sep_contract_precondition    := nextpc ↦ term_var "npc" ∗ ∃ "i", pc ↦ term_var "i";
              sep_contract_result          := "result_tick_pc";
              sep_contract_postcondition   :=
@@ -997,7 +997,7 @@ Module Import RiscvPmpSpecification.
 
         Definition sep_contract_fetch : SepContractFun fetch :=
           {| sep_contract_logic_variables := ["i" :: ty_xlenbits; p :: ty_privilege; "entries" :: ty.list ty_pmpentry];
-             sep_contract_localstore      := env.nil;
+             sep_contract_localstore      := nenv.nil;
              sep_contract_precondition    :=
                  pc ↦ term_var "i"
                  ∗ cur_privilege ↦ term_var p
@@ -1013,7 +1013,7 @@ Module Import RiscvPmpSpecification.
 
         Definition sep_contract_init_model : SepContractFun init_model :=
           {| sep_contract_logic_variables := ctx.nil;
-             sep_contract_localstore      := env.nil;
+             sep_contract_localstore      := nenv.nil;
              sep_contract_precondition    :=
                ∃ p, cur_privilege ↦ term_var p
                ∗ ∃ "es", asn_pmp_entries (term_var "es");
@@ -1026,7 +1026,7 @@ Module Import RiscvPmpSpecification.
 
         Definition sep_contract_init_sys : SepContractFun init_sys :=
           {| sep_contract_logic_variables := ctx.nil;
-             sep_contract_localstore      := env.nil;
+             sep_contract_localstore      := nenv.nil;
              sep_contract_precondition    :=
                ∃ p, cur_privilege ↦ term_var p
                ∗ ∃ "es", asn_pmp_entries (term_var "es");
@@ -1039,7 +1039,7 @@ Module Import RiscvPmpSpecification.
 
         Definition sep_contract_init_pmp : SepContractFun init_pmp :=
           {| sep_contract_logic_variables := ctx.nil;
-             sep_contract_localstore      := env.nil;
+             sep_contract_localstore      := nenv.nil;
              sep_contract_precondition    :=
                ∃ "cfg0", pmp0cfg ↦ term_var "cfg0" ∗ ∃ "cfg1", pmp1cfg ↦ term_var "cfg1";
              sep_contract_result          := "result_init_pmp";
@@ -1280,7 +1280,7 @@ Module Import RiscvPmpSpecification.
           let Σ : LCtx := [L :: ty.bool; A :: ty_pmpaddrmatchtype; X :: ty.bool; W :: ty.bool; R :: ty.bool] in
           let entry : Term Σ _ := term_record rpmpcfg_ent [term_var L; term_var A; term_var X; term_var W; term_var R] in
           {| sep_contract_logic_variables := Σ;
-             sep_contract_localstore      := env.snoc env.nil (_::_) entry;
+             sep_contract_localstore      := nenv.snoc nenv.nil (_::_) entry;
              sep_contract_precondition    := ⊤;
              sep_contract_result          := "result_pmpLocked";
              sep_contract_postcondition   := term_var "result_pmpLocked" = term_var L;
@@ -1512,14 +1512,14 @@ Module Import RiscvPmpSpecification.
 
         Definition lemma_open_gprs : SepLemma open_gprs :=
           {| lemma_logic_variables := ctx.nil;
-             lemma_patterns        := env.nil;
+             lemma_patterns        := nenv.nil;
              lemma_precondition    := asn_gprs;
              lemma_postcondition   := asn_regs_ptsto;
           |}.
 
         Definition lemma_close_gprs : SepLemma close_gprs :=
           {| lemma_logic_variables := ctx.nil;
-             lemma_patterns        := env.nil;
+             lemma_patterns        := nenv.nil;
              lemma_precondition    := asn_regs_ptsto;
              lemma_postcondition   := asn_gprs;
           |}.
@@ -1540,7 +1540,7 @@ Module Import RiscvPmpSpecification.
 
         Definition lemma_open_pmp_entries : SepLemma open_pmp_entries :=
           {| lemma_logic_variables := ["entries" :: ty.list ty_pmpentry];
-             lemma_patterns        := env.nil;
+             lemma_patterns        := nenv.nil;
              lemma_precondition    := asn_pmp_entries (term_var "entries");
              lemma_postcondition   := ∃ "cfg0", ∃ "addr0", ∃ "cfg1", ∃ "addr1",
                 (pmp0cfg ↦ term_var "cfg0" ∗ pmpaddr0 ↦ term_var "addr0" ∗
@@ -1554,7 +1554,7 @@ Module Import RiscvPmpSpecification.
         Definition lemma_close_pmp_entries : SepLemma close_pmp_entries :=
           {| lemma_logic_variables := ["cfg0" :: ty_pmpcfg_ent; "addr0" :: _;
                                        "cfg1" :: ty_pmpcfg_ent; "addr1" :: _];
-             lemma_patterns        := env.nil;
+             lemma_patterns        := nenv.nil;
              lemma_precondition    :=
                pmp0cfg ↦ term_var "cfg0" ∗ pmpaddr0 ↦ term_var "addr0" ∗
                pmp1cfg ↦ term_var "cfg1" ∗ pmpaddr1 ↦ term_var "addr1";
@@ -1680,8 +1680,8 @@ Module RiscvPmpValidContracts.
 
   Section Debug.
     Coercion stm_exp : Exp >-> Stm.
-    Local Notation "'use' 'lemma' lem args" := (stm_lemma lem args%env) (at level 10, lem at next level) : exp_scope.
-    Local Notation "'use' 'lemma' lem" := (stm_lemma lem env.nil) (at level 10, lem at next level) : exp_scope.
+    Local Notation "'use' 'lemma' lem args" := (stm_lemma lem args%nenv) (at level 10, lem at next level) : exp_scope.
+    Local Notation "'use' 'lemma' lem" := (stm_lemma lem nenv.nil) (at level 10, lem at next level) : exp_scope.
 
     Import RiscvNotations.
     Import RiscvμSailNotations.

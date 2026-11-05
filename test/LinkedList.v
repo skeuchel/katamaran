@@ -156,7 +156,7 @@ Module Import ExampleProgram <: Program ExampleBase.
     Local Notation "'y'"   := (@exp_var _ "y" _ _) : exp_scope.
     Local Notation "'z'"   := (@exp_var _ "z" _ _) : exp_scope.
 
-    Notation "'lemma' f args" := (stm_lemma f args%env) (at level 10, f at next level) : exp_scope.
+    Notation "'lemma' f args" := (stm_lemma f args%nenv) (at level 10, f at next level) : exp_scope.
 
     (* The append function, taking two linked lists [p],[q] and appending [q] to
        [p] by destructively updating the last heap-allocated pair. Both lists
@@ -284,29 +284,29 @@ Module Import ExampleProgram <: Program ExampleBase.
       (res : string + Val σ) (γ γ' : RegStore) (μ μ' : Memory) : Prop :=
       (* mkcons allocates a new pair and initializes it with the given values
          [x] and [xs]*)
-      ForeignCall mkcons (env.snoc (env.snoc env.nil _ x) _ xs) res γ γ' μ μ' :=
+      ForeignCall mkcons (nenv.snoc (nenv.snoc nenv.nil _ x) _ xs) res γ γ' μ μ' :=
         (* Determinate the next free address. *)
         let next := infinite_fresh (elements (dom μ)) in
         γ' = γ /\
         (* Allocate the pair at [next]. *)
         μ' = (<[next := (x, xs)]> μ) /\
         res = inr next;
-      ForeignCall fst (env.snoc env.nil _ z) res γ γ' μ μ' :=
+      ForeignCall fst (nenv.snoc nenv.nil _ z) res γ γ' μ μ' :=
         match μ !! z with
         | None          => res = inl "Invalid pointer"
         | Some (head,_) => γ' = γ /\ μ' = μ /\ res = inr head
         end;
-      ForeignCall snd (env.snoc env.nil _ z) res γ γ' μ μ' :=
+      ForeignCall snd (nenv.snoc nenv.nil _ z) res γ γ' μ μ' :=
         match μ !! z with
         | None          => res = inl "Invalid pointer"
         | Some (_,next) => γ' = γ /\ μ' = μ /\ res = inr next
         end;
-      ForeignCall setfst (env.snoc (env.snoc env.nil _ z) _ x) res γ γ' μ μ' :=
+      ForeignCall setfst (nenv.snoc (nenv.snoc nenv.nil _ z) _ x) res γ γ' μ μ' :=
         match (μ !! z) with
         | None => res = inl "Invalid pointer"
         | Some (_, xs) => γ' = γ /\  μ' = <[z := (x, xs)]> μ /\ res = inr tt
         end;
-      ForeignCall setsnd (env.snoc (env.snoc env.nil _ z) _ xs) res γ γ' μ μ' :=
+      ForeignCall setsnd (nenv.snoc (nenv.snoc nenv.nil _ z) _ xs) res γ γ' μ μ' :=
         match (μ !! z) with
         | None => res = inl "Invalid pointer"
         | Some (elem, _) => γ' = γ /\  μ' = <[z := (elem, xs)]> μ /\ res = inr tt
@@ -999,13 +999,13 @@ Module ExampleModel.
       Ltac destruct_syminstance ι :=
         repeat
           match type of ι with
-          | Env _ (ctx.snoc _ (MkB ?s _)) =>
+          | NamedEnv _ (ctx.snoc _ (MkB ?s _)) =>
               string_to_ident_cps s
                 ltac:(fun id =>
                         let fr := fresh id in
-                        destruct (env.view ι) as [ι fr];
+                        destruct (nenv.view ι) as [ι fr];
                         destruct_syminstance ι)
-          | Env _ ctx.nil => destruct (env.view ι)
+          | NamedEnv _ ctx.nil => destruct (nenv.view ι)
           | _ => idtac
           end.
 
@@ -1013,9 +1013,9 @@ Module ExampleModel.
         ValidContractForeign sep_contract_mkcons mkcons.
       Proof.
         intros Γ es δ ι Heq.
-        destruct (env.view ι) as [ι xs].
-        destruct (env.view ι) as [ι x].
-        destruct (env.view ι). cbn.
+        destruct (nenv.view ι) as [ι xs].
+        destruct (nenv.view ι) as [ι x].
+        destruct (nenv.view ι). cbn.
         iIntros "_".
         iApply semWP_foreign.
         iIntros (γ1 μ1) "[Hregs Hmem]".
@@ -1040,10 +1040,10 @@ Module ExampleModel.
         ValidContractForeign sep_contract_fst fst.
       Proof.
         intros Γ es δ ι Heq.
-        destruct (env.view ι) as [ι vxs].
-        destruct (env.view ι) as [ι vx].
-        destruct (env.view ι) as [ι vp].
-        destruct (env.view ι). cbn.
+        destruct (nenv.view ι) as [ι vxs].
+        destruct (nenv.view ι) as [ι vx].
+        destruct (nenv.view ι) as [ι vp].
+        destruct (nenv.view ι). cbn.
         iIntros "Hres".
         iApply semWP_foreign.
         iIntros (γ1 μ1) "[Hregs Hmem]".
@@ -1066,10 +1066,10 @@ Module ExampleModel.
         ValidContractForeign sep_contract_snd snd.
       Proof.
         intros Γ es δ ι Heq.
-        destruct (env.view ι) as [ι vxs].
-        destruct (env.view ι) as [ι vx].
-        destruct (env.view ι) as [ι vp].
-        destruct (env.view ι). cbn.
+        destruct (nenv.view ι) as [ι vxs].
+        destruct (nenv.view ι) as [ι vx].
+        destruct (nenv.view ι) as [ι vp].
+        destruct (nenv.view ι). cbn.
         iIntros "Hres".
         iApply semWP_foreign.
         iIntros (γ1 μ1) "[Hregs Hmem]".
@@ -1092,10 +1092,10 @@ Module ExampleModel.
         ValidContractForeign sep_contract_setfst setfst.
       Proof.
         intros Γ es δ ι Heq.
-        destruct (env.view ι) as [ι vxs].
-        destruct (env.view ι) as [ι vx].
-        destruct (env.view ι) as [ι vp].
-        destruct (env.view ι). cbn.
+        destruct (nenv.view ι) as [ι vxs].
+        destruct (nenv.view ι) as [ι vx].
+        destruct (nenv.view ι) as [ι vp].
+        destruct (nenv.view ι). cbn.
         iIntros "Hres".
         iDestruct "Hres" as (vx__old) "Hres".
         iApply semWP_foreign.
@@ -1119,10 +1119,10 @@ Module ExampleModel.
         ValidContractForeign sep_contract_setsnd setsnd.
       Proof.
         intros Γ es δ ι Heq.
-        destruct (env.view ι) as [ι vxs].
-        destruct (env.view ι) as [ι vx].
-        destruct (env.view ι) as [ι vp].
-        destruct (env.view ι). cbn.
+        destruct (nenv.view ι) as [ι vxs].
+        destruct (nenv.view ι) as [ι vx].
+        destruct (nenv.view ι) as [ι vp].
+        destruct (nenv.view ι). cbn.
         iIntros "Hres".
         iDestruct "Hres" as (vxs__old) "Hres".
         iApply semWP_foreign.

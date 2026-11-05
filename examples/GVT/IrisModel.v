@@ -86,9 +86,9 @@ Module RiscvPmpIrisBase <: IrisBase RiscvPmpBase RiscvPmpProgram RiscvPmpSemanti
   Import iris.program_logic.weakestpre.
 
   Definition WP_loop `{sg : sailGS Σ} : iProp Σ :=
-    semWP env.nil (FunDef loop) (fun _ _ => True%I).
+    semWP nenv.nil (FunDef loop) (fun _ _ => True%I).
   Definition TWP_loop `{sg : sailGS Σ} : iProp Σ :=
-    semTWP env.nil (FunDef loop) (fun _ _ => True%I).
+    semTWP nenv.nil (FunDef loop) (fun _ _ => True%I).
 
   Section PoweredLoop.
   Import Katamaran.Syntax.TypeDecl.
@@ -101,7 +101,7 @@ Module RiscvPmpIrisBase <: IrisBase RiscvPmpBase RiscvPmpProgram RiscvPmpSemanti
   Lemma semWP_fun_loop `{sg : sailGS Σ} (Q : Post [ctx] ty.unit) :
     ((∀ Γ (δ : CStore Γ), semWP δ (call RiscvPmpProgram.step ;; call RiscvPmpProgram.loop) (λ v _, Q v [env])) ∧
      Q (inl tt) [env])
-    ⊢ semWP env.nil (FunDef loop) Q.
+    ⊢ semWP nenv.nil (FunDef loop) Q.
   Proof.
     iIntros "H". cbn [FunDef]. unfold fun_loop.
     iApply semWP_let. iApply semWP_foreign.
@@ -113,7 +113,7 @@ Module RiscvPmpIrisBase <: IrisBase RiscvPmpBase RiscvPmpProgram RiscvPmpSemanti
     iApply semWP_pattern_match. iApply semWP_exp. cbn.
     destruct (fun_powered_on μ).
     - iDestruct "H" as "[H _]". iApply (semWP_mono with "[H]"); first iApply "H".
-      iIntros (v δ') "HQ". destruct (env.view δ') as [δ'' ?]. by destruct (env.view δ'').
+      iIntros (v δ') "HQ". destruct (nenv.view δ') as [δ'' ?]. by destruct (nenv.view δ'').
     - iDestruct "H" as "[_ H]". rewrite semWP_val. by iModIntro.
   Qed.
   End PoweredLoop.

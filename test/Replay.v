@@ -333,14 +333,14 @@ Module Import ReplaySig <: Signature DefaultBase.
       Some [formula_eq b (term_val ty.bool true)].
 
     Equations(noeqns) simplify_user [Σ] (p : 𝑷) : Env (Term Σ) (𝑷_Ty p) -> option (PathCondition Σ) :=
-    | Aₐ | [env b]  => simplify_Aₐ b
-    | Bₐ | [env x; b]  => simplify_Bₐ x b
-    | Aᵤ | [env b] => simplify_Aᵤ b
-    | Bᵤ | [env b] => simplify_Bᵤ b
-    | Cᵤ | [env]   => Some [formula_user Cᵤ []]
-    | Pₐ | [env x]  => simplify_Pₐ x
-    | Qₐ | [env x]  => Some [formula_user Qₐ [x]]
-    | Q | [env xs ] => simplify_Q xs.
+    | Aₐ | [env b]      => simplify_Aₐ b
+    | Bₐ | [env x; b]      => simplify_Bₐ x b
+    | Aᵤ | [env b]     => simplify_Aᵤ b
+    | Bᵤ | [env b]     => simplify_Bᵤ b
+    | Cᵤ | env.nil     => Some [formula_user Cᵤ []]
+    | Pₐ | [env x]      => simplify_Pₐ x
+    | Qₐ | [env x]      => Some [formula_user Qₐ [x]]
+    | Q | [env xs]      => simplify_Q xs.
 
     Local Ltac lsolve :=
       repeat
@@ -443,7 +443,7 @@ Module Import ReplaySpecification.
 
     Definition lemma_open_list : SepLemma open_list :=
       {| lemma_logic_variables := ["l" :: ty_X];
-         lemma_patterns        := env.nil;
+         lemma_patterns        := nenv.nil;
          lemma_precondition    := asn_P (term_var "l");
          lemma_postcondition   := term_var "l" = term_list [term_val ty.int 0%Z];
       |}.
@@ -604,7 +604,7 @@ Section ReplayExamples.
     Definition unit_contract1 : SepContract ε ty.unit :=
       {|
         sep_contract_logic_variables := ["b" :: ty.bool];
-        sep_contract_localstore := []%env;
+        sep_contract_localstore := []%nenv;
         sep_contract_precondition :=
           asn.formula (formula_user Aᵤ [term_var "b"])
           ∗ asn.formula (formula_user Bᵤ [term_var "b"]);
@@ -616,7 +616,7 @@ Section ReplayExamples.
     Definition unit_contract2 : SepContract ε ty.unit :=
       {|
         sep_contract_logic_variables := ["b" :: ty.bool];
-        sep_contract_localstore := []%env;
+        sep_contract_localstore := []%nenv;
         sep_contract_precondition :=
           asn.formula (formula_user Bᵤ [term_var "b"])
           ∗ asn.formula (formula_user Aᵤ [term_var "b"]);
@@ -629,7 +629,7 @@ Section ReplayExamples.
     Definition unit_contract3 : SepContract ε ty.unit :=
       {|
         sep_contract_logic_variables := ["b" :: ty.bool];
-        sep_contract_localstore := []%env;
+        sep_contract_localstore := []%nenv;
         sep_contract_precondition :=
           asn.formula (formula_user Aᵤ [term_var "b"])
           ∗ term_var "b" = term_val ty.bool true;
@@ -641,7 +641,7 @@ Section ReplayExamples.
     Definition unit_contract_int : SepContract ε ty.unit :=
       {|
         sep_contract_logic_variables := ["a" :: ty.int; "b" :: ty.int];
-        sep_contract_localstore := []%env;
+        sep_contract_localstore := []%nenv;
         sep_contract_precondition :=
           term_var "a" + term_var "b" = term_val ty.int 5
           ∗ term_var "b" = term_val ty.int 0;

@@ -129,7 +129,7 @@ Module RiscvPmpBlockVerifSpec.
     ctx.map (fun '(x::σ) => x::σ) Δ ▻▻ Σ.
 
   Definition create_localstore (Δ : PCtx) (Σ : LCtx) : SStore Δ (sep_contract_logvars Δ Σ) :=
-    (env.tabulate (fun '(x::σ) xIn =>
+    (nenv.tabulate (D := Term _) (fun '(x::σ) xIn =>
                      @term_var
                        (sep_contract_logvars Δ Σ)
                        x
@@ -601,14 +601,14 @@ sep_contract_result         :=  "result_mem_read";
 
   Definition lemma_open_gprs : SepLemma open_gprs :=
     {| lemma_logic_variables := ctx.nil;
-       lemma_patterns        := env.nil;
+       lemma_patterns        := nenv.nil;
        lemma_precondition    := ⊤;
        lemma_postcondition   := ⊤;
     |}.
 
   Definition lemma_close_gprs : SepLemma close_gprs :=
     {| lemma_logic_variables := ctx.nil;
-       lemma_patterns        := env.nil;
+       lemma_patterns        := nenv.nil;
        lemma_precondition    := ⊤;
        lemma_postcondition   := ⊤;
     |}.
@@ -1094,13 +1094,13 @@ Module RiscvPmpIrisInstanceWithContracts.
   Ltac destruct_syminstance ι :=
     repeat
       match type of ι with
-      | Env _ (ctx.snoc _ (MkB ?s _)) =>
+      | NamedEnv _ (ctx.snoc _ (MkB ?s _)) =>
           string_to_ident_cps s
             ltac:(fun id =>
                     let fr := fresh id in
-                    destruct (env.view ι) as [ι fr];
+                    destruct (nenv.view ι) as [ι fr];
                     destruct_syminstance ι)
-      | Env _ ctx.nil => destruct (env.view ι)
+      | NamedEnv _ ctx.nil => destruct (nenv.view ι)
       | _ => idtac
       end.
 

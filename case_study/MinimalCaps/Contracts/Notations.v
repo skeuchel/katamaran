@@ -94,11 +94,11 @@ Module Notations.
     - destruct names; simpl; exact [env].
     - destruct names; simpl; first (destruct b; exact [env]).
       destruct b as [x τ | p b e a].
-      + unshelve eapply (env.snoc _ (_∷_) (term_var x)).
+      + unshelve eapply (nenv.snoc _ (_∷_) (term_var x)).
         fold DCtx_to_Args.
-        apply env.tabulate.
+        apply nenv.tabulate.
         intros b bIn.
-        pose proof (env.lookup (IHΔ names) bIn) as t.
+        pose proof (nenv.lookup (IHΔ names) bIn) as t.
         unshelve eapply (sub_term t _).
         unfold DCtx_logvars.
         simpl.
@@ -111,7 +111,7 @@ Module Notations.
         apply ctx.in_zero.
       + unfold DCtx_logvars; simpl.
         unshelve eapply
-          (env.snoc _ (_∷_)
+          (nenv.snoc _ (_∷_)
              (term_record capability [env].["cap_permission"∷ty.perm ↦ term_var p]
               .["cap_begin"∷ty.addr       ↦ term_var b]
               .["cap_end"∷ty.addr         ↦ term_var e]
@@ -120,9 +120,9 @@ Module Notations.
             (try apply ctx.in_cat_left;
              try apply ctx.in_zero;
              apply ctx.in_succ).
-        apply env.tabulate.
+        apply nenv.tabulate.
         intros b1 b1In.
-        pose proof (env.lookup (IHΔ names) b1In) as t.
+        pose proof (nenv.lookup (IHΔ names) b1In) as t.
         unshelve eapply (sub_term t _).
         unfold DCtx_logvars.
         apply sub_up.

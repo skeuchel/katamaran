@@ -68,13 +68,13 @@ Import RiscvPmpSignature.
 Ltac destruct_syminstance ι :=
   repeat
     match type of ι with
-    | Env _ (ctx.snoc _ (MkB ?s _)) =>
+    | NamedEnv _ (ctx.snoc _ (MkB ?s _)) =>
         string_to_ident_cps s
           ltac:(fun id =>
                   let fr := fresh id in
-                  destruct (env.view ι) as [ι fr];
+                  destruct (nenv.view ι) as [ι fr];
                   destruct_syminstance ι)
-    | Env _ ctx.nil => destruct (env.view ι)
+    | NamedEnv _ ctx.nil => destruct (nenv.view ι)
     | _ => idtac
     end.
 
@@ -212,14 +212,14 @@ Module Type RiscvPmpModel
       ValidLemma RiscvPmpSpecification.lemma_open_gprs.
     Proof.
       intros ι; destruct_syminstance ι; cbn.
-      rewrite (gprs_equiv env.nil). cbn. iIntros. iFrame.
+      rewrite (gprs_equiv nenv.nil). cbn. iIntros. iFrame.
     Qed.
 
     Lemma close_gprs_sound :
       ValidLemma RiscvPmpSpecification.lemma_close_gprs.
     Proof.
       intros ι; destruct_syminstance ι; cbn.
-      rewrite (gprs_equiv env.nil). cbn. iIntros. iFrame.
+      rewrite (gprs_equiv nenv.nil). cbn. iIntros. iFrame.
     Qed.
 
     Lemma open_ptsto_instr_sound :

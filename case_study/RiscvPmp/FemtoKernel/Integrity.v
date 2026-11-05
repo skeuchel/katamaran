@@ -637,7 +637,7 @@ Section Integrity.
       - iExists _. iFrame "Hfrago". iSplitR; first done. iLeft. by iFrame "Hnpao". }
     iModIntro.
     iSplitL.
-    - destruct (env.view δ).
+    - destruct (nenv.view δ).
       iApply (femtokernel_init_safe
                 (femto_init_archstate γ)
                 (read_register γ mie)
