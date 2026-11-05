@@ -50,6 +50,7 @@ From Katamaran Require Import
      MicroSail.ShallowExecutor
      MicroSail.SymbolicExecutor.
 
+
 Set Implicit Arguments.
 
 Import ctx.notations.
@@ -392,7 +393,7 @@ Module RefineExecOn
       Context `(rexec_call : RefineExecCall c_exec_call s_exec_call).
       Context `(rexec_fail : RefineExecFail c_exec_fail s_exec_fail).
 
-      Lemma refine_exec_aux {SPEC : Specification} :
+      #[export] Instance refine_exec_aux {SPEC : Specification} :
         RefineExec (@CStoreSpec.exec_aux _ c_exec_call_foreign c_exec_lemma c_exec_call c_exec_fail) (@SStoreSpec.exec_aux _ s_exec_call_foreign s_exec_lemma s_exec_call s_exec_fail).
       Proof.
         intros ? ? s. induction s; cbn; intros w; solve_related.
@@ -422,7 +423,7 @@ Module RefineExecOn
 
     Import PureSpec HeapSpec StoreSpec.
 
-    Lemma refine_exec_call_error_no_fuel :
+    #[export] Instance refine_exec_call_error_no_fuel :
       RefineExecCall SHAL.exec_call_error_no_fuel SYMB.exec_call_error_no_fuel.
     Proof.
       iIntros (? ? ? ? cδ sδ) "#rδ".
@@ -432,7 +433,7 @@ Module RefineExecOn
 
     Context {SPEC : Specification}.
 
-    Lemma refine_exec_call_foreign :
+    #[export] Instance refine_exec_call_foreign :
       RefineExecCallForeign cexec_call_foreign sexec_call_foreign.
     Proof.
       iIntros (? ? ? ? cδ sδ) "#rδ".
@@ -450,7 +451,7 @@ Module RefineExecOn
       destruct config_debug_lemma; solve_related.
     Qed.
 
-    Lemma refine_exec_lemma :
+    #[export] Instance refine_exec_lemma :
       RefineExecLemma cexec_lemma (sexec_lemma cfg).
     Proof.
       unfold cexec_lemma, sexec_lemma; intros. solve_related.
@@ -464,28 +465,23 @@ Module RefineExecOn
       destruct config_debug_function; solve_related.
     Qed.
 
-    Lemma refine_exec_fail :
+    #[export] Instance refine_exec_fail :
       RefineExecFail cexec_fail sexec_fail.
     Proof.
       unfold cexec_fail, sexec_fail; intros.
       destruct fail_rule_pre; solve_related.
     Qed.
 
-    Lemma refine_exec_call (fuel : nat) :
+    #[export] Instance refine_exec_call (fuel : nat) :
       RefineExecCall (cexec_call fuel) (sexec_call cfg fuel).
     Proof.
       induction fuel; intros; cbn; solve_related.
-      pose proof (StoreSpec.refine_exec_aux refine_exec_call_foreign refine_exec_lemma
-                    IHfuel refine_exec_fail) as Haux.
-      solve_related.
     Qed.
 
     #[export] Instance refine_exec (fuel : nat) :
       RefineExec (cexec fuel) (sexec cfg fuel).
     Proof.
-      unfold cexec, sexec. apply refine_exec_aux.
-      all: auto using refine_exec_call_foreign, refine_exec_lemma,
-                      refine_exec_call, refine_exec_fail.
+      unfold cexec, sexec; intros; solve_related.
     Qed.
 
     #[export] Instance refine_vcgen (fuel : nat) {Γ τ} (c : SepContract Γ τ) (body : Stm Γ τ) w :
@@ -502,10 +498,7 @@ Module RefineExecOn
   Proof.
     intros H.
     apply CPureSpec.replay_sound.
-    pose proof (PureSpec.refine_replay s).
-    unfold RProp in H0; cbn in H0.
-    rewrite psafe_safe in H0.
-    now apply (fromEntails H0 [env]).
+    exact (RProp_safe (PureSpec.refine_replay s) H).
   Qed.
 
   Lemma symbolic_vcgen_fuel_soundness {SPEC : Specification} {Γ τ} (fuel : nat)
@@ -517,9 +510,7 @@ Module RefineExecOn
     intros [Hwp%postprocess_sound].
     apply replay_sound in Hwp.
     apply postprocess_sound in Hwp.
-    apply (psafe_safe (w := wnil)) in Hwp; [|easy].
-    revert Hwp.
-    apply refine_vcgen; try done.
+    exact (RProp_safe (refine_vcgen _ _ _ _ _) Hwp).
   Qed.
 
   Lemma symbolic_vcgen_soundness {SPEC : Specification} {Γ τ}

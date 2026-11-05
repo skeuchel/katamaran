@@ -2866,6 +2866,14 @@ Module Type LogSymPropOn
         iApply ("HP" with "HPS").
       Qed.
 
+      (* Adequacy: a refinement in the empty world transfers safety. *)
+      Lemma RProp_safe {P} {SP : SymProp wnil} :
+        (⊢ ℛ⟦RProp⟧ P SP) -> safe SP [env] -> P.
+      Proof.
+        intros HP Hsafe. unfold RProp in HP; cbn in HP.
+        rewrite psafe_safe in HP. now apply (fromEntails HP [env]).
+      Qed.
+
       #[export] Instance refine_symprop_angelic_binary {w : World} :
         Related (RProp -> RProp -> RProp) (@or) w (@angelic_binary w).
       Proof.
