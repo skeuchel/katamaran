@@ -43,6 +43,8 @@ Delimit Scope nenv_scope with nenv.
 Declare Scope dep_pattern_scope.
 Delimit Scope dep_pattern_scope with dep_pattern.
 
+(* Environments for named contexts. The data only depends on the type of a
+   binding, so D is first-order, unlike in Env (fun b => D (type b)). *)
 Module nenv.
 
 Section WithBinding.
@@ -651,12 +653,8 @@ Module notations.
   Notation "[ x ; y ; .. ; z ]" :=
     (snoc .. (snoc (snoc nil _ x) _ y) .. _ z)
     (format "[ '[' x ;  '/' y ;  '/' .. ;  '/' z ']' ]") : nenv_scope.
-  Notation "[ 'env' x ]" :=
-    (snoc nil _ x)
-    (only parsing) : nenv_scope.
-  Notation "[ 'env' x ; y ; .. ; z ]" :=
-    (snoc .. (snoc (snoc nil _ x) _ y) .. _ z)
-    (only parsing) : nenv_scope.
+  (* [env x; ..] is only defined for Env, which disambiguates where the scope
+     is not determined by the type, e.g. in patterns. *)
   Notation "[ 'nenv' x ]" :=
     (snoc nil (_∷_) x)
     (only parsing) : nenv_scope.
