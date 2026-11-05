@@ -36,6 +36,7 @@ From Stdlib Require Import
 .
 From Equations Require Import
      Equations.
+From Ltac2 Require Ltac2.
 From stdpp Require Import base.
 From Katamaran Require Import
      Prelude
@@ -2330,10 +2331,49 @@ Module Type UnifLogicOn
     Proof. intros H HQ. unfold RMatchResult in H; cbn [RSat] in H. exact (rexist_elim H HQ). Qed.
 
     (* ---------------------------------------------------------------------- *)
-    (* Tactics.
+    (* Tactics, in Ltac2.
 
        All tactics act on goals [Γ ⊢ P] and fail if they do not apply, so that
-       [rstep] can try them in order with [first]. *)
+       [rstep] can try them in order with [first]. Each focuses on its goals
+       one by one with [Control.enter]. *)
+    Import Ltac2.Ltac2.
+    (* The tactics refer to the lemmas above, which functor application
+       substitutes; there is nothing else to check. *)
+    Local Set Warnings "-ltac2-in-modtype".
+
+    (* Ltac1's [notypeclasses refine]: no instance search, the new goals are
+       beta-iota reduced, and holes that occur in the types of other holes are
+       shelved. Ltac2's [Control.refine] would type-check the term again. *)
+    Ltac2 nrefine0 (c : preterm) : unit :=
+      ltac1:(c |- notypeclasses refine c) (Ltac1.of_preterm c).
+    Ltac2 Notation "nrefine" c(preterm) := nrefine0 c.
+
+    Ltac2 tc_solve () : unit :=
+      solve [ Control.once (fun () => Std.typeclasses_eauto None None None) ].
+
+    Ltac2 guard (b : bool) : unit :=
+      if b then () else Control.zero Match_failure.
+
+    Ltac2 rec head (c : constr) : constr :=
+      match Constr.Unsafe.kind c with
+      | Constr.Unsafe.App h _ => head h
+      | _ => c
+      end.
+
+    Ltac2 exact_hyp (h : ident) : unit :=
+      let c := Control.hyp h in exact $c.
+
+    (* The most recent hypothesis [rextf ω Γ _] or [rext Γ _]. *)
+    Ltac2 find_rextf (om : constr) (g : constr) : constr :=
+      match! goal with
+      | [ h : rextf ?om' ?g' _ |- _ ] =>
+          guard (Bool.and (Constr.equal om om') (Constr.equal g g')); Control.hyp h
+      end.
+
+    Ltac2 find_rext (g : constr) : constr :=
+      match! goal with
+      | [ h : rext ?g' _ |- _ ] => guard (Constr.equal g g'); Control.hyp h
+      end.
 
     (* Close [Γ ⊢ P] with a hypothesis about the same context [Γ]: first one
        that matches [P] syntactically, then any one that unifies with [P], up
@@ -2346,25 +2386,43 @@ Module Type UnifLogicOn
        different variables of the same type unfolds the relations on both
        sides, which is slow for big monads such as [RStoreSpec]. The
        symbolic sides may differ syntactically, e.g. by an [eq_rect]. *)
-    Ltac rhyp_here :=
-      lazymatch goal with
-      | |- @bi_entails _ ?Γ (@RSat _ _ _ ?v _ ?vs) =>
-          let h := get_head v in
-          first
-            [ match goal with H : @bi_entails _ Γ (@RSat _ _ _ v _ vs) |- _ => exact H end
-            | match goal with
-              | H : @bi_entails _ Γ (@RSat _ _ _ ?v' _ _) |- _ =>
-                  let h' := get_head v' in constr_eq h h'; exact H
-              end
-            | match goal with
-              | H : @bi_entails _ Γ ?Q |- _ =>
-                  lazymatch Q with @RSat _ _ _ _ _ _ => fail | _ => exact H end
-              end ]
-      | |- @bi_entails _ ?Γ ?P =>
-          first
-            [ match goal with H : @bi_entails _ Γ P |- _ => exact H end
-            | match goal with H : @bi_entails _ Γ _ |- _ => exact H end ]
-      end.
+    Ltac2 rhyp_here () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- @bi_entails _ ?g (@RSat _ _ _ ?v _ ?vs) ] =>
+            let hv := head v in
+            first
+              [ match! goal with
+                | [ h : @bi_entails _ ?g' (@RSat _ _ _ ?v' _ ?vs') |- _ ] =>
+                    guard (Bool.and (Constr.equal g g')
+                             (Bool.and (Constr.equal v v') (Constr.equal vs vs')));
+                    exact_hyp h
+                end
+              | match! goal with
+                | [ h : @bi_entails _ ?g' (@RSat _ _ _ ?v' _ _) |- _ ] =>
+                    guard (Bool.and (Constr.equal g g') (Constr.equal hv (head v')));
+                    exact_hyp h
+                end
+              | match! goal with
+                | [ h : @bi_entails _ ?g' ?q |- _ ] =>
+                    guard (Constr.equal g g');
+                    lazy_match! q with
+                    | @RSat _ _ _ _ _ _ => fail
+                    | _ => exact_hyp h
+                    end
+                end ]
+        | [ |- @bi_entails _ ?g ?p ] =>
+            first
+              [ match! goal with
+                | [ h : @bi_entails _ ?g' ?p' |- _ ] =>
+                    guard (Bool.and (Constr.equal g g') (Constr.equal p p'));
+                    exact_hyp h
+                end
+              | match! goal with
+                | [ h : @bi_entails _ ?g' _ |- _ ] =>
+                    guard (Constr.equal g g'); exact_hyp h
+                end ]
+        end).
 
     (* Close [Γ ⊢ P] with a hypothesis from [Γ] or an older context. If no
        hypothesis about [Γ] fits, move the goal one link up the chain and try
@@ -2377,57 +2435,53 @@ Module Type UnifLogicOn
        hypothesis about a term of an older world only says something about
        that term transported with [ω], which is what the [forgetting] goals
        produced by the transport steps state. *)
-    Ltac rhyp_walk :=
-      first
-        [ rhyp_here
-        | lazymatch goal with
-          | |- @bi_entails _ _ (forgetting (acc_trans _ _) _) =>
-              notypeclasses refine (rforget_trans _); rhyp_walk
-          | |- @bi_entails _ _ (forgetting acc_refl _) =>
-              notypeclasses refine (rforget_refl _); rhyp_walk
-          | |- @bi_entails _ ?Γ (forgetting ?ω _) =>
-              first
-                [ lazymatch goal with
-                  | Hle : rextf ω Γ _ |- _ => notypeclasses refine (rforget Hle _); rhyp_walk
-                  end
-                | lazymatch goal with
-                  | Hle : rext Γ _ |- _ => notypeclasses refine (rweaken Hle _); rhyp_walk
-                  end ]
-          | |- @bi_entails _ ?Γ _ =>
-              lazymatch goal with
-              | Hle : rext Γ _ |- _ => notypeclasses refine (rweaken Hle _); rhyp_walk
-              end
-          end ].
+    Ltac2 rec rhyp_walk () : unit :=
+      Control.enter (fun () =>
+        first
+          [ rhyp_here ()
+          | lazy_match! goal with
+            | [ |- @bi_entails _ _ (forgetting (acc_trans _ _) _) ] =>
+                nrefine (rforget_trans _); rhyp_walk ()
+            | [ |- @bi_entails _ _ (forgetting acc_refl _) ] =>
+                nrefine (rforget_refl _); rhyp_walk ()
+            | [ |- @bi_entails _ ?g (forgetting ?om _) ] =>
+                first
+                  [ let h := find_rextf om g in
+                    nrefine (rforget $h _); rhyp_walk ()
+                  | let h := find_rext g in
+                    nrefine (rweaken $h _); rhyp_walk () ]
+            | [ |- @bi_entails _ ?g _ ] =>
+                let h := find_rext g in
+                nrefine (rweaken $h _); rhyp_walk ()
+            end ]).
 
     (* Move a goal [forgetting ω P] back to the context before [ω] and continue
        with [P] there, for example to look up an instance for [P]. Hypotheses
        about the newer contexts are no longer reachable from [P], so this is
        only a fallback after [rhyp_walk]. *)
-    Ltac rforget_goal :=
-      lazymatch goal with
-      | |- @bi_entails _ _ (forgetting (acc_trans _ _) _) =>
-          notypeclasses refine (rforget_trans _); rforget_goal
-      | |- @bi_entails _ _ (forgetting acc_refl _) =>
-          notypeclasses refine (rforget_refl _)
-      | |- @bi_entails _ ?Γ (forgetting ?ω _) =>
-          first
-            [ lazymatch goal with
-              | Hle : rextf ω Γ _ |- _ => notypeclasses refine (rforget Hle _)
-              end
-            | lazymatch goal with
-              | Hle : rext Γ _ |- _ => notypeclasses refine (rweaken Hle _); rforget_goal
-              end ]
-      end.
+    Ltac2 rec rforget_goal () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- @bi_entails _ _ (forgetting (acc_trans _ _) _) ] =>
+            nrefine (rforget_trans _); rforget_goal ()
+        | [ |- @bi_entails _ _ (forgetting acc_refl _) ] =>
+            nrefine (rforget_refl _)
+        | [ |- @bi_entails _ ?g (forgetting ?om _) ] =>
+            first
+              [ let h := find_rextf om g in nrefine (rforget $h _)
+              | let h := find_rext g in
+                nrefine (rweaken $h _); rforget_goal () ]
+        end).
 
     (* Is there a relational hypothesis, about any context, whose concrete side
-       has head [h]? A cheap filter before [rhyp_walk]: the concrete sides of
+       has head [hv]? A cheap filter before [rhyp_walk]: the concrete sides of
        hypotheses are mostly variables introduced by the solver, so most goals
        about operations fail this test immediately and go on to the instance
        lookup. *)
-    Ltac has_rel_hyp h :=
-      match goal with
-      | _ : @bi_entails _ _ (@RSat _ _ _ ?v _ _) |- _ =>
-          let h' := get_head v in constr_eq h h'
+    Ltac2 has_rel_hyp (hv : constr) : unit :=
+      match! goal with
+      | [ _h : @bi_entails _ _ (@RSat _ _ _ ?v _ _) |- _ ] =>
+          guard (Constr.equal hv (head v))
       end.
 
     (* Close a relational goal with a hypothesis from the context chain,
@@ -2436,44 +2490,51 @@ Module Type UnifLogicOn
        proved. Hypotheses that hold in every context, such as induction
        hypotheses, are not in the chain; they are stated with [Related] and
        found by [rlookup_related] as local instances. *)
-    Ltac rhyp_rel :=
-      lazymatch goal with
-      | |- @bi_entails _ _ (@RSat _ _ _ ?v _ _) =>
-          let h := get_head v in has_rel_hyp h; rhyp_walk
-      end.
+    Ltac2 rhyp_rel () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- @bi_entails _ _ (@RSat _ _ _ ?v _ _) ] =>
+            has_rel_hyp (head v); rhyp_walk ()
+        end).
 
     (* Close the goal with a [Related] instance for the whole term pair. In
        function position the relation of the argument is still an evar, which
        the instance determines. *)
-    Ltac rlookup_related :=
-      lazymatch goal with
-      | |- @bi_entails _ ?Γ (@RSat _ _ ?R ?v ?w ?vs) =>
-          notypeclasses refine (@rrelated _ _ R v w vs Γ _); tc_solve
-      end.
+    Ltac2 rlookup_related () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- @bi_entails _ ?g (@RSat _ _ ?r ?v ?w ?vs) ] =>
+            nrefine (@rrelated _ _ $r $v $w $vs $g _); tc_solve ()
+        end).
 
     (* Apply a [RelatedFrom] rule for the whole term pair. Its premise is left
        as the next goal, and [rstep] continues on it. *)
-    Ltac rlookup_rule :=
-      lazymatch goal with
-      | |- @bi_entails _ ?Γ (@RSat _ _ ?R ?v ?w ?vs) =>
-          notypeclasses refine (@rrelated_from _ _ R v w vs _ Γ _ _); [tc_solve|]
-      end.
+    Ltac2 rlookup_rule () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- @bi_entails _ ?g (@RSat _ _ ?r ?v ?w ?vs) ] =>
+            nrefine (@rrelated_from _ _ $r $v $w $vs _ $g _ _);
+            Control.dispatch [tc_solve; (fun () => ())]
+        end).
 
     (* Goals whose symbolic side uses a box: [four vs ω] moves the box [vs] to
        a later world, [T vs] opens it at the current world, and [vs w2 ω] with
        a variable [vs] opens it at a later world. The latter leaves a goal
        [forgetting ω (ℛ⟦□ᵣ R⟧ v vs)], which [rhyp_walk] closes with the
        hypothesis about [vs] in the older context. *)
-    Ltac rtransport :=
-      lazymatch goal with
-      | |- @bi_entails _ _ (@RSat _ _ _ _ _ (four _ _)) =>
-          notypeclasses refine (rbox_four _)
-      | |- @bi_entails _ _ (@RSat _ _ _ _ _ (T _)) =>
-          notypeclasses refine (rbox_T _)
-      | |- @bi_entails _ _ (@RSat _ _ _ _ _ (?vs _ ?ω)) =>
-          is_var vs;
-          lazymatch type of ω with Acc _ _ => notypeclasses refine (rbox_elim _) end
-      end.
+    Ltac2 rtransport () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- @bi_entails _ _ (@RSat _ _ _ _ _ (four _ _)) ] =>
+            nrefine (rbox_four _)
+        | [ |- @bi_entails _ _ (@RSat _ _ _ _ _ (T _)) ] =>
+            nrefine (rbox_T _)
+        | [ |- @bi_entails _ _ (@RSat _ _ _ _ _ (?vs _ ?om)) ] =>
+            guard (Constr.is_var vs);
+            lazy_match! (Constr.type om) with
+            | Acc _ _ => nrefine (rbox_elim _)
+            end
+        end).
 
     (* [rfun] proves a goal in function position, [Γ ⊢ ℛ⟦?RA -> R⟧ f fs], as
        created by [rpeel]. The relation of the argument is an evar, so the goal
@@ -2481,10 +2542,13 @@ Module Type UnifLogicOn
        transport, a [Related] instance, or peeling a further argument. It never
        introduces a binder, which would need the relation, and never applies a
        rule, since rules only apply to whole terms. *)
-    Ltac rfun :=
-      first
-        [ rhyp_rel | rtransport; rfun | rlookup_related | rpeel
-        | lazymatch goal with |- @bi_entails _ _ (forgetting _ _) => rhyp_walk end ]
+    Ltac2 rec rfun () : unit :=
+      Control.enter (fun () =>
+        first
+          [ rhyp_rel () | (rtransport (); rfun ()) | rlookup_related () | rpeel ()
+          | lazy_match! goal with
+            | [ |- @bi_entails _ _ (forgetting _ _) ] => rhyp_walk ()
+            end ])
     (* [rpeel] splits off the last argument of an application, [f a] versus
        [fs sa], at the relation [R]:
        - with [rimpl_elim]: [f] versus [fs] at [?RA -> R], proved at once by
@@ -2494,18 +2558,19 @@ Module Type UnifLogicOn
        - with [rmsg_elim]: the argument is a message on the symbolic side.
        The second case is a message applied on the symbolic side only, when the
        concrete side is not an application. *)
-    with rpeel :=
-      lazymatch goal with
-      | |- @bi_entails _ ?Γ (@RSat _ _ ?R (?f ?a) ?w (?fs ?sa)) =>
-          first
-            [ notypeclasses refine
-                (rimpl_elim (RB := R) (w := w) (Γ := Γ) (f := f) (fs := fs)
-                   (a := a) (sa := sa) _ _); [rfun|]
-            | notypeclasses refine (rforall_elim (K := a) _); rfun
-            | notypeclasses refine (rmsg_elim (m := sa) _); rfun ]
-      | |- @bi_entails _ ?Γ (@RSat _ _ ?R _ ?w (?fs ?m)) =>
-          notypeclasses refine (rmsg_elim (m := m) _); rfun
-      end.
+    with rpeel () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- @bi_entails _ ?g (@RSat _ _ ?r (?f ?a) ?w (?fs ?sa)) ] =>
+            first
+              [ nrefine (rimpl_elim (RB := $r) (w := $w) (Γ := $g) (f := $f)
+                           (fs := $fs) (a := $a) (sa := $sa) _ _);
+                Control.dispatch [rfun; (fun () => ())]
+              | nrefine (rforall_elim (K := $a) _); rfun ()
+              | nrefine (rmsg_elim (m := $sa) _); rfun () ]
+        | [ |- @bi_entails _ _ (@RSat _ _ _ _ _ (_ ?m)) ] =>
+            nrefine (rmsg_elim (m := $m) _); rfun ()
+        end).
 
     (* Case analysis on matches in both sides:
        - both sides match on the same term [x], which contains no evars and is
@@ -2513,26 +2578,31 @@ Module Type UnifLogicOn
        - the sides match on two variables [x] and [sx] that are related by a
          hypothesis at [RMatchResult p]: destruct both, and use the hypothesis
          to identify the two pattern cases and relate the matched values. *)
-    Ltac rdestruct :=
-      lazymatch goal with
-      | |- @bi_entails _ _ (@RSat _ _ _ (match ?x with _ => _ end) _
-                              (match ?x with _ => _ end)) =>
-          lazymatch x with match _ with _ => _ end => fail | _ => idtac end;
-          tryif has_evar x then fail else destruct x
-      | |- @bi_entails _ ?Γ (@RSat _ _ _ (match ?x with _ => _ end) _
-                              (match ?sx with _ => _ end)) =>
-          is_var x; is_var sx;
-          lazymatch goal with
-          | _ : @bi_entails _ _ (@RSat _ _ (RMatchResult ?p) x _ sx) |- _ =>
-              let Hm := fresh "Hm" in
-              assert (Hm : Γ ⊢ ℛ⟦RMatchResult p⟧ x sx) by rhyp_walk;
-              destruct x as [?pc ?args], sx as [?spc ?sargs];
-              notypeclasses refine (rmatchresult_elim Hm _);
-              let e := fresh "e" in let Γ' := fresh "Γ" in
-              let Hle := fresh "Hle" in let Ha := fresh "Ha" in
-              intros e Γ' Hle Ha; subst; cbn [eq_rect] in Ha
-          end
-      end.
+    Ltac2 rdestruct () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- @bi_entails _ ?g (@RSat _ _ _ (match ?x with _ => _ end) _
+                                  (match ?sx with _ => _ end)) ] =>
+            if Constr.equal x sx then
+              (lazy_match! x with
+               | match _ with _ => _ end => fail
+               | _ => if Constr.has_evar x then fail else destruct $x
+               end)
+            else
+              (guard (Bool.and (Constr.is_var x) (Constr.is_var sx));
+               let p :=
+                 match! goal with
+                 | [ _h : @bi_entails _ _ (@RSat _ _ (RMatchResult ?p) ?x' _ ?sx') |- _ ] =>
+                     guard (Bool.and (Constr.equal x x') (Constr.equal sx sx')); p
+                 end in
+               let hm := Fresh.in_goal @Hm in
+               assert ($hm : $g ⊢ ℛ⟦RMatchResult $p⟧ $x $sx) by (rhyp_walk ());
+               destruct $x as [?pc ?args], $sx as [?spc ?sargs];
+               let hmc := Control.hyp hm in
+               nrefine (rmatchresult_elim $hmc _);
+               let ha := Fresh.in_goal @Ha in
+               intros ?e ?Γ ?Hle $ha; subst; cbn [eq_rect] in $ha)
+        end).
 
     (* One step of the solver. The order of the cases matters:
        - at [RA -> RB], [□ᵣ R] and [∀ᵣ], try a hypothesis first, so that a
@@ -2545,48 +2615,43 @@ Module Type UnifLogicOn
        - the connectives of premises: [unconditionally], [∗], [emp], [True];
        - [forgetting ω P]: a hypothesis from an older context, or else move
          the goal back to that context. *)
-    Ltac rstep :=
-      lazymatch goal with
-      | |- @bi_entails _ _ (@RSat _ _ (RImpl _ _) _ _ _) =>
-          first
-            [ rhyp_rel
-            | notypeclasses refine (rimpl_intro _);
-              let a := fresh "a" in let sa := fresh "sa" in
-              let Γ := fresh "Γ" in let Hle := fresh "Hle" in
-              let Ha := fresh "Ha" in
-              intros a sa Γ Hle Ha ]
-      | |- @bi_entails _ _ (@RSat _ _ (RBox _) _ _ _) =>
-          first
-            [ rhyp_rel
-            | rtransport
-            | notypeclasses refine (rbox_intro _);
-              let w := fresh "w" in let ω := fresh "ω" in
-              let Γ := fresh "Γ" in let Hle := fresh "Hle" in
-              intros w ω Γ Hle ]
-      | |- @bi_entails _ _ (@RSat _ _ (RForall _) _ _ _) =>
-          first [ rhyp_rel | notypeclasses refine (rforall_intro _); intros ?; cbv beta ]
-      | |- @bi_entails _ _ (@RSat _ _ _ ?v _ _) =>
-          first [ rdestruct | rhyp_rel | rtransport | rlookup_related | rlookup_rule | rpeel ]
-      | |- @bi_entails _ _ (unconditionally _) =>
-          notypeclasses refine (unconditionally_intro _);
-          let w := fresh "w" in let ω := fresh "ω" in
-          let Γ := fresh "Γ" in let Hle := fresh "Hle" in
-          intros w ω Γ Hle
-      | |- @bi_entails _ _ (bi_sep _ _) => notypeclasses refine (rsep_intro _ _)
-      | |- @bi_entails _ _ bi_emp => exact remp
-      | |- @bi_entails _ _ (bi_pure True) => exact (rpure_intro I)
-      | |- @bi_entails _ _ (forgetting _ _) => first [ rhyp_walk | rforget_goal ]
-      end.
+    Ltac2 rstep () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- @bi_entails _ _ (@RSat _ _ (RImpl _ _) _ _ _) ] =>
+            first
+              [ rhyp_rel ()
+              | nrefine (rimpl_intro _); intros ?a ?sa ?Γ ?Hle ?Ha ]
+        | [ |- @bi_entails _ _ (@RSat _ _ (RBox _) _ _ _) ] =>
+            first
+              [ rhyp_rel ()
+              | rtransport ()
+              | nrefine (rbox_intro _); intros ?w ?ω ?Γ ?Hle ]
+        | [ |- @bi_entails _ _ (@RSat _ _ (RForall _) _ _ _) ] =>
+            first
+              [ rhyp_rel ()
+              | nrefine (rforall_intro _); intro; cbv beta ]
+        | [ |- @bi_entails _ _ (@RSat _ _ _ _ _ _) ] =>
+            first
+              [ rdestruct () | rhyp_rel () | rtransport () | rlookup_related ()
+              | rlookup_rule () | rpeel () ]
+        | [ |- @bi_entails _ _ (unconditionally _) ] =>
+            nrefine (unconditionally_intro _); intros ?w ?ω ?Γ ?Hle
+        | [ |- @bi_entails _ _ (bi_sep _ _) ] => nrefine (rsep_intro _ _)
+        | [ |- @bi_entails _ _ bi_emp ] => exact remp
+        | [ |- @bi_entails _ _ (bi_pure True) ] => exact (rpure_intro I)
+        | [ |- @bi_entails _ _ (forgetting _ _) ] => first [ rhyp_walk () | rforget_goal () ]
+        end).
 
-    (* Turn the hypotheses of a proof-mode environment [E] into Rocq hypotheses
-       [Γ ⊢ P], given [HΔ : Γ ⊢ of_envs Δ]. *)
-    Ltac renvs_hyps HΔ E p :=
-      lazymatch E with
-      | Enil => idtac
-      | Esnoc ?E' ?i ?P =>
-          let H := fresh "H" in
-          pose proof (renvs_lookup (i := i) (p := p) (P := P) HΔ eq_refl) as H;
-          renvs_hyps HΔ E' p
+    (* Turn the hypotheses of a proof-mode environment [e] into Rocq hypotheses
+       [Γ ⊢ P], given [hd : Γ ⊢ of_envs Δ]. *)
+    Ltac2 rec renvs_hyps (hd : constr) (e : constr) (p : constr) : unit :=
+      lazy_match! e with
+      | Enil => ()
+      | Esnoc ?e' ?i ?q =>
+          let h := Fresh.in_goal @H in
+          assert ($h := renvs_lookup (i := $i) (p := $p) (P := $q) $hd eq_refl);
+          renvs_hyps hd e' p
       end.
 
     (* Bring the goal into the form [Γ ⊢ P]: from a valid goal [⊢ P], a
@@ -2594,39 +2659,44 @@ Module Type UnifLogicOn
        hypotheses. A goal already in that form, for example one left by an
        earlier call, is unchanged, so [solve_related] can be called again
        after the user has made progress by hand. *)
-    Ltac rentry :=
-      lazymatch goal with
-      | |- bi_emp_valid _ =>
-          notypeclasses refine (rentry_valid _); let Γ := fresh "Γ" in intros Γ
-      | |- Related _ _ _ _ =>
-          notypeclasses refine (rentry_valid _); let Γ := fresh "Γ" in intros Γ
-      | |- envs_entails (Envs ?Γp ?Γs _) _ =>
-          notypeclasses refine (rentry_envs _);
-          let Γ := fresh "Γ" in let HΔ := fresh "HΔ" in
-          intros Γ HΔ; renvs_hyps HΔ Γp true; renvs_hyps HΔ Γs false; clear HΔ
-      | |- _ => idtac
-      end.
+    Ltac2 rentry () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- bi_emp_valid _ ] => nrefine (rentry_valid _); intros ?Γ
+        | [ |- Related _ _ _ _ ] => nrefine (rentry_valid _); intros ?Γ
+        | [ |- envs_entails (Envs ?gp ?gs _) _ ] =>
+            nrefine (rentry_envs _);
+            let hd := Fresh.in_goal @HΔ in
+            intros ?Γ $hd;
+            let hdc := Control.hyp hd in
+            renvs_hyps hdc gp 'true; renvs_hyps hdc gs 'false; clear $hd
+        | [ |- _ ] => ()
+        end).
 
     (* Last resort for relational goals that no step could handle: close them
        with any hypothesis from the chain up to conversion, without the head
        filter of [rhyp_rel], e.g. with a hypothesis stated with [repₚ]. *)
-    Ltac rclose :=
-      lazymatch goal with
-      | |- @bi_entails _ _ (@RSat _ _ _ _ _ _) => rhyp_walk
-      end.
+    Ltac2 rclose () : unit :=
+      Control.enter (fun () =>
+        lazy_match! goal with
+        | [ |- @bi_entails _ _ (@RSat _ _ _ _ _ _) ] => rhyp_walk ()
+        end).
 
+    (* Entry point; see the description of the solver above. If not even the
+       first step applies, the goal is left unchanged. This matters in the proof
+       mode: [rentry] replaces the proof-mode context by Rocq hypotheses, which
+       the user could not continue from, so it is only kept when the solver
+       makes progress. Hence [solve_related] can be tried on any goal. *)
+    Ltac2 solve_related () : unit :=
+      Control.enter (fun () =>
+        first [ (rentry (); rstep (); repeat (rstep ()); try (rclose ())) | () ]).
+
+    (* For Ltac1 proofs. *)
+    Ltac rentry := ltac2:(rentry ()).
 
   End RefineSolver.
 
-  (* Entry point; see the description of the solver above. If not even the
-     first step applies, the goal is left unchanged. This matters in the proof
-     mode: [rentry] replaces the proof-mode context by Rocq hypotheses, which
-     the user could not continue from, so it is only kept when the solver
-     makes progress. Hence [solve_related] can be tried on any goal. *)
-  Ltac solve_related :=
-    tryif (RefineSolver.rentry; RefineSolver.rstep)
-    then (repeat RefineSolver.rstep; try RefineSolver.rclose)
-    else idtac.
+  Ltac solve_related := ltac2:(RefineSolver.solve_related ()).
 
   Module AutorewriteUnifLogic.
     Import DList.
