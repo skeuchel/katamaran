@@ -58,6 +58,13 @@ Don't merge a branch that still contains `BitvectorNext.v`.
   `lia` sees different atoms. Avoid `simpl`, or use
   `change (bv.unsigned x) with (@bv.unsigned xlenbits x) in *`.
 
+## Type classes
+
+- When you add or touch a `Class`, give it a mode with the `#[mode="…"]`
+  attribute, e.g. `#[mode="- + +"] Class …`, and drop any separate
+  `Hint Mode` line for it. Leave the attribute out only if every argument is
+  `-`, which is the default.
+
 ## Case studies
 
 - `examples/GVT` has copies of some RiscvPmp lemmas; keep them in sync.
