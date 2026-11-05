@@ -186,7 +186,7 @@ Module Type TermsOn (Import TY : Types).
     Let PE : ∀ (σs : Ctx Ty), Env (Term Σ) σs → Type :=
       fun σs es => env.All P es.
     Let PNE : ∀ (σs : NCtx recordf Ty), NamedEnv (Term Σ) σs → Type :=
-      fun σs es => env.All (fun b t => P t) es.
+      fun σs es => nenv.All P es.
 
     Hypothesis (pvar : ∀ (l : LVar) (σ : Ty) (lIn : l∷σ ∈ Σ), P (term_var l)).
     Hypothesis (pval : ∀ [σ] (v : Val σ), P (term_val σ v)).
@@ -211,7 +211,7 @@ Module Type TermsOn (Import TY : Types).
       | term_tuple ts       => ptuple (env.all_intro Term_rect ts)
       | term_union U K t    => punion K (Term_rect t)
       | term_record R ts    =>
-          precord (env.all_intro (fun b => Term_rect (σ := type b)) ts)
+          precord (nenv.all_intro Term_rect ts)
       end.
 
   End Term_rect.
@@ -633,7 +633,7 @@ Module Type TermsOn (Import TY : Types).
         Term_eqb _ _ (right _) := false
       };
       Term_eqb (@term_record ?(r) xs) (@term_record r ys) :=
-        @env.eqb_hom _ (fun b => Term Σ (type b)) (fun b => @Term_eqb (type b)) _ xs ys;
+        nenv.eqb_hom (@Term_eqb) xs ys;
       Term_eqb _ _ := false.
 
     #[local] Set Equations With UIP.
@@ -660,6 +660,8 @@ Module Type TermsOn (Import TY : Types).
                 apply (@ssrbool.iffP (ts1 = ts2))
             | |- reflect (?ts1 = ?ts2) (env.eqb_hom _ ?ts1 ?ts2) =>
                 apply env.eqb_hom_spec_point
+            | |- reflect (?ts1 = ?ts2) (nenv.eqb_hom _ ?ts1 ?ts2) =>
+                apply nenv.eqb_hom_spec_point
             end; auto.
     Qed.
 
@@ -677,7 +679,7 @@ Module Type TermsOn (Import TY : Types).
   Section SymbolicSubstitutions.
 
     Definition Sub (Σ1 Σ2 : LCtx) : Set :=
-      Env (fun b => Term Σ2 (type b)) Σ1.
+      NamedEnv (Term Σ2) Σ1.
     (* Hint Unfold Sub. *)
 
     Class Subst (T : LCtx → Type) : Type :=
@@ -692,7 +694,7 @@ Module Type TermsOn (Import TY : Types).
       | term_unop op t             => term_unop op (sub_term t ζ)
       | term_tuple ts              => term_tuple (env.map (fun _ t => sub_term t ζ) ts)
       | term_union U K t           => term_union U K (sub_term t ζ)
-      | term_record R ts           => term_record R (env.map (fun _ t => sub_term t ζ) ts)
+      | term_record R ts           => term_record R (nenv.map (fun _ t => sub_term t ζ) ts)
       end.
 
     #[export] Instance SubstTerm {σ} : Subst (fun Σ => Term Σ σ) :=
@@ -713,35 +715,29 @@ Module Type TermsOn (Import TY : Types).
     #[export] Instance SubstEnv {B : Set} {A : Ctx _ → B → Set} `{∀ b, Subst (fun Σ => A Σ b)} {Δ : Ctx B} :
       Subst (fun Σ => Env (A Σ) Δ) :=
       fun Σ1 xs Σ2 ζ => env.map (fun b a => subst (T := fun Σ => A Σ b) a ζ) xs.
+    #[export] Instance SubstNamedEnv {N T : Set} {A : LCtx → T → Set} `{∀ σ, Subst (fun Σ => A Σ σ)} {Δ : NCtx N T} :
+      Subst (fun Σ => NamedEnv (A Σ) Δ) :=
+      fun Σ1 xs Σ2 ζ => nenv.map (fun σ a => subst (T := fun Σ => A Σ σ) a ζ) xs.
 
     Definition sub_id Σ : Sub Σ Σ :=
-      @env.tabulate _ (fun b => Term _ (type b)) _
-                    (fun '(ς∷σ) ςIn => @term_var Σ ς σ ςIn).
+      nenv.tabulate (D := Term _) (fun '(ς∷σ) ςIn => @term_var Σ ς σ ςIn).
     #[global] Arguments sub_id : clear implicits.
 
     Definition sub_snoc {Σ1 Σ2 : LCtx} (ζ : Sub Σ1 Σ2) b (t : Term Σ2 (type b)) :
-      Sub (Σ1 ▻ b) Σ2 := env.snoc ζ b t.
+      Sub (Σ1 ▻ b) Σ2 := nenv.snoc ζ b t.
     #[global] Arguments sub_snoc {_ _} _ _ _.
 
     Definition sub_shift {Σ b} (bIn : b ∈ Σ) : Sub (Σ - b) Σ :=
-      env.tabulate
-        (D := fun b => Term Σ (type b))
-        (fun '(x∷τ) xIn => @term_var Σ x τ (ctx.shift_var bIn xIn)).
+      nenv.tabulate (D := Term _) (fun '(x∷τ) xIn => @term_var Σ x τ (ctx.shift_var bIn xIn)).
 
     Definition sub_wk1 {Σ b} : Sub Σ (Σ ▻ b) :=
-      env.tabulate
-        (D := fun b => Term _ (type b))
-        (fun '(ς∷σ) ςIn => @term_var _ ς σ (ctx.in_succ ςIn)).
+      nenv.tabulate (D := Term _) (fun '(ς∷σ) ςIn => @term_var _ ς σ (ctx.in_succ ςIn)).
 
     Definition sub_cat_left {Σ} Δ : Sub Σ (Σ ▻▻ Δ) :=
-      env.tabulate
-        (D := fun b => Term _ (type b))
-        (fun '(ς∷σ) ςIn => @term_var _ ς σ (ctx.in_cat_left Δ ςIn)).
+      nenv.tabulate (D := Term _) (fun '(ς∷σ) ςIn => @term_var _ ς σ (ctx.in_cat_left Δ ςIn)).
 
     Definition sub_cat_right {Σ} Δ : Sub Δ (Σ ▻▻ Δ) :=
-      env.tabulate
-        (D := fun b => Term _ (type b))
-        (fun '(ς∷σ) ςIn => @term_var _ ς σ (ctx.in_cat_right ςIn)).
+      nenv.tabulate (D := Term _) (fun '(ς∷σ) ςIn => @term_var _ ς σ (ctx.in_cat_right ςIn)).
 
     Definition sub_up1 {Σ1 Σ2} (ζ : Sub Σ1 Σ2) {b} : Sub (Σ1 ▻ b) (Σ2 ▻ b) :=
       sub_snoc (subst ζ sub_wk1) b (let '(ς∷σ) := b in @term_var _ ς σ ctx.in_zero).
@@ -750,8 +746,7 @@ Module Type TermsOn (Import TY : Types).
       subst ζ (sub_cat_left Δ) ►► sub_cat_right Δ.
 
     Definition sub_single {Σ x} (xIn : x ∈ Σ) (t : Term (Σ - x) (type x)) : Sub Σ (Σ - x) :=
-       @env.tabulate _
-         (fun b => Term (Σ - x) (@type _ _ b)) Σ
+       nenv.tabulate
          (fun y (yIn : y ∈ Σ) =>
             match ctx.occurs_check_view xIn yIn
             in @ctx.OccursCheckView _ _ _ _ y i
@@ -775,13 +770,13 @@ Module Type TermsOn (Import TY : Types).
       constructor.
       { intros ? t.
         induction t; cbn; f_equal; try assumption.
-        - unfold sub_id. now rewrite env.lookup_tabulate.
+        - unfold sub_id. now rewrite nenv.lookup_tabulate.
         - induction IH; cbn; f_equal; auto.
         - induction IH; cbn; f_equal; auto.
       }
       { intros ? ? ? ? ? t.
         induction t; cbn; f_equal; try assumption.
-        - unfold subst at 1, SubstEnv. now rewrite env.lookup_map.
+        - unfold subst at 1, SubstNamedEnv. now rewrite nenv.lookup_map.
         - induction IH; cbn; f_equal; auto.
         - induction IH; cbn; f_equal; auto.
       }
@@ -815,6 +810,20 @@ Module Type TermsOn (Import TY : Types).
       }
     Qed.
 
+    #[export] Instance SubstLawsNamedEnv {N T : Set} {A : LCtx → T → Set}
+      `{∀ σ, Subst (fun Σ => A Σ σ), ∀ σ, SubstLaws (fun Σ => A Σ σ)}
+      {Δ : NCtx N T} :
+      SubstLaws (fun Σ => NamedEnv (A Σ) Δ).
+    Proof.
+      constructor.
+      { intros ? t.
+        induction t; cbn; f_equal; auto using subst_sub_id.
+      }
+      { intros ? ? ? ? ? t.
+        induction t; cbn; f_equal; auto using subst_sub_comp.
+      }
+    Qed.
+
     #[export] Instance subst_ctx `{Subst A} : Subst (fun Σ => Ctx (A Σ)) :=
       fix subst_ctx {Σ} xs {Σ'} ζ {struct xs} :=
         match xs with
@@ -830,6 +839,7 @@ Module Type TermsOn (Import TY : Types).
     Qed.
 
   End SymbolicSubstitutions.
+  Bind Scope nenv_scope with Sub.
 
   Module SubNotations.
 
@@ -841,36 +851,36 @@ Module Type TermsOn (Import TY : Types).
   Section InfrastructureLemmas.
 
     Lemma lookup_sub_id {Σ x σ} (xIn : x∷σ ∈ Σ) :
-      env.lookup (sub_id _) xIn = term_var x.
-    Proof. unfold sub_id; now rewrite env.lookup_tabulate. Qed.
+      nenv.lookup (sub_id _) xIn = term_var x.
+    Proof. unfold sub_id; now rewrite nenv.lookup_tabulate. Qed.
 
     Lemma lookup_sub_comp {Σ0 Σ1 Σ2 x} (xIn : x ∈ Σ0) (ζ1 : Sub Σ0 Σ1) (ζ2 : Sub Σ1 Σ2) :
-      env.lookup (subst ζ1 ζ2) xIn = subst (env.lookup ζ1 xIn) ζ2.
+      nenv.lookup (subst ζ1 ζ2) xIn = subst (nenv.lookup ζ1 xIn) ζ2.
     Proof.
-      unfold subst at 1, SubstEnv.
-      now rewrite env.lookup_map.
+      unfold subst at 1, SubstNamedEnv.
+      now rewrite nenv.lookup_map.
     Qed.
 
     Lemma lookup_sub_wk1 {Σ x σ b} (xIn : x∷σ ∈ Σ) :
-      env.lookup (@sub_wk1 Σ b) xIn = @term_var _ _ _ (ctx.in_succ xIn).
-    Proof. unfold sub_wk1; now rewrite env.lookup_tabulate. Qed.
+      nenv.lookup (@sub_wk1 Σ b) xIn = @term_var _ _ _ (ctx.in_succ xIn).
+    Proof. unfold sub_wk1; now rewrite nenv.lookup_tabulate. Qed.
 
     Lemma lookup_sub_shift {Σ x σ b} (bIn : b ∈ Σ) (xIn : x∷σ ∈ (Σ - b)) :
-      env.lookup (@sub_shift Σ b bIn) xIn = @term_var Σ x σ (ctx.shift_var bIn xIn).
-    Proof. unfold sub_shift; now rewrite env.lookup_tabulate. Qed.
+      nenv.lookup (@sub_shift Σ b bIn) xIn = @term_var Σ x σ (ctx.shift_var bIn xIn).
+    Proof. unfold sub_shift; now rewrite nenv.lookup_tabulate. Qed.
 
     Lemma lookup_sub_single_eq {Σ x σ} (xIn : x∷σ ∈ Σ) (t : Term (Σ - x∷σ) σ) :
-      env.lookup (sub_single xIn t) xIn = t.
-    Proof. unfold sub_single. now rewrite env.lookup_tabulate, ctx.occurs_check_view_refl. Qed.
+      nenv.lookup (sub_single xIn t) xIn = t.
+    Proof. unfold sub_single. now rewrite nenv.lookup_tabulate, ctx.occurs_check_view_refl. Qed.
 
     Lemma lookup_sub_single_neq {Σ x σ y τ} (xIn : x ∷ σ ∈ Σ) (t : Term (Σ - x∷σ) σ) (yIn : y∷τ ∈ Σ - x∷σ) :
-      env.lookup (sub_single xIn t) (ctx.shift_var xIn yIn) = term_var y.
-    Proof. unfold sub_single. now rewrite env.lookup_tabulate, ctx.occurs_check_view_shift. Qed.
+      nenv.lookup (sub_single xIn t) (ctx.shift_var xIn yIn) = term_var y.
+    Proof. unfold sub_single. now rewrite nenv.lookup_tabulate, ctx.occurs_check_view_shift. Qed.
 
     Lemma sub_comp_id_left {Σ0 Σ1} (ζ : Sub Σ0 Σ1) :
       subst (sub_id Σ0) ζ = ζ.
     Proof.
-      apply env.lookup_extensional; intros [x σ] *.
+      apply nenv.lookup_extensional; intros [x σ] *.
       now rewrite lookup_sub_comp, lookup_sub_id.
     Qed.
 
@@ -885,27 +895,27 @@ Module Type TermsOn (Import TY : Types).
     Proof. now rewrite subst_sub_comp. Qed.
 
     Lemma sub_comp_wk1_tail {Σ0 Σ1 b} (ζ : Sub (Σ0 ▻ b) Σ1) :
-      subst sub_wk1 ζ = env.tail ζ.
+      subst sub_wk1 ζ = nenv.tail ζ.
     Proof.
-      apply env.lookup_extensional. intros [x σ] *.
+      apply nenv.lookup_extensional. intros [x σ] *.
       rewrite lookup_sub_comp, lookup_sub_wk1.
-      now destruct (env.view ζ) as [ζ t].
+      now destruct (nenv.view ζ) as [ζ t].
     Qed.
 
     Lemma sub_comp_shift {Σ0 Σ1 b} (bIn : b ∈ Σ0) (ζ : Sub Σ0 Σ1) :
-      subst (sub_shift bIn) ζ = env.remove b ζ bIn.
+      subst (sub_shift bIn) ζ = nenv.remove b ζ bIn.
     Proof.
-      rewrite env.remove_remove'. unfold env.remove'.
-      apply env.lookup_extensional. intros [x σ] xIn.
-      now rewrite lookup_sub_comp, lookup_sub_shift, env.lookup_tabulate.
+      rewrite nenv.remove_remove'. unfold nenv.remove'.
+      apply nenv.lookup_extensional. intros [x σ] xIn.
+      now rewrite lookup_sub_comp, lookup_sub_shift, nenv.lookup_tabulate.
     Qed.
 
     Lemma sub_shift_succ {Σ b b'} (bIn : b ∈ Σ) :
       sub_up1 (b := b') (sub_shift bIn) = sub_shift (ctx.in_succ bIn).
     Proof.
-      apply env.lookup_extensional; intros.
+      apply nenv.lookup_extensional; intros.
       destruct (ctx.view bInΓ); first easy.
-      cbn -[env.tabulate].
+      cbn -[nenv.tabulate].
       rewrite lookup_sub_comp, lookup_sub_shift.
       destruct b0 as [x0 τ0].
       change (ctx.snoc (ctx.remove bIn) b') with
@@ -923,9 +933,9 @@ Module Type TermsOn (Import TY : Types).
       (subst ζ1 ζ2) ► (x∷τ ↦ v) =
       subst (sub_up1 ζ1) (ζ2 ► (x∷τ ↦ v)).
     Proof.
-      unfold sub_up1, subst, SubstEnv; cbn.
-      rewrite env.map_map. f_equal.
-      apply env.map_ext. intros.
+      unfold sub_up1, subst, SubstNamedEnv; cbn.
+      rewrite nenv.map_map. f_equal.
+      apply nenv.map_ext. intros.
       now rewrite <- subst_sub_comp, sub_comp_wk1_tail.
     Qed.
 
@@ -940,7 +950,7 @@ Module Type TermsOn (Import TY : Types).
     Lemma sub_comp_shift_single {Σ x σ} (xIn : x∷σ ∈ Σ) (t : Term (Σ - x∷σ) σ) :
       subst (sub_shift xIn) (sub_single xIn t) = sub_id _.
     Proof.
-      apply env.lookup_extensional. intros [y τ] yIn.
+      apply nenv.lookup_extensional. intros [y τ] yIn.
       rewrite lookup_sub_id, lookup_sub_comp, lookup_sub_shift. cbn.
       now rewrite lookup_sub_single_neq.
     Qed.
@@ -950,7 +960,7 @@ Module Type TermsOn (Import TY : Types).
       destruct x as [x σ].
       unfold sub_up1.
       rewrite sub_comp_id_left.
-      apply env.lookup_extensional. intros y yIn.
+      apply nenv.lookup_extensional. intros y yIn.
       destruct (ctx.view yIn) as [|[y τ] yIn].
       - reflexivity.
       - rewrite lookup_sub_id. cbn.
@@ -960,19 +970,19 @@ Module Type TermsOn (Import TY : Types).
     Lemma sub_comp_cat_right {Σ1 Σ2 Σ} (ζ1 : Sub Σ1 Σ) (ζ2 : Sub Σ2 Σ) :
       subst (sub_cat_right Σ2) (ζ1 ►► ζ2) = ζ2.
     Proof.
-      apply env.lookup_extensional. intros [x σ] xIn.
-      unfold sub_cat_right. unfold subst, SubstEnv.
-      rewrite env.lookup_map, env.lookup_tabulate. cbn.
-      now rewrite env.lookup_cat_right.
+      apply nenv.lookup_extensional. intros [x σ] xIn.
+      unfold sub_cat_right. unfold subst, SubstNamedEnv.
+      rewrite nenv.lookup_map, nenv.lookup_tabulate. cbn.
+      now rewrite nenv.lookup_cat_right.
     Qed.
 
     Lemma sub_comp_cat_left {Σ1 Σ2 Σ} (ζ1 : Sub Σ1 Σ) (ζ2 : Sub Σ2 Σ) :
       subst (sub_cat_left Σ2) (ζ1 ►► ζ2) = ζ1.
     Proof.
-      apply env.lookup_extensional. intros [x σ] xIn.
-      unfold sub_cat_left. unfold subst, SubstEnv.
-      rewrite env.lookup_map, env.lookup_tabulate. cbn.
-      now rewrite env.lookup_cat_left.
+      apply nenv.lookup_extensional. intros [x σ] xIn.
+      unfold sub_cat_left. unfold subst, SubstNamedEnv.
+      rewrite nenv.lookup_map, nenv.lookup_tabulate. cbn.
+      now rewrite nenv.lookup_cat_left.
     Qed.
 
     Lemma subst_shift_single {AT} `{SubstLaws AT} {Σ x σ} (xIn : x∷σ ∈ Σ) (a : AT (Σ - x∷σ)) (t : Term (Σ - x∷σ) σ) :
@@ -1038,19 +1048,19 @@ Module Type TermsOn (Import TY : Types).
       NamedEnv (Term Σ) Γ.
 
     #[export] Instance subst_localstore {Γ} : Subst (SStore Γ) :=
-      SubstEnv.
+      SubstNamedEnv.
     #[export] Instance substlaws_localstore {Γ} : SubstLaws (SStore Γ) :=
-      SubstLawsEnv.
+      SubstLawsNamedEnv.
 
     Lemma subst_lookup {Γ Σ Σ' x σ} (xInΓ : x∷σ ∈ Γ) (ζ : Sub Σ Σ') (δ : SStore Γ Σ) :
       subst δ.[?? x] ζ = (subst δ ζ).[?? x].
     Proof.
-      unfold subst at 2, subst_localstore, SubstEnv.
-      now rewrite env.lookup_map.
+      unfold subst at 2, subst_localstore, SubstNamedEnv.
+      now rewrite nenv.lookup_map.
     Qed.
 
   End SymbolicStore.
-  Bind Scope env_scope with SStore.
+  Bind Scope nenv_scope with SStore.
 
   Module TermNotations.
     Open Scope term_scope.
@@ -1109,13 +1119,13 @@ Module Type TermsOn (Import TY : Types).
         | term_unop op t             => eterm_unop op (erase t)
         | term_tuple ts              => eterm_tuple (env.map (fun _ => erase) ts)
         | term_union U K t           => eterm_union K (erase t)
-        | term_record R ts           => eterm_record R (env.map (fun _ => erase) ts)
+        | term_record R ts           => eterm_record R (nenv.map (fun _ => erase) ts)
         end.
 
     Fixpoint erase_SStore {Γ Σ} (ts : SStore Γ Σ) : NamedEnv ETerm Γ :=
       match ts with
       | [env] => [env]
-      | env.snoc ts b t => env.snoc (erase_SStore ts) b (erase_term t)
+      | nenv.snoc ts b t => nenv.snoc (erase_SStore ts) b (erase_term t)
       end.
   End Erasure.
 

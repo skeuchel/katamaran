@@ -97,7 +97,7 @@ Module Type ExpressionsOn (Import TY : Types).
     Let PE : forall σs, Env (Exp Γ) σs -> Type :=
       env.Env_rect (fun _ _ => Type) unit (fun _ es IHes _ e => IHes * P _ e)%type.
     Let PNE : forall (σs : NCtx recordf Ty), NamedEnv (Exp Γ) σs -> Type :=
-      env.Env_rect (fun _ _ => Type) unit (fun _ es IHes _ e => IHes * P _ e)%type.
+      nenv.NamedEnv_rect (fun _ _ => Type) unit (fun _ es IHes _ e => IHes * P _ e)%type.
 
     Hypothesis (P_var     : forall (x : PVar) (σ : Ty) (xInΓ : x∷σ ∈ Γ), P σ (exp_var x)).
     Hypothesis (P_val     : forall (σ : Ty) (l : Val σ), P σ (exp_val σ l)).
@@ -148,11 +148,11 @@ Module Type ExpressionsOn (Import TY : Types).
                                (fun σs _ (vs : Val (ty.tuple σs)) σ e => (vs, eval e δ))
                                es
     | exp_union U K e     => unionv_fold U (existT K (eval e δ))
-    | exp_record R es     => recordv_fold R (env.map (fun xτ e => eval e δ) es)
+    | exp_record R es     => recordv_fold R (nenv.map (fun xτ e => eval e δ) es)
     end.
 
   Definition evals {Γ Δ} (es : NamedEnv (Exp Γ) Δ) (δ : CStore Γ) : CStore Δ :=
-    env.map (fun xτ e => eval e δ) es.
+    nenv.map (fun xτ e => eval e δ) es.
 
   Abbreviation exp_int l := (@exp_val _ ty.int l%Z).
   Abbreviation exp_bool l := (@exp_val _ ty.bool l).
