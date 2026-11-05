@@ -85,7 +85,7 @@ Module Type InversionOn (Import B : Base) (Import P : Program B) (Import STEP : 
           (step : ⟨ γ1, μ1, δ1, stm_assign x s1 ⟩ ---> ⟨ γ3, μ3, δ3, t ⟩) :
       γ3 = γ1 /\ μ3 = μ1 /\
       ((exists msg, s1 = stm_fail _ msg /\ t = stm_fail _ msg /\ δ3 = δ1) \/
-       (exists v,   s1 = stm_val σ v    /\ t = stm_val σ v /\ δ3 = (δ1 ⟪ x ↦ v ⟫)%env)
+       (exists v,   s1 = stm_val σ v    /\ t = stm_val σ v /\ δ3 = (δ1 ⟪ x ↦ v ⟫)%nenv)
       ).
     Proof.
       dependent elimination step.
@@ -324,7 +324,7 @@ Module Type InversionOn (Import B : Base) (Import P : Program B) (Import STEP : 
         t = stm_fail _ msg) \/
     (exists δ2 v,
         ⟨ γ1, μ1, δ1, s1 ⟩ --->* ⟨ γ3, μ3, δ2, stm_val _ v ⟩ /\
-        t = stm_val _ v /\ δ3 = (δ2 ⟪ x ↦ v ⟫)%env).
+        t = stm_val _ v /\ δ3 = (δ2 ⟪ x ↦ v ⟫)%nenv).
   Proof.
     apply (steps_inversion_assign final) in steps.
     destruct_propositional steps; subst.

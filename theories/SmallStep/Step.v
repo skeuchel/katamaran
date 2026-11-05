@@ -151,7 +151,7 @@ Module Type SmallStepOn (Import B : Base) (Import P : Program B).
       ⟩
 
   where "⟨ γ1 , μ1 , δ1 , s1 ⟩ ---> ⟨ γ2 , μ2 , δ2 , s2 ⟩" :=
-    (@Step _ _ γ1%env μ1%env δ1%env γ2%env μ2%env δ2%env s1%exp s2%exp).
+    (@Step _ _ γ1%env μ1%env δ1%nenv γ2%env μ2%env δ2%nenv s1%exp s2%exp).
 
   (* Implement small inversions for the operational semantics. This considers
      only the cases where the starting statement is constructed with exactly one
@@ -292,7 +292,7 @@ Module Type SmallStepOn (Import B : Base) (Import P : Program B).
       Step γ1 μ1 δ1 γ2 μ2 δ2 s1 s2 -> Steps γ2 μ2 δ2 s2 γ3 μ3 δ3 s3 -> Steps γ1 μ1 δ1 s1 γ3 μ3 δ3 s3.
 
   Module Import SmallStepNotations.
-    Notation "⟨ γ1 , μ1 , δ1 , s1 ⟩ ---> ⟨ γ2 , μ2 , δ2 , s2 ⟩" := (@Step _ _ γ1%env μ1%env δ1%env γ2%env μ2%env δ2%env s1%exp s2%exp).
+    Notation "⟨ γ1 , μ1 , δ1 , s1 ⟩ ---> ⟨ γ2 , μ2 , δ2 , s2 ⟩" := (@Step _ _ γ1%env μ1%env δ1%nenv γ2%env μ2%env δ2%nenv s1%exp s2%exp).
     Notation "⟨ γ1 , μ1 , δ1 , s1 ⟩ --->* ⟨ γ2 , μ2 , δ2 , s2 ⟩" := (@Steps _ _ γ1 μ1 δ1 s1 γ2 μ2 δ2 s2).
   End SmallStepNotations.
 

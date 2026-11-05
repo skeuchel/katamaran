@@ -367,22 +367,22 @@ Module Type SymPropOn
         | assertk fml msg o =>
           instprop fml ι /\ safe o ι
         | assumek fml o => instprop fml ι -> safe o ι
-        | angelicv b k => exists v, safe k (env.snoc ι b v)
-        | demonicv b k => forall v, safe k (env.snoc ι b v)
+        | angelicv b k => exists v, safe k (nenv.snoc ι b v)
+        | demonicv b k => forall v, safe k (nenv.snoc ι b v)
         | @assert_vareq _ x σ xIn t msg k =>
-          let ι' := env.remove (x∷σ) ι xIn in
-          env.lookup ι xIn = inst t ι' /\
+          let ι' := nenv.remove (x∷σ) ι xIn in
+          nenv.lookup ι xIn = inst t ι' /\
           safe k ι'
         | @assume_vareq _ x σ xIn t k =>
-          let ι' := env.remove (x∷σ) ι xIn in
-          env.lookup ι xIn = inst t ι' ->
+          let ι' := nenv.remove (x∷σ) ι xIn in
+          nenv.lookup ι xIn = inst t ι' ->
           safe k ι'
         | pattern_match s pat rhs =>
           let (c,ι__pat) := pattern_match_val pat (inst s ι) in
           safe (rhs c) (ι ►► ι__pat)
         | pattern_match_var x pat rhs =>
           let (c,ι__pat) := pattern_match_val pat ι.[?? x] in
-          let ι' := env.remove (x∷_) (ι ►► ι__pat) _ in
+          let ι' := nenv.remove (x∷_) (ι ►► ι__pat) _ in
           safe (rhs c) ι'
         | debug d k => safe k ι
         end%type.
@@ -400,23 +400,23 @@ Module Type SymPropOn
         | assertk fml msg o =>
           Obligation msg fml ι /\ safe_debug o ι
         | assumek fml o => instprop fml ι -> safe_debug o ι
-        | angelicv b k => exists v, safe_debug k (env.snoc ι b v)
-        | demonicv b k => forall v, safe_debug k (env.snoc ι b v)
+        | angelicv b k => exists v, safe_debug k (nenv.snoc ι b v)
+        | demonicv b k => forall v, safe_debug k (nenv.snoc ι b v)
         | @assert_vareq _ x σ xIn t msg k =>
           (let ζ := sub_shift xIn in
           Obligation (subst msg ζ) (formula_relop bop.eq (term_var x) (subst t ζ))) ι /\
-          (let ι' := env.remove (x∷σ) ι xIn in
+          (let ι' := nenv.remove (x∷σ) ι xIn in
           safe_debug k ι')
         | @assume_vareq _ x σ xIn t k =>
-          let ι' := env.remove (x∷σ) ι xIn in
-          env.lookup ι xIn = inst t ι' ->
+          let ι' := nenv.remove (x∷σ) ι xIn in
+          nenv.lookup ι xIn = inst t ι' ->
           safe_debug k ι'
         | pattern_match s pat rhs =>
           let (c,ι__pat) := pattern_match_val pat (inst s ι) in
           safe_debug (rhs c) (ι ►► ι__pat)
         | pattern_match_var x pat rhs =>
           let (c,ι__pat) := pattern_match_val pat ι.[?? x] in
-          let ι' := env.remove (x∷_) (ι ►► ι__pat) _ in
+          let ι' := nenv.remove (x∷_) (ι ►► ι__pat) _ in
           safe_debug (rhs c) ι'
         | debug d k => Debug d (safe_debug k ι)
         end%type.
@@ -434,16 +434,16 @@ Module Type SymPropOn
         | assertk fml msg o =>
           Obligation msg fml ι /\ @wsafe (wformula w fml) o ι
         | assumek fml o => instprop fml ι -> @wsafe (wformula w fml) o ι
-        | angelicv b k => exists v, @wsafe (wsnoc w b) k (env.snoc ι b v)
-        | demonicv b k => forall v, @wsafe (wsnoc w b) k (env.snoc ι b v)
+        | angelicv b k => exists v, @wsafe (wsnoc w b) k (nenv.snoc ι b v)
+        | demonicv b k => forall v, @wsafe (wsnoc w b) k (nenv.snoc ι b v)
         | @assert_vareq _ x σ xIn t msg k =>
           (let ζ := sub_shift xIn in
           Obligation (subst msg ζ) (formula_relop bop.eq (term_var x) (subst t ζ))) ι /\
-          (let ι' := env.remove (x∷σ) ι xIn in
+          (let ι' := nenv.remove (x∷σ) ι xIn in
           @wsafe (wsubst w x t) k ι')
         | @assume_vareq _ x σ xIn t k =>
-          let ι' := env.remove (x∷σ) ι xIn in
-          env.lookup ι xIn = inst t ι' ->
+          let ι' := nenv.remove (x∷σ) ι xIn in
+          nenv.lookup ι xIn = inst t ι' ->
           @wsafe (wsubst w x t) k ι'
         | pattern_match s pat rhs =>
           let (c,ι__pat) := pattern_match_val pat (inst s ι) in
@@ -459,7 +459,7 @@ Module Type SymPropOn
           let xIn1 : x∷_ ∈ w1     := ctx.in_cat_left Δ _ in
           let ι1   : Valuation w1 := ι ►► ι__pat in
           let w2   : World        := wsubst w1 x (lift v) in
-          let ι2   : Valuation w2 := env.remove (x∷_) ι1 xIn1 in
+          let ι2   : Valuation w2 := nenv.remove (x∷_) ι1 xIn1 in
           @wsafe w2 (rhs c) ι2
         | debug d k => Debug d (wsafe k ι)
         end%type.
@@ -575,48 +575,48 @@ Module Type SymPropOn
     Qed.
 
     Lemma safe_angelic_close0 {Σ0 Σ} (p : 𝕊 (Σ0 ▻▻ Σ)) (ι0 : Valuation Σ0) :
-      safe (angelic_close0 Σ p) ι0 <-> exists (ι : Valuation Σ), safe p (env.cat ι0 ι).
+      safe (angelic_close0 Σ p) ι0 <-> exists (ι : Valuation Σ), safe p (nenv.cat ι0 ι).
     Proof.
       induction Σ; cbn.
       - split.
         + intros s.
-          now exists env.nil.
+          now exists nenv.nil.
         + intros [ι sp].
-          destruct (env.view ι).
+          destruct (nenv.view ι).
           now cbn in *.
       - rewrite (IHΣ (angelicv b p)).
         split.
         + intros (ι & v & sp).
-          now exists (env.snoc ι b v).
+          now exists (nenv.snoc ι b v).
         + intros (ι & sp).
-          destruct (env.view ι) as (ι & v).
+          destruct (nenv.view ι) as (ι & v).
           now exists ι, v.
     Qed.
 
     Lemma safe_demonic_close0 {Σ0 Σ} (p : 𝕊 (Σ0 ▻▻ Σ)) (ι0 : Valuation Σ0) :
-      safe (demonic_close0 Σ p) ι0 <-> forall (ι : Valuation Σ), safe p (env.cat ι0 ι).
+      safe (demonic_close0 Σ p) ι0 <-> forall (ι : Valuation Σ), safe p (nenv.cat ι0 ι).
     Proof.
       induction Σ; cbn.
       - split.
-        + intros s ι. now destruct (env.view ι).
-        + intros s; apply (s env.nil).
+        + intros s ι. now destruct (nenv.view ι).
+        + intros s; apply (s nenv.nil).
       - rewrite (IHΣ (demonicv b p)); cbn.
         split.
-        + intros sp ι. destruct (env.view ι) as (ι & v). cbn. auto.
-        + intros sp ι v. apply (sp (env.snoc ι b v)).
+        + intros sp ι. destruct (nenv.view ι) as (ι & v). cbn. auto.
+        + intros sp ι v. apply (sp (nenv.snoc ι b v)).
     Qed.
 
     Definition safe_demonic_close {Σ : LCtx} (p : 𝕊 Σ) :
-      safe (demonic_close p) env.nil <-> forall ι : Valuation Σ, safe p ι.
+      safe (demonic_close p) nenv.nil <-> forall ι : Valuation Σ, safe p ι.
     Proof.
       induction Σ; cbn [demonic_close] in *.
       - split.
-        + intros s ι. now destruct (env.view ι).
-        + intros s. apply (s env.nil).
+        + intros s ι. now destruct (nenv.view ι).
+        + intros s. apply (s nenv.nil).
       - rewrite (IHΣ (demonicv b p)); cbn.
         split.
-        + intros sp ι. destruct (env.view ι) as (ι & v). auto.
-        + intros sp ι v. apply (sp (env.snoc ι b v)).
+        + intros sp ι. destruct (nenv.view ι) as (ι & v). auto.
+        + intros sp ι v. apply (sp (nenv.snoc ι b v)).
     Qed.
 
     Lemma safe_angelic_list' {A Σ} (d : 𝕊 Σ) (P : A Σ -> 𝕊 Σ) (xs : List A Σ) :
@@ -851,7 +851,7 @@ Module Type SymPropOn
       rewrite safe_angelic_list.
       setoid_rewrite safe_angelic_close0. cbn.
       setoid_rewrite inst_pattern_match_term_reverse.
-      change_no_check (@inst_env _ _ _ _) with (@inst_sub).
+      change_no_check (@inst_nenv _ _ _ _ _) with (@inst_sub).
       setoid_rewrite inst_subst.
       setoid_rewrite inst_sub_cat_right.
       setoid_rewrite inst_sub_cat_left.
@@ -871,7 +871,7 @@ Module Type SymPropOn
       unfold angelic_pattern_match_var, angelic_finite. intros ι. cbn.
       rewrite safe_angelic_list.
       setoid_rewrite safe_angelic_close0. cbn.
-      setoid_rewrite env.lookup_cat_left.
+      setoid_rewrite nenv.lookup_cat_left.
       setoid_rewrite inst_pattern_match_term_reverse.
       setoid_rewrite inst_eq_rect.
       setoid_rewrite eq_sym_involutive.
@@ -882,15 +882,15 @@ Module Type SymPropOn
         match goal with
           |- safe ?P ?ι1 -> safe ?P ?ι2 => enough (ι1 = ι2) as <-; auto
         end.
-        rewrite env.remove_cat_left. rewrite eq_rect_sym2.
-        change_no_check (@inst_env _ _ _ _) with (@inst_sub).
-        rewrite env.remove_cat_left.
+        rewrite nenv.remove_cat_left. rewrite eq_rect_sym2.
+        change_no_check (@inst_nenv _ _ _ _ _) with (@inst_sub).
+        rewrite nenv.remove_cat_left.
         f_equal. f_equal. symmetry. apply inst_sub_cat_right.
       - pose proof (pattern_match_val_inverse_left pat ι.[? x∷σ]) as Hmatch.
         destruct pattern_match_val as [pc ιpat]. intros Hsafe.
         exists pc. split. apply base.list_elem_of_In, finite.elem_of_enum.
         exists ιpat. split; auto. clear Hsafe.
-        rewrite env.remove_cat_left, eq_rect_sym2.
+        rewrite nenv.remove_cat_left, eq_rect_sym2.
         symmetry. etransitivity; [|exact Hmatch].
         unfold pattern_match_val_reverse'. cbn.
         f_equal. apply inst_sub_cat_right.
@@ -904,7 +904,7 @@ Module Type SymPropOn
       rewrite safe_demonic_list.
       setoid_rewrite safe_demonic_close0. cbn.
       setoid_rewrite inst_pattern_match_term_reverse.
-      change_no_check (@inst_env _ _ _ _) with (@inst_sub).
+      change_no_check (@inst_nenv _ _ _ _ _) with (@inst_sub).
       setoid_rewrite inst_subst.
       setoid_rewrite inst_sub_cat_right.
       setoid_rewrite inst_sub_cat_left.
@@ -923,17 +923,17 @@ Module Type SymPropOn
       unfold demonic_pattern_match_var, demonic_finite. intros ι. cbn.
       rewrite safe_demonic_list.
       setoid_rewrite safe_demonic_close0. cbn.
-      setoid_rewrite env.lookup_cat_left.
+      setoid_rewrite nenv.lookup_cat_left.
       setoid_rewrite inst_eq_rect.
       setoid_rewrite inst_pattern_match_term_reverse.
       setoid_rewrite eq_sym_involutive.
-      change_no_check (@inst_env _ _ _ _) with (@inst_sub).
+      change_no_check (@inst_nenv _ _ _ _ _) with (@inst_sub).
       split.
       - pose proof (pattern_match_val_inverse_left pat ι.[? x∷σ]) as Hmatch.
         destruct pattern_match_val as [pc ιpat].
         intros HYP. apply HYP. apply base.list_elem_of_In, finite.elem_of_enum.
         rewrite <- Hmatch. unfold pattern_match_val_reverse'. cbn.
-        f_equal. rewrite env.remove_cat_left. rewrite eq_rect_sym2.
+        f_equal. rewrite nenv.remove_cat_left. rewrite eq_rect_sym2.
         symmetry. apply inst_sub_cat_right.
       - intros HYP pc HIn ιpat Hmatch. revert HYP.
         rewrite Hmatch.
@@ -942,7 +942,7 @@ Module Type SymPropOn
           |- safe ?P ?ι1 -> safe ?P ?ι2 => enough (ι1 = ι2) as ->; auto
         end.
         f_equal. f_equal.
-        rewrite env.remove_cat_left. rewrite eq_rect_sym2.
+        rewrite nenv.remove_cat_left. rewrite eq_rect_sym2.
         apply inst_sub_cat_right.
     Qed.
 
@@ -1463,23 +1463,23 @@ Module Type SymPropOn
         split; intros [ιe HYP].
         - rewrite safe_assert_msgs_formulas in HYP. destruct HYP as [Hpc Hp].
           unfold eq_rect_r in Hp. rewrite safe_eq_rect, eq_sym_involutive in Hp.
-          exists (env.insert bIn ιe (inst (eq_rect ((Σ1 ▻▻ Σe) - x∷σ) (fun Σ => Term Σ σ) t (Σ1 ▻▻ Σe - x∷σ) (ctx.remove_in_cat_right bIn)) (ι ►► ιe))).
+          exists (nenv.insert bIn ιe (inst (eq_rect ((Σ1 ▻▻ Σe) - x∷σ) (fun Σ => Term Σ σ) t (Σ1 ▻▻ Σe - x∷σ) (ctx.remove_in_cat_right bIn)) (ι ►► ιe))).
           rewrite safe_assert_msgs_formulas. cbn.
-          rewrite env.insert_cat_right, env.remove_insert, env.lookup_insert_eq.
+          rewrite nenv.insert_cat_right, nenv.remove_insert, nenv.lookup_insert_eq.
           rewrite ?inst_eq_rect.
           split; auto.
           rewrite instprop_subst, inst_eq_rect in Hpc.
           now rewrite inst_sub_single2 in Hpc.
         - rewrite safe_assert_msgs_formulas in HYP. destruct HYP as [Hpc Hp].
           cbn in Hp. destruct Hp as [Ht Hp].
-          rewrite env.remove_cat_right in Hp.
-          exists (env.remove (x∷σ) ιe bIn).
+          rewrite nenv.remove_cat_right in Hp.
+          exists (nenv.remove (x∷σ) ιe bIn).
           rewrite safe_assert_msgs_formulas.
           rewrite instprop_subst.
           unfold eq_rect_r. rewrite safe_eq_rect.
           rewrite eq_sym_involutive. split; auto.
           rewrite inst_eq_rect.
-          rewrite <- env.remove_cat_right.
+          rewrite <- nenv.remove_cat_right.
           rewrite <- inst_sub_shift.
           rewrite inst_sub_single_shift; auto.
           now rewrite inst_sub_shift.
@@ -1681,21 +1681,21 @@ Module Type SymPropOn
         intros p ι. unfold eq_rect_r. rewrite plug_eq_rect. cbn.
         rewrite ?safe_demonic_close0.
         split; intros HYP ιu.
-        - specialize (HYP (env.remove (x∷σ) ιu bIn)).
+        - specialize (HYP (nenv.remove (x∷σ) ιu bIn)).
           rewrite safe_assume_pathcondition. intros Hpc Heq.
           rewrite <- inst_sub_shift in Heq.
           rewrite safe_assume_pathcondition in HYP.
           rewrite instprop_subst in HYP.
           rewrite inst_eq_rect in HYP.
           unfold eq_rect_r in HYP. rewrite safe_eq_rect, eq_sym_involutive in HYP.
-          rewrite <- env.remove_cat_right in HYP. apply HYP.
+          rewrite <- nenv.remove_cat_right in HYP. apply HYP.
           rewrite <- inst_sub_shift.
           rewrite inst_sub_single_shift; auto.
-        - specialize (HYP (env.insert bIn ιu (inst (eq_rect ((Σ1 ▻▻ Σu) - x∷σ) (fun Σ => Term Σ σ) t (Σ1 ▻▻ Σu - x∷σ) (ctx.remove_in_cat_right bIn)) (ι ►► ιu)))).
+        - specialize (HYP (nenv.insert bIn ιu (inst (eq_rect ((Σ1 ▻▻ Σu) - x∷σ) (fun Σ => Term Σ σ) t (Σ1 ▻▻ Σu - x∷σ) (ctx.remove_in_cat_right bIn)) (ι ►► ιu)))).
           rewrite safe_assume_pathcondition, instprop_subst, inst_eq_rect. intros Hpc.
           unfold eq_rect_r. rewrite safe_eq_rect, eq_sym_involutive.
           rewrite safe_assume_pathcondition in HYP. cbn in HYP.
-          rewrite env.insert_cat_right, env.remove_insert, env.lookup_insert_eq in HYP.
+          rewrite nenv.insert_cat_right, nenv.remove_insert, nenv.lookup_insert_eq in HYP.
           rewrite inst_eq_rect in HYP.
           rewrite inst_sub_single2 in Hpc.
           now apply HYP.
@@ -1966,18 +1966,18 @@ Module Type SymPropOn
 
       Lemma interpWk_lookup {Σ1 Σ2 : LCtx} {ζ : WeakensTo Σ1 Σ2}
         {b : (LVar∷Ty)%type} (xIn : (b ∈ Σ1)%katamaran) :
-        env.lookup (interpWk ζ) xIn = term_var_in (weakenIn ζ xIn).
+        nenv.lookup (interpWk ζ) xIn = term_var_in (weakenIn ζ xIn).
       Proof.
         induction ζ.
         - destruct (ctx.view xIn).
-        - rewrite env.lookup_map.
+        - rewrite nenv.lookup_map.
           rewrite (IHζ xIn).
           cbn.
           now rewrite lookup_sub_wk1.
         - cbn -[sub_up1].
           destruct (ctx.view xIn) as [|b xIn]; first done.
           cbn.
-          rewrite env.lookup_map.
+          rewrite nenv.lookup_map.
           rewrite (IHζ xIn).
           cbn.
           now rewrite lookup_sub_wk1.
@@ -2163,7 +2163,7 @@ Module Type SymPropOn
           refine (elimWeakenedVar_weakenedRefines (R1 := prod_relation eq (@IffSymProp _)) (λ Σ0 xIn' '(t', kP'), assert_vareq x t' (amsg.boxMsg msg) kP') (fun '(t , P) => assert_vareq x t msg P) _ _ (v1 := (t, P)) _).
           { intros *. now destruct t0, msg. }
           { intros. destruct t1, t2. destruct H as [H0 H]; cbn in *; subst.
-            split; specialize (H (env.remove (x∷σ) ι xIn));
+            split; specialize (H (nenv.remove (x∷σ) ι xIn));
               cbn; intuition. }
           refine (liftBinOp_weakenedRefines (R1 := eq) (λ Σ' : LCtx, pair)
                     (fun _ _ _ _ _ => eq_refl)
@@ -2172,7 +2172,7 @@ Module Type SymPropOn
           refine (elimWeakenedVar_weakenedRefines (R1 := prod_relation eq (@IffSymProp _)) (λ Σ0 xIn' '(t', kP'), assume_vareq x t' kP') (fun '(t , P) => assume_vareq x t P) _ _ (v1 := (t, P)) _).
           { intros *. now destruct t0. }
           { intros. destruct t1, t2. destruct H as [H0 H]; cbn in *; subst.
-            split; specialize (H (env.remove (x∷σ) ι xIn));
+            split; specialize (H (nenv.remove (x∷σ) ι xIn));
               cbn; intuition. }
           refine (liftBinOp_weakenedRefines (R1 := eq) (λ Σ' : LCtx, pair)
                     (fun _ _ _ _ _ => eq_refl)
@@ -2287,8 +2287,8 @@ Module Type SymPropOn
 
     Fixpoint erase_valuation {Σ} (ι : Valuation Σ) : list { σ : Ty & Val σ} :=
       match ι with
-      | env.nil        => nil
-      | env.snoc ι b v => cons (existT (type b) v) (erase_valuation ι)
+      | nenv.nil        => nil
+      | nenv.snoc ι b v => cons (existT (type b) v) (erase_valuation ι)
       end.
 
     #[export] Instance erase_Valuation : Erase (fun Σ => Valuation Σ) (list { σ : Ty & Val σ}) := fun _ => erase_valuation.
@@ -2303,11 +2303,11 @@ Module Type SymPropOn
       forall {Δ : Ctx Ty}, Env ETerm Δ -> option (Env Val Δ) :=
        fix inst_env {Δ} E :=
          match E with
-         | [] => Some []
+         | env.nil => Some env.nil
          | @env.snoc _ _ Γ E σ t =>
              v  <- inst_eterm σ t;;
              vs <- inst_env E;;
-             Some (vs ► (σ ↦ v))
+             Some (env.snoc vs σ v)
          end.
 
     Definition inst_namedenv' (ι : list { σ : Ty & Val σ}) (inst_eterm : forall τ, ETerm τ -> option (Val τ)) {N} :
@@ -2315,7 +2315,7 @@ Module Type SymPropOn
        fix inst_env {Δ} E :=
          match E with
          | [] => Some []
-         | @env.snoc _ _ Γ E (ℓ∷σ) t =>
+         | @nenv.snoc _ _ _ Γ E (ℓ∷σ) t =>
              v  <- inst_eterm σ t;;
              vs <- inst_env E;;
              Some (vs ► (ℓ∷σ ↦ v))
@@ -2354,11 +2354,11 @@ Module Type SymPropOn
       forall {Δ : Ctx Ty}, Env ETerm Δ -> option (Env Val Δ) :=
       fix inst_env {Δ} E :=
         match E with
-        | [] => Some []
+        | env.nil => Some env.nil
         | @env.snoc _ _ Γ E σ t =>
             v  <- inst_eterm ι t;;
             vs <- inst_env E;;
-            Some (vs ► (σ ↦ v))
+            Some (env.snoc vs σ v)
         end.
 
     Fixpoint inst_eformula (ι : list { σ : Ty & Val σ}) (f : EFormula) : option Prop :=
@@ -2367,7 +2367,7 @@ Module Type SymPropOn
       | eformula_bool t         => b  <- inst_eterm ι t ;;
                                    Some (b = true)
       | @eformula_prop Σ' ζ P   => vs <- inst_namedenv ι ζ ;;
-                                   Some (uncurry_named P vs)
+                                   Some (nenv.uncurry P vs)
       | eformula_relop op t1 t2 => v1 <- inst_eterm ι t1 ;;
                                    v2 <- inst_eterm ι t2 ;;
                                    Some (bop.eval_relop_prop op v1 v2)
@@ -2436,7 +2436,7 @@ Module Type SymPropOn
 
     Lemma erase_valuation_remove {Σ b} (bIn : b ∈ Σ) (ι : Valuation Σ) :
       list_remove (erase_valuation ι) (ctx.in_at bIn) =
-      erase_valuation (env.remove b ι bIn).
+      erase_valuation (nenv.remove b ι bIn).
     Proof. induction ι; destruct (ctx.view bIn); cbn; now f_equal. Qed.
 
     Lemma erase_valuation_cat {Σ1 Σ2} (ι1 : Valuation Σ1) (ι2 : Valuation Σ2) :
@@ -2446,7 +2446,7 @@ Module Type SymPropOn
 
     Lemma nth_error_erase {Σ b} (ι : Valuation Σ) (bIn : b ∈ Σ) :
       nth_error (erase_valuation ι) (ctx.in_at bIn) =
-      Some (existT (type b) (env.lookup ι bIn)).
+      Some (existT (type b) (nenv.lookup ι bIn)).
     Proof. induction ι; destruct (ctx.view bIn); cbn; now f_equal. Qed.
 
     Lemma inst_eterm_erase {Σ σ} (t : Term Σ σ) (ι : Valuation Σ) :
@@ -2478,7 +2478,7 @@ Module Type SymPropOn
     Qed.
 
     Lemma inst_namedenv_erase {Σ N} {Δ : NCtx N Ty} (ts : NamedEnv (Term Σ) Δ) (ι : Valuation Σ) :
-      inst_namedenv (erase_valuation ι) (env.map (fun _ => erase_term) ts) = Some (inst ts ι).
+      inst_namedenv (erase_valuation ι) (nenv.map (fun _ => erase_term) ts) = Some (inst ts ι).
     Proof.
       unfold inst_namedenv.
       induction ts as [|Δ ts IHts [x σ]]; cbn.
@@ -2511,8 +2511,8 @@ Module Type SymPropOn
       - apply Morphisms_Prop.iff_iff_iff_impl_morphism.
         + now rewrite inst_eformula_erase.
         + auto.
-      - apply ex_iff_morphism. intros v. apply (IHp (env.snoc ι b v)).
-      - apply all_iff_morphism. intros v. apply (IHp (env.snoc ι b v)).
+      - apply ex_iff_morphism. intros v. apply (IHp (nenv.snoc ι b v)).
+      - apply all_iff_morphism. intros v. apply (IHp (nenv.snoc ι b v)).
       - change (eterm_var x σ (ctx.in_at xIn)) with (erase_term (term_var x)).
         rewrite erase_valuation_remove, !inst_eterm_erase.
         now apply Morphisms_Prop.and_iff_morphism.
@@ -2524,7 +2524,7 @@ Module Type SymPropOn
       - change (eterm_var x σ (ctx.in_at xIn)) with (erase_term (term_var x)).
         rewrite inst_eterm_erase. cbn. destruct pattern_match_val as [pc ι__pat].
         rewrite erase_valuation_remove, erase_valuation_cat.
-        now rewrite env.cat_remove_left, erase_valuation_eq_rect.
+        now rewrite nenv.cat_remove_left, erase_valuation_eq_rect.
       - apply IHp.
     Qed.
 
@@ -2669,7 +2669,7 @@ Module Type LogSymPropOn
         apply H; last intuition.
         now split.
       - destruct H1 as (ι' & <- & Hpc' & Hsafe).
-        destruct (env.view ι') as [ι v].
+        destruct (nenv.view ι') as [ι v].
         exists v.
         apply H; cbn; now rewrite ?instprop_subst inst_sub_wk1.
       - exists (ι.[b ↦ x]).
@@ -2684,7 +2684,7 @@ Module Type LogSymPropOn
         + apply H1; cbn; now rewrite ?instprop_subst inst_sub_wk1.
       - intros ιpast <- Hpc2.
         apply H; first done.
-        destruct (env.view ιpast) as [ι v].
+        destruct (nenv.view ιpast) as [ι v].
         specialize (H1 v); cbn in H1.
         now rewrite inst_sub_wk1 in H1.
       - rewrite <-inst_sub_shift.
@@ -2757,16 +2757,16 @@ Module Type LogSymPropOn
           apply (f_equal (pattern_match_val_reverse' pat)) in Hpmv.
           now rewrite pattern_match_val_inverse_left in Hpmv.
       - rewrite <-inst_sub_shift.
-        assert (inst (pattern_match_term_reverse pat c (eq_rect (w - x∷σ ▻▻ PatternCaseCtx c) (fun w => NamedEnv (Term w) (PatternCaseCtx c)) (sub_cat_right (PatternCaseCtx c)) ((w ▻▻ PatternCaseCtx c) - x∷σ)%ctx (eq_sym (ctx.remove_in_cat_left xIn)))) (inst (sub_shift (ctx.in_cat_left (PatternCaseCtx c) xIn)) (ι ►► ι__pat)) = env.lookup (ι ►► ι__pat) (ctx.in_cat_left _ xIn)).
+        assert (inst (pattern_match_term_reverse pat c (eq_rect (w - x∷σ ▻▻ PatternCaseCtx c) (fun w => NamedEnv (Term w) (PatternCaseCtx c)) (sub_cat_right (PatternCaseCtx c)) ((w ▻▻ PatternCaseCtx c) - x∷σ)%ctx (eq_sym (ctx.remove_in_cat_left xIn)))) (inst (sub_shift (ctx.in_cat_left (PatternCaseCtx c) xIn)) (ι ►► ι__pat)) = nenv.lookup (ι ►► ι__pat) (ctx.in_cat_left _ xIn)).
         { rewrite inst_pattern_match_term_reverse.
           rewrite inst_eq_rect.
           rewrite eq_sym_involutive.
           rewrite inst_sub_shift.
           change (wcat w (PatternCaseCtx c) : LCtx) with (ctx.cat w (PatternCaseCtx c)).
-          change (fun Σ => Env (fun xt => Val (type xt)) Σ) with (@Env (Binding LVar Ty) (fun xt => Val (type xt))).
-          rewrite <-(env.cat_remove_left xIn ι ι__pat).
+          change (fun Σ => NamedEnv Val Σ) with (@NamedEnv LVar Ty Val).
+          rewrite <-(nenv.cat_remove_left xIn ι ι__pat).
           rewrite inst_sub_cat_right.
-          rewrite env.lookup_cat_left.
+          rewrite nenv.lookup_cat_left.
           apply (f_equal (pattern_match_val_reverse' pat)) in Hpmv.
           now rewrite pattern_match_val_inverse_left in Hpmv.
         }
@@ -2783,18 +2783,18 @@ Module Type LogSymPropOn
         now rewrite inst_sub_cat_left.
       - unfold assuming. crushPredEntails3.
         rewrite inst_subst in H2.
-        pose proof (f_equal (fun ι => env.lookup ι xIn) H2) as Hlkp.
-        rewrite inst_sub_single2 -inst_lookup env.lookup_tabulate in Hlkp.
+        pose proof (f_equal (fun ι => nenv.lookup ι xIn) H2) as Hlkp.
+        rewrite inst_sub_single2 -inst_lookup nenv.lookup_tabulate in Hlkp.
         cbn in Hlkp.
-        rewrite env.lookup_insert_eq inst_pattern_match_term_reverse in Hlkp.
+        rewrite nenv.lookup_insert_eq inst_pattern_match_term_reverse in Hlkp.
         apply (f_equal (pattern_match_val pat)) in Hlkp.
         rewrite pattern_match_val_inverse_right Hpmv in Hlkp.
         dependent elimination Hlkp.
         set (ι__pat := inst (wmatchvar_patternvars a) ιpast).
-        assert (eq_rect ((w ▻▻ PatternCaseCtx a) - x∷σ)%ctx (λ Σ : LCtx, Valuation Σ) (env.remove (x∷σ) (ι ►► ι__pat) (ctx.in_cat_left (PatternCaseCtx a) xIn)) (w - x∷σ ▻▻ PatternCaseCtx a) (ctx.remove_in_cat_left xIn) = env.remove (x∷σ) ι xIn ►► ι__pat) as Hremcat.
+        assert (eq_rect ((w ▻▻ PatternCaseCtx a) - x∷σ)%ctx (λ Σ : LCtx, Valuation Σ) (nenv.remove (x∷σ) (ι ►► ι__pat) (ctx.in_cat_left (PatternCaseCtx a) xIn)) (w - x∷σ ▻▻ PatternCaseCtx a) (ctx.remove_in_cat_left xIn) = nenv.remove (x∷σ) ι xIn ►► ι__pat) as Hremcat.
         { change (wcat w (PatternCaseCtx a) : LCtx) with (ctx.cat w (PatternCaseCtx a)).
-          change (fun Σ => Env (fun xt => Val (type xt)) Σ) with (@Env (Binding LVar Ty) (fun xt => Val (type xt))).
-          now rewrite <-(env.cat_remove_left xIn ι ι__pat).
+          change (fun Σ => NamedEnv Val Σ) with (@NamedEnv LVar Ty Val).
+          now rewrite <-(nenv.cat_remove_left xIn ι ι__pat).
         }
         assert (inst (sub_cat_right (PatternCaseCtx a)) (eq_rect ((w ▻▻ PatternCaseCtx a) - x∷σ)%ctx (λ Σ : LCtx, Valuation Σ) (inst (sub_shift (ctx.in_cat_left (PatternCaseCtx a) xIn)) (ι ►► ι__pat)) (w - x∷σ ▻▻ PatternCaseCtx a) (ctx.remove_in_cat_left xIn)) = ι__pat).
         { rewrite inst_sub_shift.
@@ -2814,22 +2814,22 @@ Module Type LogSymPropOn
         { rewrite !instprop_subst.
           rewrite inst_sub_single_shift.
           + now rewrite inst_sub_cat_left.
-          + now rewrite env.lookup_cat_left.
+          + now rewrite nenv.lookup_cat_left.
         }
         apply H; first done.
-        replace ιpast with (env.remove (x∷σ) (ι ►► ι__pat) (ctx.in_cat_left (PatternCaseCtx a) xIn)); first done.
-        rewrite env.remove_cat_left.
+        replace ιpast with (nenv.remove (x∷σ) (ι ►► ι__pat) (ctx.in_cat_left (PatternCaseCtx a) xIn)); first done.
+        rewrite nenv.remove_cat_left.
         rewrite <-H2.
         rewrite inst_sub_cat_left_drop.
-        rewrite env.remove_drop.
+        rewrite nenv.remove_drop.
         rewrite inst_sub_single2.
-        rewrite env.remove_insert.
+        rewrite nenv.remove_insert.
         unfold ι__pat.
         unfold wmatchvar_patternvars.
         rewrite inst_eq_rect.
         rewrite eq_sym_involutive.
         rewrite inst_sub_cat_right_take.
-        rewrite env.drop_take.
+        rewrite nenv.drop_take.
         now rewrite eq_rect_sym1.
       - now destruct H1.
       - now constructor.

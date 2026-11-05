@@ -76,10 +76,10 @@ Module Type StatementsOn (Import B : Base) (Import F : FunDeclKit B).
   Arguments stm_let {Γ τ} x σ s__σ%_exp s__τ%_exp.
   Arguments stm_block {Γ τ Δ} δ s%_exp.
   Arguments stm_assign {Γ τ} x {xInΓ} s%_exp.
-  Arguments stm_call {Γ τ Δ} f & _%_env.
+  Arguments stm_call {Γ τ Δ} f & _%_nenv.
   Arguments stm_call_frame {Γ τ Δ} δ s%_exp.
-  Arguments stm_foreign {Γ τ Δ} f & _%_env.
-  Arguments stm_lemmak {Γ τ Δ} l & _%_env k.
+  Arguments stm_foreign {Γ τ Δ} f & _%_nenv.
+  Arguments stm_lemmak {Γ τ Δ} l & _%_nenv k.
   Arguments stm_seq {Γ τ σ} s%_exp k%_exp.
   Arguments stm_assertk {Γ τ} e1%_exp e2%_exp k%_exp.
   Arguments stm_fail {Γ} τ s%_string.
@@ -126,7 +126,7 @@ Module Type StatementsOn (Import B : Base) (Import F : FunDeclKit B).
     stm_pattern_match s (pat_bvec_exhaustive n) rhs.
 
   Arguments stm_assert {Γ} e1%_exp e2%_exp.
-  Arguments stm_lemma {Γ Δ} l es%_env.
+  Arguments stm_lemma {Γ Δ} l es%_nenv.
   Arguments stm_if {Γ τ} s%_exp s1%_exp s2%_exp.
   Arguments stm_match_prod {Γ τ _ _} _ _ _ _.
   Arguments stm_match_tuple {Γ τ σs Δ} s%_exp p%_pat rhs%_exp.
@@ -718,17 +718,17 @@ Module Type StatementsOn (Import B : Base) (Import F : FunDeclKit B).
     (K global, at level 200, pat at level 9, format ">  K  pat  =>  rhs") : alt_scope.
 
   Notation "'call' f a1 .. an" :=
-    (stm_call f (env.snoc .. (env.snoc env.nil (_∷_) a1%exp) .. (_∷_) an%exp))
+    (stm_call f (nenv.snoc .. (nenv.snoc nenv.nil (_∷_) a1%exp) .. (_∷_) an%exp))
     (at level 10, f global, a1, an at level 9) : exp_scope.
   Notation "'foreign' f a1 .. an" :=
-    (stm_foreign f (env.snoc .. (env.snoc env.nil (_∷_) a1%exp) .. (_∷_) an%exp))
+    (stm_foreign f (nenv.snoc .. (nenv.snoc nenv.nil (_∷_) a1%exp) .. (_∷_) an%exp))
     (at level 10, f global, a1, an at level 9) : exp_scope.
 
   Notation "'call' f" :=
-    (stm_call f env.nil)
+    (stm_call f nenv.nil)
     (at level 10, f global) : exp_scope.
   Notation "'foreign' f" :=
-    (stm_foreign f env.nil)
+    (stm_foreign f nenv.nil)
     (at level 10, f global) : exp_scope.
 
   Notation "s1 ;; s2" := (stm_seq s1 s2) : exp_scope.

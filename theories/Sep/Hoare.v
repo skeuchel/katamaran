@@ -168,7 +168,7 @@ Module Type ProgramLogic
     | rule_stm_assign
         (x : PVar) (xIn : (x∷τ ∈ Γ)%katamaran) (s : Stm Γ τ)
         (P : L) (R : Val τ -> CStore Γ -> L) :
-        ⦃ P ⦄ s ; δ ⦃ fun v δ' => R v (δ' ⟪ x ↦ v ⟫)%env ⦄ ->
+        ⦃ P ⦄ s ; δ ⦃ fun v δ' => R v (δ' ⟪ x ↦ v ⟫)%nenv ⦄ ->
         ⦃ P ⦄ stm_assign x s ; δ ⦃ R ⦄
     | rule_stm_call
         {Δ} {f : 𝑭 Δ τ} {es : NamedEnv (Exp Γ) Δ} {c : SepContract Δ τ}

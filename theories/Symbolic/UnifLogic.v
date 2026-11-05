@@ -816,6 +816,17 @@ Module Type UnifLogicOn
         crushPredEntails3;
         now apply env.inversion_eq_snoc in H0.
       Qed.
+
+      Lemma repₚ_invert_nenv_snoc
+        {N T : Set} {S : LCtx → T → Set} {A : T → Set} {Σ : NCtx N T}
+        {w : World} {b : N∷T} {E1 : NamedEnv A Σ} {Es1 : NamedEnv (S w) Σ}
+        {v : A (type b)} {db : S w (type b)}
+        (instSA : ∀ τ : T, Inst (λ Σ : LCtx, S Σ τ) (A τ)) :
+        @repₚ _ _ inst_nenv (nenv.snoc E1 b v) w (nenv.snoc Es1 b db) ⊢ repₚ E1 Es1 ∗ repₚ v db.
+      Proof.
+        crushPredEntails3;
+        now apply nenv.inversion_eq_snoc in H0.
+      Qed.
     End WithEnvironments.
         
     Lemma forgetting_repₚ `{InstSubst AT, @SubstLaws AT _} {v w1 w2}  {ω : w1 ⊒ w2} (t : AT w1) :
@@ -1111,12 +1122,12 @@ Module Type UnifLogicOn
     Proof.
       unfold knowing, forgetting.
       crushPredEntails3.
-      - destruct (env.view x) as [ιp v].
+      - destruct (nenv.view x) as [ιp v].
         exists v.
-        change (env.snoc _ _ _) with (env.snoc (inst (sub_id w) ι) b v).
+        change (nenv.snoc _ _ _) with (nenv.snoc (inst (sub_id w) ι) b v).
         now rewrite inst_sub_id -H0 inst_sub_wk1.
-      - exists (env.snoc ι b x).
-        change (env.snoc _ _ _) with (env.snoc (inst (sub_id w) ι) b x) in H0.
+      - exists (nenv.snoc ι b x).
+        change (nenv.snoc _ _ _) with (nenv.snoc (inst (sub_id w) ι) b x) in H0.
         rewrite inst_sub_id in H0.
         repeat split; eauto using inst_sub_wk1.
         now rewrite instprop_subst inst_sub_wk1.
@@ -1134,8 +1145,8 @@ Module Type UnifLogicOn
     Proof.
       unfold knowing.
       crushPredEntails3.
-      destruct (env.view x) as [ι' v].
-      now exists v, (env.snoc ι' b v).
+      destruct (nenv.view x) as [ι' v].
+      now exists v, (nenv.snoc ι' b v).
     Qed.
 
 
@@ -1151,16 +1162,16 @@ Module Type UnifLogicOn
         rewrite <-inst_lookup, <-inst_subst.
         now rewrite lookup_sub_single_eq subst_shift_single.
       - rewrite !inst_sub_single2 in H3 H0.
-        apply (f_equal (fun ι => env.remove (x∷σ) ι xIn)) in H0, H3.
-        rewrite !env.remove_insert in H3, H0.
-        assert (ιpast = x0) by (now transitivity (env.remove (x∷σ) ι xIn)).
+        apply (f_equal (fun ι => nenv.remove (x∷σ) ι xIn)) in H0, H3.
+        rewrite !nenv.remove_insert in H3, H0.
+        assert (ιpast = x0) by (now transitivity (nenv.remove (x∷σ) ι xIn)).
         now subst.
       - exists (inst (sub_shift xIn) ι).
         assert (instprop (wco w) (inst (sub_single xIn t) (inst (sub_shift xIn) ι))) as Hpc2.
         { rewrite inst_sub_single_shift; first done.
           now rewrite <-inst_subst.
         }
-        assert (inst t (inst (sub_shift xIn) ι) = env.lookup ι xIn) as Hinst.
+        assert (inst t (inst (sub_shift xIn) ι) = nenv.lookup ι xIn) as Hinst.
         { now rewrite <-inst_subst. }
         assert (inst (sub_single xIn t) (inst (sub_shift xIn) ι) = ι) as Hinst2.
         { now rewrite inst_sub_single_shift. }
@@ -1175,15 +1186,15 @@ Module Type UnifLogicOn
     Proof.
       unfold assuming, forgetting.
       crushPredEntails3.
-      - change (P (env.snoc (inst (sub_id w) ι) b a)).
+      - change (P (nenv.snoc (inst (sub_id w) ι) b a)).
         rewrite inst_sub_id.
         apply H0.
         + eapply inst_sub_wk1.
         + now rewrite instprop_subst inst_sub_wk1.
-      - destruct (env.view ιpast) as [ι' v].
+      - destruct (nenv.view ιpast) as [ι' v].
         rewrite inst_sub_wk1 in H1; subst.
         specialize (H0 v).
-        change (env.snoc _ _ _) with (env.snoc (inst (sub_id w) ι) b v) in H0.
+        change (nenv.snoc _ _ _) with (nenv.snoc (inst (sub_id w) ι) b v) in H0.
         rewrite inst_sub_id in H0.
         now apply H0.
     Qed.
@@ -1362,7 +1373,7 @@ Module Type UnifLogicOn
                )%P.
 
     Definition RIn b : Rel (ctx.In b) (Val (type b)) :=
-      MkRel (fun v w bIn ι => env.lookup ι bIn = v).
+      MkRel (fun v w bIn ι => nenv.lookup ι bIn = v).
 
     Module Import notations.
       Open Scope rel_scope.
@@ -1775,7 +1786,7 @@ Module Type UnifLogicOn
       Import env.notations.
       Import ctx.notations.
       Lemma refine_namedenv_snoc {N} {Δ : NCtx N Ty} {b} {w : World} {vs : NamedEnv Val Δ} {svs : NamedEnv (Term w) Δ} {v : Val (type b)} {sv : Term w (type b)} :
-        ℛ⟦RNEnv N Δ⟧ vs svs ∗ ℛ⟦RVal (type b)⟧ v sv ⊢ ℛ⟦RNEnv N (Δ ▻ b)⟧ (vs.[b ↦ v])%env (svs.[b ↦ sv])%env.
+        ℛ⟦RNEnv N Δ⟧ vs svs ∗ ℛ⟦RVal (type b)⟧ v sv ⊢ ℛ⟦RNEnv N (Δ ▻ b)⟧ (vs.[b ↦ v])%nenv (svs.[b ↦ sv])%nenv.
       Proof.
         iIntros "[Hvs Hv]".
         iApply (repₚ_cong₂ (T1 := fun w => NamedEnv (Term w) Δ) (T2 := STerm (type b)) (T3 := fun w => NamedEnv (Term w) (Δ ▻ b)) (fun vs v => vs.[b ↦ v]) (fun vs (v : Term w (type b)) => vs.[b ↦ v]) with "[$Hvs $Hv]").
@@ -1783,14 +1794,14 @@ Module Type UnifLogicOn
       Qed.
 
       #[export] Instance refine_compat_namedenv_snoc {N} {Δ : NCtx N Ty} {b} {w : World} {vs : NamedEnv Val Δ} {svs : NamedEnv (Term w) Δ} {v : Val (type b)} {sv : Term w (type b)} :
-        RefineCompat (RNEnv N (Δ ▻ b)) (vs.[b ↦ v])%env w (svs.[b ↦ sv])%env _ :=
+        RefineCompat (RNEnv N (Δ ▻ b)) (vs.[b ↦ v])%nenv w (svs.[b ↦ sv])%nenv _ :=
         MkRefineCompat refine_namedenv_snoc.
 
       Lemma refine_sub_snoc {τ : Ty} {Γ : LCtx} {x : LVar}
         {w : World} {vs : NamedEnv Val Γ} {svs : NamedEnv (Term w) Γ}
         {v : Val τ} {sv : Term w τ} :
         (ℛ⟦RNEnv LVar Γ⟧ vs svs) ∗  ℛ⟦RVal τ⟧ v sv ⊢
-          ℛ⟦RNEnv LVar (Γ ▻ x∷τ)⟧ (vs.[x∷τ ↦ v])%env (sub_snoc svs (x∷τ) sv).
+          ℛ⟦RNEnv LVar (Γ ▻ x∷τ)⟧ (vs.[x∷τ ↦ v])%nenv (sub_snoc svs (x∷τ) sv).
       Proof.
         iIntros "[H1 H2]".
         iApply (repₚ_cong₂ (T1 := fun w => NamedEnv (Term w) Γ) (T2 := STerm τ) (T3 := fun w => NamedEnv (Term w) (Γ ▻ (x∷τ))) (fun vs v => vs.[x∷τ ↦ v]) (fun vs (v : Term w τ) => sub_snoc vs (x∷τ) v) with "[$H1 $H2]").
@@ -1798,10 +1809,10 @@ Module Type UnifLogicOn
       Qed.
 
       Lemma refine_env_snoc {Δ : Ctx Ty} {τ} {w : World} {vs : Env Val Δ} {svs : Env (Term w) Δ} {v : Val τ} {sv : Term w τ} :
-        ℛ⟦REnv Δ⟧ vs svs ∗ ℛ⟦RVal τ⟧ v sv ⊢ ℛ⟦REnv (Δ ▻ τ)⟧ (vs ► ( τ ↦ v ))%env (svs ► (τ ↦ sv ))%env.
+        ℛ⟦REnv Δ⟧ vs svs ∗ ℛ⟦RVal τ⟧ v sv ⊢ ℛ⟦REnv (Δ ▻ τ)⟧ (env.snoc vs τ v) (env.snoc svs τ sv).
       Proof.
         iIntros "[Hvs Hv]".
-        iApply (repₚ_cong₂ (T1 := fun w => Env (Term w) Δ) (T2 := STerm τ) (T3 := fun w => Env (Term w) (Δ ▻ τ)) (fun vs v => vs ► ( τ ↦ v )) (fun vs (v : Term w τ) => vs ► ( τ ↦ v )) with "[$Hvs $Hv]").
+        iApply (repₚ_cong₂ (T1 := fun w => Env (Term w) Δ) (T2 := STerm τ) (T3 := fun w => Env (Term w) (Δ ▻ τ)) (fun vs v => env.snoc vs τ v) (fun vs (v : Term w τ) => env.snoc vs τ v) with "[$Hvs $Hv]").
         now intros.
       Qed.
 
@@ -1816,18 +1827,18 @@ Module Type UnifLogicOn
 
 
       Lemma refine_namedenv_nil {N} {w : World} :
-         ⊢ ℛ⟦RNEnv N [ctx] ⟧ env.nil (env.nil : NamedEnv (Term w) [ctx]).
+         ⊢ ℛ⟦RNEnv N [ctx] ⟧ nenv.nil (nenv.nil : NamedEnv (Term w) [ctx]).
       Proof.
         iApply (repₚ_triv (T := fun w => NamedEnv (Term w) [ctx])).
         now intros.
       Qed.
 
       #[export] Instance refine_compat_namedenv_nil {N} {w : World} :
-        RefineCompat (RNEnv N [ctx]) env.nil w (env.nil : NamedEnv (Term w) [ctx]) _ :=
+        RefineCompat (RNEnv N [ctx]) nenv.nil w (nenv.nil : NamedEnv (Term w) [ctx]) _ :=
         MkRefineCompat refine_namedenv_nil.
 
       Lemma refine_namedenv_singleton {N : Set} {x : N} {σ : Ty} {w : World} {v : Val σ} {sv : Term w σ} :
-        ℛ⟦RVal σ⟧ v sv ⊢ ℛ⟦RNEnv N (ctx.nil ▻ x∷σ)⟧ ([env].[x∷σ ↦ v])%env ([env].[x∷σ ↦ sv])%env.
+        ℛ⟦RVal σ⟧ v sv ⊢ ℛ⟦RNEnv N (ctx.nil ▻ x∷σ)⟧ ([env].[x∷σ ↦ v])%nenv ([env].[x∷σ ↦ sv])%nenv.
       Proof.
         iIntros "Hv"; rsolve.
       Qed.
@@ -1841,16 +1852,16 @@ Module Type UnifLogicOn
       Qed.
 
       Lemma refine_namedenv_cat {N} {Δ : NCtx N Ty} {Γ} {w : World} :
-        ⊢ ℛ⟦RNEnv N Δ -> RNEnv N Γ -> RNEnv N (Δ ▻▻ Γ)⟧ (w := w) env.cat env.cat.
+        ⊢ ℛ⟦RNEnv N Δ -> RNEnv N Γ -> RNEnv N (Δ ▻▻ Γ)⟧ (w := w) nenv.cat nenv.cat.
       Proof.
         iIntros (vs1 svs1) "Hvs1 %vs2 %svs2 Hvs2".
-        iApply (repₚ_cong₂ (T1 := fun w => NamedEnv (Term w) Δ) (T2 := fun w => NamedEnv (Term w) Γ) (T3 := fun w => NamedEnv (Term w) (Δ ▻▻ Γ)) (v1 := vs1) (v2 := vs2) (vs1 := svs1) (vs2 := svs2) env.cat env.cat with "[$Hvs1 $Hvs2]").
+        iApply (repₚ_cong₂ (T1 := fun w => NamedEnv (Term w) Δ) (T2 := fun w => NamedEnv (Term w) Γ) (T3 := fun w => NamedEnv (Term w) (Δ ▻▻ Γ)) (v1 := vs1) (v2 := vs2) (vs1 := svs1) (vs2 := svs2) nenv.cat nenv.cat with "[$Hvs1 $Hvs2]").
         intros.
-        now rewrite inst_env_cat.
+        now rewrite inst_nenv_cat.
       Qed.
 
       #[export] Instance refine_compat_namedenv_cat {N} {Δ : NCtx N Ty} {Γ} {w : World} :
-        RefineCompat (RNEnv N Δ -> RNEnv N Γ -> RNEnv N (Δ ▻▻ Γ)) env.cat w env.cat emp :=
+        RefineCompat (RNEnv N Δ -> RNEnv N Γ -> RNEnv N (Δ ▻▻ Γ)) nenv.cat w nenv.cat emp :=
         MkRefineCompat refine_namedenv_cat.
 
       Lemma refine_namedenv_sub_acc {Σ : LCtx} {w : World} {ι : Valuation Σ} {ω : wlctx Σ ⊒ w}:
@@ -1883,14 +1894,14 @@ Module Type UnifLogicOn
         let (pc, δpc) := pattern_match_val p v in
         knowing (w1 := wmatch w sv p pc) (acc_match_right pc)
           (ℛ⟦ RNEnv LVar (PatternCaseCtx pc) ⟧  δpc
-             (sub_cat_right (PatternCaseCtx pc) : NamedEnv _ _)).
+             (sub_cat_right (PatternCaseCtx pc) : NamedEnv (Term (wmatch w sv p pc)) _)).
     Proof.
       pose proof (pattern_match_val_inverse_left p v) as eq.
       destruct (pattern_match_val p v) as [pc args].
       unfold pattern_match_val_reverse' in eq; cbn in eq.
       unfold knowing, RVal, RNEnv, RInst.
       crushPredEntails3.
-      exists (env.cat ι args).
+      exists (nenv.cat ι args).
       now rewrite instprop_subst inst_subst !inst_sub_cat_left
         inst_pattern_match_term_reverse inst_sub_cat_right eq.
     Qed.
@@ -1924,18 +1935,18 @@ Module Type UnifLogicOn
       unfold pattern_match_val_reverse' in eq; cbn in eq.
       unfold knowing, RVal, RNEnv, RInst.
       crushPredEntails3.
-      exists (env.remove (x∷σ) (env.cat ι args) (ctx.in_cat_left (PatternCaseCtx pc) xIn)).
+      exists (nenv.remove (x∷σ) (nenv.cat ι args) (ctx.in_cat_left (PatternCaseCtx pc) xIn)).
       rewrite !instprop_subst !inst_subst.
       rewrite inst_sub_single2 inst_pattern_match_term_reverse.
       unfold wmatchvar_patternvars.
       rewrite inst_eq_rect.
-      rewrite env.remove_cat_left.
+      rewrite nenv.remove_cat_left.
       rewrite eq_rect_sym1.
       rewrite inst_sub_cat_right.
       rewrite eq.
-      rewrite <-env.insert_cat_left.
+      rewrite <-nenv.insert_cat_left.
       rewrite <-H0.
-      rewrite env.insert_remove.
+      rewrite nenv.insert_remove.
       now rewrite inst_sub_cat_left.
     Qed.
 
@@ -2095,13 +2106,13 @@ Module Type UnifLogicOn
     MkRefineCompat refine_chunk_user.
 
   #[export] Instance refine_compat_env_snoc {Δ : Ctx Ty} {τ} {w : World} {vs : Env Val Δ} {svs : Env (Term w) Δ} {v : Val τ} {sv : Term w τ} :
-    RefineCompat (REnv (Δ ▻ τ)) (vs ► ( τ ↦ v ))%env w (svs ► (τ ↦ sv ))%env _ :=
+    RefineCompat (REnv (Δ ▻ τ)) (env.snoc vs τ v) w (env.snoc svs τ sv) _ :=
     MkRefineCompat refine_env_snoc.
 
   #[export] Instance refine_compat_sub_snoc {τ : Ty} {Γ : LCtx} {x : LVar}
     {w : World} {vs : NamedEnv Val Γ} {svs : NamedEnv (Term w) Γ}
     {v : Val τ} {sv : Term w τ} :
-    RefineCompat (RNEnv LVar (Γ ▻ x∷τ)) (vs.[x∷τ ↦ v])%env w (sub_snoc svs (x∷τ) sv) _ :=
+    RefineCompat (RNEnv LVar (Γ ▻ x∷τ)) (vs.[x∷τ ↦ v])%nenv w (sub_snoc svs (x∷τ) sv) _ :=
     MkRefineCompat refine_sub_snoc.
 
   #[export] Instance refine_compat_env_nil {w : World} {vs : Env Val [ctx]} {svs : Env (Term w) [ctx]} :

@@ -199,8 +199,8 @@ Module Type WorldsOn
       match ζ with
       | tri_id => True
       | @tri_cons _ Σ' x σ xIn t ζ0 =>
-        let ι' := env.remove (x∷σ) ι xIn in
-        env.lookup ι xIn = inst t ι' /\ inst_triangular ζ0 ι'
+        let ι' := nenv.remove (x∷σ) ι xIn in
+        nenv.lookup ι xIn = inst t ι' /\ inst_triangular ζ0 ι'
       end.
 
     Lemma inst_triangular_left_inverse {w1 w2 : World} (ι2 : Valuation w2) (ν : Tri w1 w2) :
@@ -842,8 +842,8 @@ Module Type WorldsOn
     Proof. crushPredEntails2; specialize (H ι); unfold instpred_formula_user in *. 
            now rewrite -H. now rewrite H.  Qed.
 
-    Definition instpred_formula_prop {w : World} {Σ : LCtx} (ζ : Sub Σ w) (P : abstract_named Val Σ Prop) : Pred w :=
-      fun ι => uncurry_named P (inst ζ ι).
+    Definition instpred_formula_prop {w : World} {Σ : LCtx} (ζ : Sub Σ w) (P : nenv.abstract Val Σ Prop) : Pred w :=
+      fun ι => nenv.uncurry P (inst ζ ι).
     Arguments instpred_formula_prop [w] [Σ] ζ P ι /.
 
     Definition instpred_formula_relop {w : World} {σ : Ty} (op : RelOp σ) (t1 t2 : Term w σ) : Pred w :=
@@ -1100,19 +1100,19 @@ Module Type WorldsOn
       repₚ (w := w) (T := fun w => NamedEnv (Term w) ([ctx] : NCtx N Ty)) [env] [env] ⊣⊢ emp.
     Proof. unfold repₚ, bi_pred, bi_emp; crushPredEntails2. Qed.
 
-    Lemma repₚ_namedenv_snoc {w : World} {N} {Γ : NCtx N Ty} {b} {ts : Env (λ xt : N∷Ty, Term w (type xt)) Γ} {t : Term w (type b)} {vs : Env (λ xt : N∷Ty, Val (type xt)) Γ} {v : Val (type b)} :
+    Lemma repₚ_namedenv_snoc {w : World} {N} {Γ : NCtx N Ty} {b} {ts : NamedEnv (Term w) Γ} {t : Term w (type b)} {vs : NamedEnv Val Γ} {v : Val (type b)} :
       repₚ vs.[b ↦ v] ts.[b ↦ t] ⊣⊢ repₚ vs ts ∗ repₚ v t.
     Proof.
       unfold repₚ, bi_pred, bi_sep; crushPredEntails2; destruct b;
-        cbn; try (now subst); now apply env.inversion_eq_snoc in H0.
+        cbn; try (now subst); now apply nenv.inversion_eq_snoc in H0.
     Qed.
 
-    Lemma eqₚ_namedenv_snoc {w : World} {N} {Γ : NCtx N Ty} {b} {ts1 ts2 : Env (λ xt : N∷Ty, Term w (type xt)) Γ} {t1 t2 : Term w (type b)} :
+    Lemma eqₚ_namedenv_snoc {w : World} {N} {Γ : NCtx N Ty} {b} {ts1 ts2 : NamedEnv (Term w) Γ} {t1 t2 : Term w (type b)} :
       eqₚ ts1.[b ↦ t1] ts2.[b ↦ t2] ⊣⊢ eqₚ ts1 ts2 ∗ eqₚ t1 t2.
     Proof.
       unfold eqₚ, bi_pred, bi_sep; crushPredEntails2; destruct b; cbn.
-      - now apply env.inversion_eq_snoc in H0.
-      - now apply env.inversion_eq_snoc in H0.
+      - now apply nenv.inversion_eq_snoc in H0.
+      - now apply nenv.inversion_eq_snoc in H0.
       - now f_equal.
     Qed.
 
