@@ -769,6 +769,20 @@ Module Type GenOccursCheckOn
       cbn; now rewrite IHΣ.
     Qed.
 
+    Fixpoint wkKeepCtxRemove {Σ1 Σ2 b} {bIn1 : b ∈ Σ1} {bIn2 : b ∈ Σ2}
+      (ζ : WeakensTo (ctx.remove bIn1) (ctx.remove bIn2)) Δ :
+      WeakensTo (ctx.remove (ctx.in_cat_left Δ bIn1)) (ctx.remove (ctx.in_cat_left Δ bIn2)) :=
+      match Δ with
+      | [ctx] => ζ
+      | Δ' ▻ x => WkKeepVar x (wkKeepCtxRemove ζ Δ')
+      end.
+
+    Lemma transWk_wkKeepCtxRemove {Σ1 Σ2 Σ3 b} {bIn1 : b ∈ Σ1} {bIn2 : b ∈ Σ2} {bIn3 : b ∈ Σ3}
+      (ζ1 : WeakensTo (ctx.remove bIn1) (ctx.remove bIn2))
+      (ζ2 : WeakensTo (ctx.remove bIn2) (ctx.remove bIn3)) Δ :
+      transWk (wkKeepCtxRemove ζ1 Δ) (wkKeepCtxRemove ζ2 Δ) = wkKeepCtxRemove (transWk ζ1 ζ2) Δ.
+    Proof. induction Δ; cbn; now f_equal. Qed.
+
     Lemma transWk_refl_2 `{σ : WeakensTo Σ1 Σ2}: transWk σ wkRefl = σ.
     Proof.
       induction σ; first easy; cbn;

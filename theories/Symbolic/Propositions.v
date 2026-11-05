@@ -1810,9 +1810,8 @@ Module Type SymPropOn
             pattern_match (substSU (T := fun Σ => Term Σ _) t ζ) pat
               (fun pc => weaken_symprop (k pc) (wkKeepCtx ζ (PatternCaseCtx pc)))
         | @pattern_match_var _ x _ xIn pat k =>
-            error (amsg.mk (tt : Unit _))
-            (* pattern_match_var x (xIn := weakenIn ζ xIn) pat *)
-            (*   (fun pc => weaken_symprop (k pc) (weakenRemovePres (wkKeepCtx ζ (PatternCaseCtx pc)) (ctx.in_cat_left _ xIn))) *)
+            pattern_match_var x (xIn := weakenIn ζ xIn) pat
+              (fun pc => weaken_symprop (k pc) (wkKeepCtxRemove (weakenRemovePres ζ xIn) (PatternCaseCtx pc)))
         | debug msg P => debug (substSU (T := AMessage) msg ζ)(weaken_symprop P ζ)
         end.
       #[export] Instance SubstSU_SymProp : SubstSU WeakensTo SymProp :=
@@ -1842,6 +1841,16 @@ Module Type SymPropOn
           rewrite -H.
           f_equal.
           now apply transWk_wkKeepCtx.
+        - transitivity (pattern_match_var x (xIn := weakenIn ζ2 (weakenIn ζ1 xIn)) pat
+            (fun pc => weaken_symprop (rhs pc)
+                         (wkKeepCtxRemove (transWk (weakenRemovePres ζ1 xIn) (weakenRemovePres ζ2 (weakenIn ζ1 xIn)))
+                            (PatternCaseCtx pc)))).
+          + exact (weakenRemovePres_transWk xIn ζ1 ζ2
+                     (fun xIn' ζ => _ = pattern_match_var x (xIn := xIn') pat
+                                          (fun pc => weaken_symprop (rhs pc) (wkKeepCtxRemove ζ (PatternCaseCtx pc))))
+                     eq_refl).
+          + f_equal. eapply functional_extensionality_dep. intros pc.
+            now rewrite -H -transWk_wkKeepCtxRemove.
       Qed.
 
       Definition UQSymProp Σ : Type := Weakened WeakensTo SymProp Σ.
@@ -1859,6 +1868,10 @@ Module Type SymPropOn
 
       Definition uq_block {Σ} : UQSymProp Σ :=
         weakenInit SymProp.block.
+
+      (* Keeps all variables in the support. *)
+      Definition uq_keep {Σ} (P : SymProp Σ) : UQSymProp Σ :=
+        MkWeakened wkRefl (boxSb P) (boxSbLaws P).
 
       Program Definition uq_assertk {Σ} (fml : Formula Σ) (msg : AMessage Σ) :
         UQSymProp Σ -> UQSymProp Σ :=
@@ -1947,8 +1960,10 @@ Module Type SymPropOn
         | demonicv b P => uq_demonicv (to_uqSymProp P)
         | assert_vareq x t msg P => uq_assert_vareq x t msg (to_uqSymProp P)
         | assume_vareq x t P => uq_assume_vareq x t (to_uqSymProp P)
-        | pattern_match t pat P => uq_block
-        | pattern_match_var xIn pat P => uq_block
+        | pattern_match t pat P =>
+            uq_keep (pattern_match t pat (fun pc => from_uqSymProp (to_uqSymProp (P pc))))
+        | @pattern_match_var _ x _ xIn pat P =>
+            uq_keep (pattern_match_var x pat (fun pc => from_uqSymProp (to_uqSymProp (P pc))))
         | debug msg P => uq_debug msg (to_uqSymProp P)
         end.
 
@@ -1988,6 +2003,27 @@ Module Type SymPropOn
           inst (interpWk (wkRemove bIn)) (inst (interpWk σ) ι).
       Proof.
         now rewrite -?inst_subst -?subst_weakenRemovePres_wkRemove.
+      Qed.
+
+      Lemma inst_wkKeepCtx {Σ1 Σ2} (ζ : WeakensTo Σ1 Σ2) {Δ} (ι : Valuation Σ2) (ιΔ : Valuation Δ) :
+        inst (interpWk (wkKeepCtx ζ Δ)) (ι ►► ιΔ) = inst (interpWk ζ) ι ►► ιΔ.
+      Proof.
+        induction ιΔ; first done.
+        cbn [wkKeepCtx interpWk env.cat].
+        now rewrite inst_sub_up1 IHιΔ.
+      Qed.
+
+      Lemma inst_wkKeepCtxRemove {Σ1 Σ2 x σ} (ζ : WeakensTo Σ1 Σ2) (xIn : (x∷σ ∈ Σ1)%katamaran)
+        {Δ} (ι : Valuation Σ2) (ιΔ : Valuation Δ) :
+        inst (interpWk (wkKeepCtxRemove (weakenRemovePres ζ xIn) Δ))
+          (env.remove (x∷σ) (ι ►► ιΔ) (ctx.in_cat_left Δ (weakenIn ζ xIn))) =
+          env.remove (x∷σ) (inst (interpWk ζ) ι ►► ιΔ) (ctx.in_cat_left Δ xIn).
+      Proof.
+        induction ιΔ; cbn [wkKeepCtxRemove interpWk env.cat ctx.in_cat_left].
+        - rewrite -?inst_sub_shift -?interpWk_wkRemove.
+          now rewrite inst_weakenRemovePres_wkRemove.
+        - cbn [env.remove].
+          now rewrite inst_sub_up1 IHιΔ.
       Qed.
 
       Class InstPropSubstSU (Sb : LCtx -> LCtx -> Type) `{SubstUniv Sb} (T : LCtx -> Type) `{InstProp T, SubstSU Sb T} : Prop :=
@@ -2050,11 +2086,23 @@ Module Type SymPropOn
           rewrite inst_weakenRemovePres_wkRemove.
           apply HP.
           now rewrite substSU_interpSU inst_subst inst_weakenRemovePres_wkRemove in Heq.
-        - (* pattern_match_val *)
-          admit.
-        - (* pattern_match_var *)
-          admit.
-      Admitted.
+        - rewrite substSU_interpSU inst_subst.
+          change (interpSU ?ζ) with (interpWk ζ).
+          destruct pattern_match_val.
+          now rewrite H inst_wkKeepCtx.
+        - rewrite substSU_interpSU inst_subst.
+          change (interpSU ?ζ) with (interpWk ζ).
+          destruct pattern_match_val.
+          now rewrite H inst_wkKeepCtx.
+        - rewrite -inst_lookup interpWk_lookup. cbn.
+          destruct pattern_match_val.
+          rewrite H. change (interpSU ?ζ) with (interpWk ζ).
+          now rewrite inst_wkKeepCtxRemove.
+        - rewrite -inst_lookup interpWk_lookup. cbn.
+          destruct pattern_match_val.
+          rewrite H. change (interpSU ?ζ) with (interpWk ζ).
+          now rewrite inst_wkKeepCtxRemove.
+      Qed.
 
       #[export] Instance instprop_weakened `{InstProp A} {_ : SubstSU WeakensTo A} : InstProp (Weakened WeakensTo A) :=
         fun _ '(MkWeakened ζsupp wv wvl) ι =>
@@ -2177,14 +2225,20 @@ Module Type SymPropOn
           refine (liftBinOp_weakenedRefines (R1 := eq) (λ Σ' : LCtx, pair)
                     (fun _ _ _ _ _ => eq_refl)
                     (oc_sound t) IHP).
-        - (* pattern_match_val *)
-          admit.
-        - (* pattern_match_var *)
-          admit.
+        - apply mkWeakenedRefines; intros ι; cbn [unboxSb boxSb].
+          rewrite instprop_substSU; change (interpSU ?ζ) with (interpWk ζ).
+          rewrite interpWk_wkRefl inst_sub_id; cbn.
+          destruct pattern_match_val as [pc ιpat].
+          destruct (H pc) as [? ? ? ? HR]; apply HR.
+        - apply mkWeakenedRefines; intros ι; cbn [unboxSb boxSb].
+          rewrite instprop_substSU; change (interpSU ?ζ) with (interpWk ζ).
+          rewrite interpWk_wkRefl inst_sub_id; cbn.
+          destruct pattern_match_val as [pc ιpat].
+          destruct (H pc) as [? ? ? ? HR]; apply HR.
         - unfold uq_debug.
           refine (liftUnOp_weakenedRefines' (λ Σ' P', debug (amsg.boxMsg b) P') (debug b) _ _ IHP);
             intuition.
-      Admitted.
+      Qed.
 
       Lemma unquantify_sound {Σ ι} (P : SymProp Σ) :
         safe (unquantify P) ι <-> safe P ι.
