@@ -483,22 +483,19 @@ Module Type RefinementMonadsOn
           iApply ("rΦ" with "[Hv] HSP").
           destruct v as (v1 & v2); cbn.
           iExists eq_refl; cbn.
-          iPoseProof (eqₚ_triv (vt2 := term_binop bop.pair svl svr : STerm (ty.prod σ τ) w) Heq) as "Heq".
-          iDestruct (repₚ_eqₚ (T := STerm (ty.prod σ τ)) with "[$Heq $Hv]") as "Hv12".
+          iDestruct (repₚ_inst_eq (vt2 := term_binop bop.pair svl svr : STerm (ty.prod σ τ) w) Heq with "Hv") as "Hv12".
           iDestruct (repₚ_term_prod with "Hv12") as "(Hv1 & Hv2)".
           solve_related.
         + now iApply (refine_angelic_pattern_match' n (pat_pair _ _)).
       - iIntros (msg v sv) "Hv".
         destruct (term_get_sum_spec sv) as [[svl|svr] Heq|]; subst.
-        + iPoseProof (eqₚ_triv (vt2 := term_inl svl : STerm (ty.sum σ τ) w) Heq) as "Heq".
-          iDestruct (repₚ_eqₚ (T := STerm (ty.sum _ _)) with "[$Heq $Hv]") as "Hv'".
+        + iDestruct (repₚ_inst_eq (vt2 := term_inl svl : STerm (ty.sum σ τ) w) Heq with "Hv") as "Hv'".
           iIntros (Φ sΦ) "rΦ HSP".
           rewrite CPureSpec.wp_angelic_pattern_match.
           iApply ("rΦ" with "[Hv'] HSP").
           iDestruct (repₚ_inversion_term_inl with "Hv'") as "(%vl & -> & Hvl)".
           solve_related.
-        + iPoseProof (eqₚ_triv (vt2 := term_inr svr : STerm (ty.sum σ τ) w) Heq) as "Heq".
-          iDestruct (repₚ_eqₚ (T := STerm (ty.sum _ _)) with "[$Heq $Hv]") as "Hv'".
+        + iDestruct (repₚ_inst_eq (vt2 := term_inr svr : STerm (ty.sum σ τ) w) Heq with "Hv") as "Hv'".
           iIntros (Φ sΦ) "rΦ HSP".
           rewrite CPureSpec.wp_angelic_pattern_match.
           iApply ("rΦ" with "[Hv'] HSP").
@@ -527,8 +524,7 @@ Module Type RefinementMonadsOn
       - iApply (refine_angelic_pattern_match' n (pat_tuple p)).
       - iIntros (msg v sv) "Hv".
         destruct (term_get_record_spec sv) as [svs Heq|]; subst.
-        + iPoseProof (eqₚ_triv (vt2 := term_record R svs : STerm (ty.record R) w) Heq) as "Heq".
-          iDestruct (repₚ_eqₚ (T := STerm (ty.record _)) with "[$Heq $Hv]") as "Hv".
+        + iDestruct (repₚ_inst_eq (vt2 := term_record R svs : STerm (ty.record R) w) Heq with "Hv") as "Hv".
           iIntros (Φ sΦ) "rΦ HSP".
           rewrite CPureSpec.wp_angelic_pattern_match.
           iApply ("rΦ" with "[Hv] HSP").
@@ -543,8 +539,7 @@ Module Type RefinementMonadsOn
       - iIntros (msg v sv) "Hv".
         destruct (term_get_union_spec sv) as [[K scr'] Heq|]; subst.
         + iIntros (Φ sΦ) "rΦ".
-          iPoseProof (eqₚ_triv (vt2 := term_union U K scr' : STerm (ty.union U) w) Heq) as "Heq".
-          iDestruct (repₚ_eqₚ (T := STerm (ty.union _)) with "[$Heq $Hv]") as "Hv".
+          iDestruct (repₚ_inst_eq (vt2 := term_union U K scr' : STerm (ty.union U) w) Heq with "Hv") as "Hv".
           iDestruct (repₚ_inversion_union with "Hv") as "(%t & -> & Hv)".
           iIntros "HSP".
           rewrite CPureSpec.wp_angelic_pattern_match.
@@ -588,22 +583,19 @@ Module Type RefinementMonadsOn
           iApply ("rΦ" with "[Hv] HSP").
           destruct v as (v1 & v2); cbn.
           iExists eq_refl; cbn.
-          iPoseProof (eqₚ_triv (vt2 := term_binop bop.pair svl svr : STerm (ty.prod σ τ) w) Heq) as "Heq".
-          iDestruct (repₚ_eqₚ (T := STerm (ty.prod σ τ)) with "[$Heq $Hv]") as "Hv12".
+          iDestruct (repₚ_inst_eq (vt2 := term_binop bop.pair svl svr : STerm (ty.prod σ τ) w) Heq with "Hv") as "Hv12".
           iDestruct (repₚ_term_prod with "Hv12") as "(Hv1 & Hv2)".
           solve_related.
         + now iApply (refine_demonic_pattern_match' n (pat_pair _ _)).
       - iIntros (v sv) "Hv".
         destruct (term_get_sum_spec sv) as [[svl|svr] Heq|]; subst.
-        + iPoseProof (eqₚ_triv (vt2 := term_inl svl : STerm (ty.sum σ τ) w) Heq) as "Heq".
-          iDestruct (repₚ_eqₚ (T := STerm (ty.sum _ _)) with "[$Heq $Hv]") as "Hv'".
+        + iDestruct (repₚ_inst_eq (vt2 := term_inl svl : STerm (ty.sum σ τ) w) Heq with "Hv") as "Hv'".
           iIntros (Φ sΦ) "rΦ HSP".
           rewrite CPureSpec.wp_demonic_pattern_match.
           iApply ("rΦ" with "[Hv'] HSP").
           iDestruct (repₚ_inversion_term_inl with "Hv'") as "(%vl & -> & Hvl)".
           solve_related.
-        + iPoseProof (eqₚ_triv (vt2 := term_inr svr : STerm (ty.sum σ τ) w) Heq) as "Heq".
-          iDestruct (repₚ_eqₚ (T := STerm (ty.sum _ _)) with "[$Heq $Hv]") as "Hv'".
+        + iDestruct (repₚ_inst_eq (vt2 := term_inr svr : STerm (ty.sum σ τ) w) Heq with "Hv") as "Hv'".
           iIntros (Φ sΦ) "rΦ HSP".
           rewrite CPureSpec.wp_demonic_pattern_match.
           iApply ("rΦ" with "[Hv'] HSP").
@@ -637,8 +629,7 @@ Module Type RefinementMonadsOn
       - iApply (refine_demonic_pattern_match' n (pat_tuple p)).
       - iIntros (v sv) "Hv".
         destruct (term_get_record_spec sv) as [svs Heq|]; subst.
-        + iPoseProof (eqₚ_triv (vt2 := term_record R svs : STerm (ty.record R) w) Heq) as "Heq".
-          iDestruct (repₚ_eqₚ (T := STerm (ty.record _)) with "[$Heq $Hv]") as "Hv".
+        + iDestruct (repₚ_inst_eq (vt2 := term_record R svs : STerm (ty.record R) w) Heq with "Hv") as "Hv".
           iIntros (Φ sΦ) "rΦ HSP".
           rewrite CPureSpec.wp_demonic_pattern_match.
           iApply ("rΦ" with "[Hv] HSP").
@@ -653,8 +644,7 @@ Module Type RefinementMonadsOn
       - iIntros (v sv) "Hv".
         destruct (term_get_union_spec sv) as [[K scr'] Heq|]; subst.
         + iIntros (Φ sΦ) "rΦ".
-          iPoseProof (eqₚ_triv (vt2 := term_union U K scr' : STerm (ty.union U) w) Heq) as "Heq".
-          iDestruct (repₚ_eqₚ (T := STerm (ty.union _)) with "[$Heq $Hv]") as "Hv".
+          iDestruct (repₚ_inst_eq (vt2 := term_union U K scr' : STerm (ty.union U) w) Heq with "Hv") as "Hv".
           iDestruct (repₚ_inversion_union with "Hv") as "(%t & -> & Hv)".
           iIntros "HSP".
           rewrite CPureSpec.wp_demonic_pattern_match.
@@ -749,18 +739,15 @@ Module Type RefinementMonadsOn
       - destruct (term_get_pair_spec sv) as [[? ?] eq|].
         + iApply (refine_pure (RA := RMatchResult _) with "[Hv]").
           destruct v as [v1 v2].
-          iPoseProof (eqₚ_triv (vt2 := term_binop bop.pair t t0) eq) as "Heq".
-          iDestruct (RVal_eqₚ with "[$Hv $Heq]") as "Hv".
+          iDestruct (RVal_inst_eq (sv2 := term_binop bop.pair t t0) eq with "Hv") as "Hv".
           iDestruct (RVal_pair with "Hv") as "[Hv1 Hv2]".
           solve_related.
         + now iApply (refine_new_pattern_match' with "Hv").
       - destruct (term_get_sum_spec sv) as [[] eq|].
-        + iDestruct (RVal_eqₚ with "[$Hv]") as "Hv".
-          { iApply (eqₚ_triv (vt2 := term_inl t) eq). }
+        + iDestruct (RVal_inst_eq (sv2 := term_inl t) eq with "Hv") as "Hv".
           iDestruct (RVal_invert_inl with "Hv") as "[%vl [-> Hv]]".
           cbn; solve_related.
-        + iDestruct (RVal_eqₚ with "[$Hv]") as "Hv".
-          { iApply (eqₚ_triv (vt2 := term_inr t) eq). }
+        + iDestruct (RVal_inst_eq (sv2 := term_inr t) eq with "Hv") as "Hv".
           iDestruct (RVal_invert_inr with "Hv") as "[%vl [-> Hv]]".
           cbn; solve_related.
         + now iApply (refine_new_pattern_match' with "Hv").
@@ -775,24 +762,16 @@ Module Type RefinementMonadsOn
           cbn; solve_related.
         + now iApply (refine_new_pattern_match' with "Hv").
       - destruct (term_get_tuple_spec sv) as [? eq|].
-        + iDestruct (RVal_eqₚ with "[$Hv]") as "Hv".
-          { iApply (eqₚ_triv (vt2 := term_tuple a) eq).  }
+        + iDestruct (RVal_inst_eq (sv2 := term_tuple a) eq with "Hv") as "Hv".
           cbn; solve_related.
-          refine (RefineSolver.rimpl_elim (RefineSolver.rvalid refine_tuple_pattern_match_env) _).
-          now rewrite <-RVal_tuple.
         + now iApply refine_new_pattern_match'.
       - destruct (term_get_record_spec sv) as [? eq|].
-        + iDestruct (RVal_eqₚ with "[$Hv]") as "Hv".
-          { iApply (eqₚ_triv (vt2 := term_record R a) eq).  }
+        + iDestruct (RVal_inst_eq (sv2 := term_record R a) eq with "Hv") as "Hv".
           cbn; solve_related.
-          unfold record_pattern_match_val.
-          rewrite <-refine_record_pattern_match_env.
-          now rewrite RVal_record recordv_fold_unfold.
         + now iApply refine_new_pattern_match'.
       - destruct (term_get_union_spec sv) as [[K tf] Heq|].
         + iIntros (post spost) "rpost"; cbn.
-          iPoseProof (RVal_eqₚ with "[$Hv]") as "Hv".
-          { iApply (eqₚ_triv (vt2 := term_union U K tf) Heq). }
+          iDestruct (RVal_inst_eq (sv2 := term_union U K tf) Heq with "Hv") as "Hv".
           rewrite <-(unionv_fold_unfold U v).
           destruct (unionv_unfold U v) as [K' vf].
           iDestruct (RVal_union_invertK with "Hv") as "->".

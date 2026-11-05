@@ -589,6 +589,13 @@ Module Type UnifLogicOn
       crushPredEntails3.
     Qed.
 
+    Lemma repₚ_inst_eq {T : LCtx -> Type} `{Inst T A} {a : A} {w : World} {vt1 vt2 : T w} :
+      (∀ ι : Valuation w, inst vt1 ι = inst vt2 ι) ->
+      repₚ a vt1 ⊢ repₚ a vt2.
+    Proof.
+      iIntros (Heq) "H". iApply repₚ_eqₚ. iFrame. iApply (eqₚ_triv Heq).
+    Qed.
+
 
     Lemma repₚ_antisym_left {T : LCtx -> Type} `{Inst T A} {a1 a2 : A} {w : World} {sa : T w} :
       ⊢ repₚ a1 sa -∗ repₚ a2 sa -∗ ⌜ a1 = a2 ⌝.
@@ -1829,6 +1836,11 @@ Module Type UnifLogicOn
       now subst.
     Qed.
 
+    Lemma RVal_inst_eq {σ v} {w : World} {sv1 sv2 : Term w σ} :
+      (∀ ι : Valuation w, inst sv1 ι = inst sv2 ι) ->
+      ℛ⟦ RVal σ ⟧ v sv1 ⊢ ℛ⟦ RVal σ ⟧ v sv2.
+    Proof. apply repₚ_inst_eq. Qed.
+
     Lemma RVal_pair {σ1 σ2 v1 v2} {w : World} {sv1 : Term w σ1} {sv2 : Term w σ2}:
       ℛ⟦ RVal σ1 ⟧ v1 sv1 ∗ ℛ⟦ RVal σ2 ⟧ v2 sv2 ⊣⊢ ℛ⟦ RVal (ty.prod σ1 σ2) ⟧ (v1 , v2) (term_binop bop.pair sv1 sv2).
     Proof.
@@ -1856,10 +1868,11 @@ Module Type UnifLogicOn
       now apply inj_right_pair in H0.
     Qed.
 
-    Lemma refine_tuple_pattern_match_env {N Δ σs} {p : TuplePat σs Δ} {w : World} :
-      ⊢ ℛ⟦REnv σs -> RNEnv N Δ⟧ (tuple_pattern_match_env p) (tuple_pattern_match_env (T := Term w) p).
+    #[export] Instance refine_tuple_pattern_match_env {N Δ σs} {p : TuplePat σs Δ} {w : World} :
+      Related (REnv σs -> RNEnv N Δ) (tuple_pattern_match_env p) w
+        (tuple_pattern_match_env (T := Term w) p).
     Proof.
-      iIntros (e se) "He". iStopProof.
+      unfold Related. iIntros (e se) "He". iStopProof.
       unfold RNEnv, REnv, RInst, repₚ.
       crushPredEntails3; subst.
       now rewrite inst_tuple_pattern_match.
@@ -1895,6 +1908,25 @@ Module Type UnifLogicOn
       crushPredEntails3; subst; first done.
       apply (f_equal (recordv_unfold R)) in H0.
       now rewrite !recordv_unfold_fold in H0.
+    Qed.
+
+    #[export] Instance refine_compat_tuple_pattern_match_val {N Δ σs} {p : TuplePat σs Δ}
+      {w : World} {v} {a : Env (Term w) σs} :
+      RelatedFrom (RNEnv N Δ) (tuple_pattern_match_val p v) w (tuple_pattern_match_env p a)
+        (ℛ⟦RVal (ty.tuple σs)⟧ v (term_tuple a)).
+    Proof.
+      unfold RelatedFrom. rewrite RVal_tuple. iIntros "H".
+      iApply (refine_tuple_pattern_match_env with "H").
+    Qed.
+
+    #[export] Instance refine_compat_record_pattern_match_val {N R Δ}
+      {p : RecordPat (recordf_ty R) Δ} {w : World} {v} {a : NamedEnv (Term w) (recordf_ty R)} :
+      RelatedFrom (RNEnv N Δ) (record_pattern_match_val p v) w (record_pattern_match_env p a)
+        (ℛ⟦RVal (ty.record R)⟧ v (term_record R a)).
+    Proof.
+      unfold RelatedFrom. unfold record_pattern_match_val.
+      rewrite <-refine_record_pattern_match_env.
+      now rewrite RVal_record recordv_fold_unfold.
     Qed.
 
     Lemma RVal_invert_inl {σ τ} {v} {w : World} {sl : Term w σ} : 
