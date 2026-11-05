@@ -2920,16 +2920,16 @@ Module Type LogSymPropOn
         iApply ("HP" with "HPS").
       Qed.
 
-      Lemma refine_symprop_angelic_binary {w : World} :
-        ⊢ ℛ⟦RProp -> RProp -> RProp⟧ (@or) (@angelic_binary w).
+      #[export] Instance refine_symprop_angelic_binary {w : World} :
+        Related (RProp -> RProp -> RProp) (@or) w (@angelic_binary w).
       Proof.
         iIntros (PC1 PS1) "#HP1 %PC2 %PS2 #HP2 [#HPS1 | #HPS2]"; cbn.
         - iLeft. now iApply "HP1".
         - iRight. now iApply "HP2".
       Qed.
 
-      Lemma refine_symprop_demonic_binary {w : World} :
-        ⊢ ℛ⟦RProp -> RProp -> RProp⟧ (@and) (@demonic_binary w).
+      #[export] Instance refine_symprop_demonic_binary {w : World} :
+        Related (RProp -> RProp -> RProp) (@and) w (@demonic_binary w).
       Proof.
         iIntros (PC1 PS1) "#HP1 %PC2 %PS2 #HP2 [#HPS1 #HPS2]"; cbn.
         iSplitL "HP1 HPS1".
@@ -2937,9 +2937,17 @@ Module Type LogSymPropOn
         - now iApply "HP2".
       Qed.
 
-      Global Instance frompure_RProp_block {w} {P} :
-        FromPure false (RSat RProp P (w := w) SymProp.block) P.
-      Proof. now constructor. Qed.
+      Lemma refine_symprop_block {w : World} {P : Prop} :
+        ⌜ P ⌝ ⊢ ℛ⟦RProp⟧ P (@block w).
+      Proof. now iIntros "HP _". Qed.
+
+      #[export] Instance refine_compat_symprop_debug {w : World} {PC PS} {msg : AMessage w} :
+        RelatedFrom RProp PC w (debug msg PS) (ℛ⟦RProp⟧ PC PS).
+      Proof. unfold RelatedFrom. iIntros "HP". iApply (refine_symprop_debug with "HP"). Qed.
+
+      #[export] Instance refine_compat_symprop_block {w : World} {P : Prop} :
+        RelatedFrom RProp P w block ⌜ P ⌝ :=
+        refine_symprop_block.
 
     End logicalrelation.
     Notation "'ℙ'" := (RProp) : rel_scope.
