@@ -58,6 +58,10 @@ Don't merge a branch that still contains `BitvectorNext.v`.
   `lia` sees different atoms. Avoid `simpl`, or use
   `change (bv.unsigned x) with (@bv.unsigned xlenbits x) in *`.
 
+## Comments
+
+- When you write or update comments or docs, say "Rocq", not "Coq".
+
 ## Type classes
 
 - When you add or touch a `Class`, give it a mode with the `#[mode="…"]`
