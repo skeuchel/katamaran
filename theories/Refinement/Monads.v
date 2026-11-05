@@ -75,6 +75,7 @@ Module Type RefinementMonadsOn
     Rel (SPureSpec SA) (CPureSpec CA) := □ᵣ(RA -> ℙ) -> ℙ.
 
   Module PureSpec.
+    Import SPureSpec.notations.
 
     Definition RPureSpec [SA CA] (RA : Rel SA CA) :
       Rel (SPureSpec SA) (CPureSpec CA) := □ᵣ(RA -> RProp) -> RProp.
@@ -1189,6 +1190,64 @@ Module Type RefinementMonadsOn
           now iRight.
     Qed.
 
+    Lemma refine_consume_chunk_exact {w : World} {c h} {sc : Chunk w} {sh sh' : SHeap w} :
+      try_consume_chunk_exact sh sc = Some sh' →
+      ℛ⟦RChunk⟧ c sc ∗ ℛ⟦RHeap⟧ h sh ⊢
+      ℛ⟦RPureSpec RHeap⟧ (CPureSpec.consume_chunk c h) (SPureSpec.pure sh').
+    Proof.
+      intros Hexact.
+      pose proof (try_consume_chunk_exact_spec sh sc) as HsIn.
+      rewrite Hexact in HsIn; rewrite option.wlp_some in HsIn.
+      iIntros "[Hc Hh] %K %sK HK HSP".
+      iDestruct (refine_heap_extractions with "Hh") as "Hexts".
+      iDestruct (refine_In with "Hexts [//]") as "(%v & %HIn & HH)".
+      destruct v as (c1 & h').
+      iDestruct "HH" as "(Hc1 & Hh')".
+      iDestruct (repₚ_antisym_left with "Hc Hc1") as "<-".
+      unfold CPureSpec.consume_chunk, CPureSpec.bind.
+      rewrite CPureSpec.wp_angelic_list.
+      iExists (c, h').
+      iSplit; first done.
+      rewrite CPureSpec.wp_assert_eq_chunk.
+      iSplit; first done.
+      now iApply (refine_T with "HK Hh' HSP").
+    Qed.
+
+    Lemma refine_consume_chunk_precise {w : World} {c h} {sc : Chunk w} {sh sh' : SHeap w}
+      {eqs : PathCondition w} (msg : AMessage w) :
+      try_consume_chunk_precise sh sc = Some (sh', eqs) →
+      ℛ⟦RChunk⟧ c sc ∗ ℛ⟦RHeap⟧ h sh ⊢
+      ℛ⟦RPureSpec RHeap⟧ (CPureSpec.consume_chunk c h)
+        (⟨ θ ⟩ _ <- SPureSpec.assert_pathcondition msg eqs ;; SPureSpec.pure sh'⟨θ⟩).
+    Proof.
+      intros Hprecise.
+      pose proof (try_consume_chunk_precise_spec sh sc) as HIn.
+      rewrite Hprecise in HIn; rewrite option.wlp_some in HIn.
+      iIntros "[Hc Hh]".
+      iDestruct (eval_prop eqs) as "(%eq & Heq)".
+      iDestruct (eval_ex sh') as "(%h' & Hh')".
+      iIntros (K sK) "HK HSP".
+      iAssert (⌜eq /\ K h'⌝)%I with "[HK HSP]" as "%HeqKh'".
+      { iPoseProof (refine_assert_pathcondition $! msg eq eqs with "Heq") as "Hapc".
+        iApply ("Hapc" $! (fun _ => K h') with "[HK] HSP").
+        iIntros (w2 ω2) "!> %u %su _".
+        rewrite forgetting_unconditionally.
+        iApply (refine_T with "HK"); rsolve.
+      }
+      destruct HeqKh' as (Heq & HKh').
+      iAssert ⌜In (c, h') (heap_extractions h)⌝%I with "[Hc Hh]" as "%HInch'".
+      { iStopProof. unfold RChunk, RHeap, RInst; cbn - [repₚ].
+        clear -HIn Heq. crushPredEntails3. subst. apply HIn.
+        now rewrite instpred_prop in H5.
+      }
+      unfold CPureSpec.consume_chunk, CPureSpec.bind.
+      rewrite CPureSpec.wp_angelic_list.
+      iExists (c, h').
+      iSplit; first done.
+      rewrite CPureSpec.wp_assert_eq_chunk.
+      now iSplit.
+    Qed.
+
     Lemma refine_consume_chunk {w} :
       ⊢ ℛ⟦RChunk -> RHeap -> RPureSpec RHeap⟧
         CPureSpec.consume_chunk (SPureSpec.consume_chunk (w := w)).
@@ -1197,65 +1256,11 @@ Module Type RefinementMonadsOn
       unfold SPureSpec.consume_chunk.
       iPoseProof (refine_peval_chunk with "Hc") as "Hcp"; cbn -[RSat].
       set (sc1 := peval_chunk sc).
-      destruct (try_consume_chunk_exact_spec sh sc1) as [sh' HsIn|].
-      iPoseProof (refine_heap_extractions with "Hh") as "Hexts".
-      iDestruct (refine_In with "Hexts [%//]") as "(%c1 & %HIn & Hc1)".
-      { iIntros "%K %sK HK HSP".
-        unfold CPureSpec.consume_chunk.
-        unfold CPureSpec.bind.
-        rewrite CPureSpec.wp_angelic_list.
-        change (SHeap w) in sh'.
-        iExists c1.
-        iSplit; first done.
-        destruct c1.
-        iDestruct "Hc1" as "(Hc1 & Hh1)".
-        rewrite CPureSpec.wp_assert_eq_chunk.
-        iDestruct (repₚ_antisym_left with "Hcp Hc1") as "->".
-        iSplitR; first done.
-        now iApply (refine_T with "HK Hh1 HSP").
-      }
-      destruct (try_consume_chunk_precise_spec sh sc1) as [[sh' eqs] HIn|].
-      { cbv [SPureSpec.bind SPureSpec.pure].
-        assert (⊢ ∀ eq c h' h, proprepₚ eq eqs -∗ repₚ c sc1 -∗ repₚ h' sh' -∗ repₚ h sh -∗ ⌜ eq ⌝ -∗ ⌜In (c , h') (heap_extractions h)⌝)%I as HInLog.
-        { clear -HIn. crushPredEntails3. subst. apply HIn. now rewrite instpred_prop in H2. }
-        iDestruct (eval_prop eqs) as "(%eq & Heq)".
-        iAssert (∃ h', ℛ⟦RHeap⟧ h' sh')%I as "(%h' & Hh')".
-        { iDestruct (eval_ex sh') as "(%h' & Heqh')".
-          now iExists h'. }
-        match goal with | |- context[amsg.mk ?m] => generalize (amsg.mk m) end.
-        iIntros (msg K sK) "HK HSP".
-        iAssert (⌜eq /\ K h'⌝)%I with "[HK HSP]" as "%HeqKh'".
-        { iPoseProof (refine_assert_pathcondition $! msg eq eqs with "Heq") as "Hapc".
-          iApply ("Hapc" $! (fun _ => K h') with "[HK] HSP").
-          iIntros (w2 ω2) "!> %u %su _".
-          rewrite forgetting_unconditionally.
-          iApply (refine_T with "HK"); rsolve.
-        }
-        destruct HeqKh' as (Heq & HKh').
-        iPoseProof (HInLog $! eq c h' h with "Heq Hcp Hh' Hh [// ]") as "HInch'".
-        unfold CPureSpec.consume_chunk, CPureSpec.bind.
-        rewrite CPureSpec.wp_angelic_list.
-        iExists (c, h').
-        iSplit; first done.
-        rewrite CPureSpec.wp_assert_eq_chunk.
-        now iSplit.
-      }
+      destruct (try_consume_chunk_exact sh sc1) as [sh'|] eqn:Hexact.
+      { iApply (refine_consume_chunk_exact Hexact with "[$Hcp $Hh]"). }
+      destruct (try_consume_chunk_precise sh sc1) as [[sh' eqs]|] eqn:Hprecise.
+      { iApply (refine_consume_chunk_precise _ Hprecise with "[$Hcp $Hh]"). }
       now iApply (refine_error (RA := RHeap)).
-    Qed.
-
-    Lemma refine_consume_chunk_In {w : World} {c : SCChunk} {h : SCHeap} {sc : Chunk w} {sh : SHeap w}
-      {h' : SCHeap} :
-      In (c, h') (heap_extractions h) ->
-      ℛ⟦RChunk⟧ c sc ∗ ℛ⟦RHeap⟧ h' sh ⊢ ℛ⟦RPureSpec RHeap⟧ (CPureSpec.consume_chunk c h) (SPureSpec.pure sh).
-    Proof.
-      iIntros (HIn) "[Hc Hh'] %K %sK HK HSP".
-      unfold CPureSpec.consume_chunk, CPureSpec.bind.
-      rewrite CPureSpec.wp_angelic_list.
-      iExists (c, h').
-      iSplit; first done.
-      rewrite CPureSpec.wp_assert_eq_chunk.
-      iSplit; first done.
-      now iApply (refine_T with "HK Hh' HSP").
     Qed.
 
     Lemma refine_consume_chunk_angelic {w} :
@@ -1266,40 +1271,10 @@ Module Type RefinementMonadsOn
       unfold SPureSpec.consume_chunk_angelic.
       iDestruct (refine_peval_chunk with "Hc") as "Hc1".
       set (sc1 := peval_chunk sc).
-      destruct (try_consume_chunk_exact_spec sh sc1) as [sh' HsIn|]; rsolve.
-      { change (SHeap w) in sh'.
-        iPoseProof (refine_heap_extractions with "Hh") as "Hexts".
-        iDestruct (refine_In with "Hexts [//]") as "(%v & %HIn & HH)".
-        destruct v as (c1 & h').
-        iDestruct "HH" as "(Hc1' & Hh')".
-        iDestruct (repₚ_antisym_left with "Hc1 Hc1'") as "<-".
-        iApply (refine_consume_chunk_In HIn with "[$Hc1 $Hh']").
-      }
-      destruct (try_consume_chunk_precise_spec sh sc1) as [[sh' eqs] HIn|].
-      { assert (⊢ ∀ eq c h' h, proprepₚ eq eqs -∗ repₚ c sc1 -∗ repₚ h' sh' -∗ repₚ h sh -∗ ⌜ eq ⌝ -∗ ⌜In (c , h') (heap_extractions h)⌝)%I as HInLog.
-        { clear -HIn. crushPredEntails3. subst. apply HIn. now rewrite instpred_prop in H2. }
-        iDestruct (eval_prop eqs) as "(%eq & Heq)".
-        iAssert (∃ h', ℛ⟦RHeap⟧ h' sh')%I as "(%h' & Hh')".
-        { iDestruct (eval_ex sh') as "(%h' & Heqh')".
-          now iExists h'. }
-        match goal with | |- context[amsg.mk ?m] => generalize (amsg.mk m) end.
-        iIntros (msg K sK) "HK HSP".
-        iAssert (⌜eq /\ K h'⌝)%I with "[HK HSP]" as "%HeqKh'".
-        { iPoseProof (refine_assert_pathcondition $! msg eq eqs with "Heq") as "Hapc".
-          iApply ("Hapc" $! (fun _ => K h') with "[HK] HSP").
-          iIntros (w2 ω2) "!> %u %su _".
-          rewrite forgetting_unconditionally.
-          iApply (refine_T with "HK"); rsolve.
-        }
-        destruct HeqKh' as (Heq & HKh').
-        iPoseProof (HInLog $! eq c h' h with "Heq Hc1 Hh' Hh [// ]") as "%HInch'".
-        unfold CPureSpec.consume_chunk, CPureSpec.bind.
-        rewrite CPureSpec.wp_angelic_list.
-        iExists (c, h').
-        iSplit; first done.
-        rewrite CPureSpec.wp_assert_eq_chunk.
-        now iSplit.
-      }
+      destruct (try_consume_chunk_exact sh sc1) as [sh'|] eqn:Hexact; rsolve.
+      { iApply (refine_consume_chunk_exact Hexact with "[$Hc1 $Hh]"). }
+      destruct (try_consume_chunk_precise sh sc1) as [[sh' eqs]|] eqn:Hprecise.
+      { iApply (refine_consume_chunk_precise _ Hprecise with "[$Hc1 $Hh]"). }
       { iApply (refine_bind (RA := RProd RChunk RHeap) (RB := RHeap) with "[Hh] [Hc1]").
         { iApply (refine_angelic_list (RA := RProd RChunk RHeap)).
           now iApply refine_heap_extractions.
