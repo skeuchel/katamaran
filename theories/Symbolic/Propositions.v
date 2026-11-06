@@ -1538,6 +1538,266 @@ Module Type SymPropOn
       forall ι, safe (solve_evars p) ι <-> safe p ι.
     Proof. apply (SolveEvars.push_plug SolveEvars.ectx_refl). Qed.
 
+    (* Instantiate angelic variables that SolveEvars left, with a witness
+       found in the asserts right below the binder: an equation x = t, or a
+       user predicate that becomes equal to a hypothesis. Choosing a witness
+       only strengthens the VC, so the pass is sound for any choice. *)
+    Module InstEvars.
+
+      (* Substitution into a SymProp; fails on nodes that remove variables. *)
+      Fixpoint subst_opt {Σ1} (p : 𝕊 Σ1) {Σ2} (ζ : Sub Σ1 Σ2) {struct p} : option (𝕊 Σ2) :=
+        match p with
+        | angelic_binary p1 p2 =>
+            p1' <- subst_opt p1 ζ ;; p2' <- subst_opt p2 ζ ;; Some (angelic_binary p1' p2')
+        | demonic_binary p1 p2 =>
+            p1' <- subst_opt p1 ζ ;; p2' <- subst_opt p2 ζ ;; Some (demonic_binary p1' p2')
+        | error msg => Some (error (subst msg ζ))
+        | SymProp.block => Some SymProp.block
+        | assertk fml msg k => k' <- subst_opt k ζ ;; Some (assertk (subst fml ζ) (subst msg ζ) k')
+        | assumek fml k => k' <- subst_opt k ζ ;; Some (assumek (subst fml ζ) k')
+        | angelicv b k => k' <- subst_opt k (sub_up1 ζ) ;; Some (angelicv b k')
+        | demonicv b k => k' <- subst_opt k (sub_up1 ζ) ;; Some (demonicv b k')
+        | debug d k => k' <- subst_opt k ζ ;; Some (debug (subst d ζ) k')
+        | _ => None
+        end.
+
+      Fixpoint find_map {A B} (f : A -> option B) (xs : list A) : option B :=
+        match xs with
+        | nil => None
+        | cons x xs => match f x with Some y => Some y | None => find_map f xs end
+        end.
+
+      (* u, if t is the last variable. *)
+      Definition last_var {Σ b σ} (t : Term (Σ ▻ b) σ) : Term Σ σ -> option (Term Σ (type b)) :=
+        match t in Term _ σ return Term Σ σ -> option (Term Σ (type b)) with
+        | @term_var _ x σ xIn =>
+            match ctx.view xIn in @ctx.SnocView _ _ _ y _ return Term Σ (type y) -> option (Term Σ (type b)) with
+            | ctx.isZero   => fun u => Some u
+            | ctx.isSucc _ => fun _ => None
+            end
+        | _ => fun _ => None
+        end.
+
+      Fixpoint env_witness {Σ b Δ} (ts : Env (Term (Σ ▻ b)) Δ) : Env (Term Σ) Δ -> option (Term Σ (type b)) :=
+        match ts with
+        | [env] => fun _ => None
+        | env.snoc ts _ t =>
+            fun us => match env.view us with
+                      | env.isSnoc us u =>
+                          match last_var t u with
+                          | Some w => Some w
+                          | None   => env_witness ts us
+                          end
+                      end
+        end.
+
+      Definition user_eqb {Σ} p (ts : Env (Term Σ) (𝑷_Ty p)) q : Env (Term Σ) (𝑷_Ty q) -> bool :=
+        match eq_dec p q with
+        | left e => match e in _ = q return Env (Term Σ) (𝑷_Ty q) -> bool with
+                    | eq_refl => fun us => env.eqb_hom (@Term_eqb Σ) ts us
+                    end
+        | right _ => fun _ => false
+        end.
+
+      (* A witness that makes formula_user p ts equal to hypothesis h. *)
+      Definition user_witness {Σ b} p (ts : Env (Term (Σ ▻ b)) (𝑷_Ty p)) (h : Formula Σ) :
+        option (Term Σ (type b)) :=
+        match h with
+        | formula_user q us =>
+            match eq_dec q p with
+            | left e =>
+                let us := match e in _ = p return Env (Term Σ) (𝑷_Ty p) with eq_refl => us end in
+                w <- env_witness ts us ;;
+                if env.eqb_hom (@Term_eqb Σ) (subst ts (sub_snoc (sub_id _) b w)) us
+                then Some w else None
+            | right _ => None
+            end
+        | _ => None
+        end.
+
+      Definition witness_formula {Σ b} (hyps : list (Formula Σ)) (fml : Formula (Σ ▻ b)) :
+        option (Term Σ (type b)) :=
+        match fml with
+        | formula_relop bop.eq t1 t2 =>
+            match occurs_check ctx.in_zero t2 with
+            | Some t2' => last_var t1 t2'
+            | None => None
+            end
+        | formula_user p ts => find_map (@user_witness _ _ p ts) hyps
+        | _ => None
+        end.
+
+      (* The formulas asserted directly at the top of p. *)
+      Fixpoint top_asserts {Σ} (p : 𝕊 Σ) : list (Formula Σ) :=
+        match p with
+        | assertk fml _ k => cons fml (top_asserts k)
+        | _ => nil
+        end.
+
+      Definition witness {Σ b} (hyps : list (Formula Σ)) (p : 𝕊 (Σ ▻ b)) : option (Term Σ (type b)) :=
+        find_map (witness_formula hyps) (top_asserts p).
+
+      (* Only user predicates are kept as hypotheses. *)
+      Definition add_hyp {Σ} (fml : Formula Σ) (hyps : list (Formula Σ)) : list (Formula Σ) :=
+        match fml with
+        | formula_user _ _ => cons fml hyps
+        | _ => hyps
+        end.
+
+      Definition wk_hyps {Σ b} (hyps : list (Formula Σ)) : list (Formula (Σ ▻ b)) :=
+        map (fun h => subst h sub_wk1) hyps.
+
+      Definition in_hyps {Σ} (hyps : list (Formula Σ)) (fml : Formula Σ) : bool :=
+        match fml with
+        | formula_user p ts =>
+            existsb (fun h => match h with
+                              | formula_user q us => @user_eqb _ p ts q us
+                              | _ => false
+                              end) hyps
+        | _ => false
+        end.
+
+      (* Drop asserts of hypotheses. *)
+      Fixpoint drop {Σ} (hyps : list (Formula Σ)) (p : 𝕊 Σ) : 𝕊 Σ :=
+        match p with
+        | angelic_binary p1 p2 => angelic_binary (drop hyps p1) (drop hyps p2)
+        | demonic_binary p1 p2 => demonic_binary (drop hyps p1) (drop hyps p2)
+        | assertk fml msg k =>
+            if in_hyps hyps fml then drop hyps k else assertk fml msg (drop (add_hyp fml hyps) k)
+        | assumek fml k => assumek fml (drop (add_hyp fml hyps) k)
+        | angelicv b k => angelicv b (drop (wk_hyps hyps) k)
+        | demonicv b k => demonicv b (drop (wk_hyps hyps) k)
+        | debug d k => debug d (drop hyps k)
+        | p => p
+        end.
+
+      Fixpoint run {Σ} (hyps : list (Formula Σ)) (p : 𝕊 Σ) : 𝕊 Σ :=
+        match p with
+        | angelic_binary p1 p2 => angelic_binary (run hyps p1) (run hyps p2)
+        | demonic_binary p1 p2 => demonic_binary (run hyps p1) (run hyps p2)
+        | error msg => error msg
+        | SymProp.block => SymProp.block
+        | assertk fml msg k =>
+            if in_hyps hyps fml then run hyps k else assertk fml msg (run (add_hyp fml hyps) k)
+        | assumek fml k => assumek fml (run (add_hyp fml hyps) k)
+        | angelicv b k =>
+            let k' := run (wk_hyps hyps) k in
+            match witness hyps k' with
+            | Some w =>
+                match subst_opt k' (sub_snoc (sub_id _) b w) with
+                | Some k'' => drop hyps k''
+                | None => angelicv b k'
+                end
+            | None => angelicv b k'
+            end
+        | demonicv b k => demonicv b (run (wk_hyps hyps) k)
+        | assert_vareq x t msg k => assert_vareq x t msg (run nil k)
+        | assume_vareq x t k => assume_vareq x t (run nil k)
+        | pattern_match s pat rhs => pattern_match s pat (fun pc => run nil (rhs pc))
+        | pattern_match_var x pat rhs => pattern_match_var x pat (fun pc => run nil (rhs pc))
+        | debug d k => debug d (run hyps k)
+        end.
+
+      Lemma subst_opt_sound {Σ1} (p : 𝕊 Σ1) :
+        forall {Σ2} (ζ : Sub Σ1 Σ2) p', subst_opt p ζ = Some p' ->
+        forall ι, safe p' ι <-> safe p (inst ζ ι).
+      Proof.
+        induction p; cbn; intros Σ2 ζ p' Hp ι; try discriminate;
+          repeat match goal with
+            | H : option.bind ?o _ = Some _ |- _ => destruct o eqn:?; cbn in H; try discriminate
+            end;
+          inversion Hp; subst; cbn; try reflexivity.
+        all: rewrite ?instprop_subst;
+          repeat match goal with
+            | H : subst_opt _ _ = Some _ , IH : forall _ _ _, subst_opt _ _ = Some _ -> _ |- _ =>
+                let H' := fresh in pose proof (IH _ _ _ H) as H'; clear H
+            end.
+        all: try setoid_rewrite <- inst_sub_up1.
+        all: try setoid_rewrite inst_sub_up1 in H.
+        all: setoid_rewrite H; try setoid_rewrite H0; reflexivity.
+      Qed.
+
+      Lemma user_eqb_sound {Σ} p (ts : Env (Term Σ) (𝑷_Ty p)) q (us : Env (Term Σ) (𝑷_Ty q)) ι :
+        user_eqb ts us = true -> instprop (formula_user q us) ι -> instprop (formula_user p ts) ι.
+      Proof.
+        unfold user_eqb. destruct eq_dec as [e|]; [|discriminate]. subst q; cbn.
+        destruct (env.eqb_hom_spec (@Term_eqb Σ) (@Term_eqb_spec Σ) ts us); [|discriminate].
+        now subst.
+      Qed.
+
+      Lemma in_hyps_sound {Σ} (hyps : list (Formula Σ)) fml ι :
+        in_hyps hyps fml = true -> List.Forall (fun h => instprop h ι) hyps -> instprop fml ι.
+      Proof.
+        destruct fml; cbn; try discriminate.
+        intros [h [Hin Hh]]%existsb_exists Hall.
+        destruct h; try discriminate.
+        eapply user_eqb_sound; [exact Hh|].
+        rewrite List.Forall_forall in Hall. now apply Hall.
+      Qed.
+
+      Lemma add_hyp_sound {Σ} (hyps : list (Formula Σ)) fml ι :
+        instprop fml ι -> List.Forall (fun h => instprop h ι) hyps ->
+        List.Forall (fun h => instprop h ι) (add_hyp fml hyps).
+      Proof. destruct fml; cbn; auto. Qed.
+
+      Lemma wk_hyps_sound {Σ b} (hyps : list (Formula Σ)) ι v :
+        List.Forall (fun h => instprop h ι) hyps ->
+        List.Forall (fun h => instprop h (ι ► (b ↦ v))) (wk_hyps hyps).
+      Proof.
+        intros H. unfold wk_hyps. apply List.Forall_map. revert H. apply List.Forall_impl.
+        intros h Hh. now rewrite instprop_subst, inst_sub_wk1.
+      Qed.
+
+      Lemma drop_sound {Σ} (p : 𝕊 Σ) :
+        forall hyps ι, List.Forall (fun h => instprop h ι) hyps -> safe (drop hyps p) ι -> safe p ι.
+      Proof.
+        induction p; cbn; intros hyps ι Hh; auto.
+        - intros []; [left|right]; eauto.
+        - intros []; split; eauto.
+        - destruct in_hyps eqn:Hin.
+          + intros H. split; eauto using in_hyps_sound.
+          + intros [Hf Hk]. split; eauto using add_hyp_sound.
+        - intros H Hf. eauto using add_hyp_sound.
+        - intros [v Hv]. exists v. eauto using wk_hyps_sound.
+        - intros H v. eauto using wk_hyps_sound.
+        - eauto.
+      Qed.
+
+      Lemma run_sound {Σ} (p : 𝕊 Σ) :
+        forall hyps ι, List.Forall (fun h => instprop h ι) hyps -> safe (run hyps p) ι -> safe p ι.
+      Proof.
+        induction p; cbn; intros hyps ι Hh; auto.
+        - intros []; [left|right]; eauto.
+        - intros []; split; eauto.
+        - destruct in_hyps eqn:Hin.
+          + intros H. split; eauto using in_hyps_sound.
+          + intros [Hf Hk]. split; eauto using add_hyp_sound.
+        - intros H Hf. eauto using add_hyp_sound.
+        - destruct witness as [w|].
+          + destruct subst_opt as [k''|] eqn:Hs.
+            * intros H.
+              eapply drop_sound in H; [|exact Hh].
+              eapply subst_opt_sound in H; [|exact Hs].
+              rewrite inst_sub_snoc, inst_sub_id in H.
+              eexists. eauto using wk_hyps_sound.
+            * intros [v Hv]. exists v. eauto using wk_hyps_sound.
+          + intros [v Hv]. exists v. eauto using wk_hyps_sound.
+        - intros H v. eauto using wk_hyps_sound.
+        - intros [Heq H]. split; eauto.
+        - intros H Heq. eauto.
+        - destruct pattern_match_val. eauto.
+        - destruct pattern_match_val. eauto.
+        - eauto.
+      Qed.
+
+    End InstEvars.
+
+    Definition inst_evars {Σ} (p : 𝕊 Σ) : 𝕊 Σ := InstEvars.run nil p.
+
+    Lemma inst_evars_sound {Σ} (p : 𝕊 Σ) :
+      forall ι, safe (inst_evars p) ι -> safe p ι.
+    Proof. intros ι. apply InstEvars.run_sound. constructor. Qed.
+
     Module SolveUvars.
 
       Fixpoint assume_pathcondition {Σ} (C : PathCondition Σ) (p : 𝕊 Σ) : 𝕊 Σ :=
@@ -2256,13 +2516,14 @@ Module Type SymPropOn
     Import Postprocessing.
 
     Definition postprocess {Σ} (P : 𝕊 Σ) : 𝕊 Σ :=
-      prune (solve_uvars (prune (solve_evars (prune P)))).
+      prune (inst_evars (solve_uvars (prune (solve_evars (prune P))))).
 
     Lemma postprocess_sound {Σ} (P : 𝕊 Σ) :
       forall ι, SymProp.safe (postprocess P) ι -> safe P ι.
     Proof.
       unfold postprocess. intros ι H.
       rewrite prune_sound in H.
+      apply inst_evars_sound in H.
       apply solve_uvars_sound in H.
       rewrite prune_sound in H.
       rewrite solve_evars_sound in H.

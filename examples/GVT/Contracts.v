@@ -1616,8 +1616,7 @@ Module RiscvPmpValidContracts.
 
   Lemma valid_contract_pmp_mem_write (bytes : nat) {H : restrict_bytes bytes} : ValidContractDebug (@pmp_mem_write bytes H).
   Proof.
-    destruct H; symbolic_simpl;
-      intros; (split; intros; [now exists Write|now exists ReadWrite]).
+    destruct H; symbolic_simpl; trivial.
   Qed.
 
   Lemma valid_contract_pmpCheckRWX : ValidContract pmpCheckRWX.
