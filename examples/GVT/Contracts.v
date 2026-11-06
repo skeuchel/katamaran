@@ -1730,7 +1730,7 @@ Module RiscvPmpValidContracts.
   Proof. vm_reflexivity. Qed.
 
   Lemma valid_contract_mem_write_value (bytes : nat) {H : restrict_bytes bytes} : ValidContract (@mem_write_value bytes H).
-  Proof. vm_reflexivity. Qed.
+  Proof. destruct H; vm_reflexivity. Qed.
 
   Lemma valid_contract_mem_read (bytes : nat) {H : restrict_bytes bytes} : ValidContract (@mem_read bytes H).
   Proof. vm_reflexivity. Qed.

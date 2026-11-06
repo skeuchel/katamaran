@@ -1542,10 +1542,528 @@ Module Type GenericSolverOn
           now iFrame.
     Qed.
 
+    (* Linear bounds: int (in)equalities and unsigned bitvector comparisons
+       become bounds on a linear form; a new formula is dropped if the
+       bounds of the path condition on the same form entail it. *)
+    Section LinearBounds.
+      Context {Σ : LCtx}.
+
+      (* Σ c·t, without repeated atoms or zero coefficients. *)
+      Definition Lin : Type := list (Term Σ ty.int * Z).
+
+      Definition lin_eval (ι : Valuation Σ) : Lin -> Z :=
+        fold_right (fun '(t, c) acc => c * inst (T := STerm ty.int) t ι + acc)%Z 0%Z.
+
+      Fixpoint lin_add_mono (t : Term Σ ty.int) (c : Z) (l : Lin) : Lin :=
+        match l with
+        | nil => if Z.eqb c 0 then nil else cons (t, c) nil
+        | cons (t', c') l' =>
+            if Term_eqb t t'
+            then let c'' := (c + c')%Z in
+                 if Z.eqb c'' 0 then l' else cons (t', c'') l'
+            else cons (t', c') (lin_add_mono t c l')
+        end.
+
+      Definition lin_add (l1 l2 : Lin) : Lin :=
+        fold_right (fun '(t, c) acc => lin_add_mono t c acc) l2 l1.
+
+      Definition lin_neg : Lin -> Lin :=
+        map (fun '(t, c) => (t, Z.opp c)).
+
+      Definition lin_eqb (l1 l2 : Lin) : bool :=
+        Nat.eqb (length l1) (length l2) &&
+        match lin_add l1 (lin_neg l2) with nil => true | _ => false end.
+
+      (* A linear form with a constant: Σ c·t + k. *)
+      Definition LinK : Type := Lin * Z.
+
+      Definition lin_atom (t : Term Σ ty.int) (s : Z) (lk : LinK) : LinK :=
+        let '(l, k) := lk in (lin_add_mono t s l, k).
+
+      Definition lin_const (i : Z) (s : Z) (lk : LinK) : LinK :=
+        let '(l, k) := lk in (l, k + s * i)%Z.
+
+      (* lin_term t s lk denotes s·t + lk. *)
+      Definition lin_term : Term Σ ty.int -> Z -> LinK -> LinK :=
+        Term_int_rect (fun _ => Z -> LinK -> LinK)
+          (fun x xIn => lin_atom (term_var_in xIn))
+          (fun i => lin_const i)
+          (fun t1 t2 r1 r2 s lk => r1 s (r2 s lk))
+          (fun t1 t2 r1 r2 s lk => r1 s (r2 (Z.opp s) lk))
+          (fun t1 t2 r1 r2 s lk =>
+             match term_get_val t1, term_get_val t2 with
+             | Some c, _ => r2 (s * c)%Z lk
+             | _, Some c => r1 (s * c)%Z lk
+             | None, None => lin_atom (term_times t1 t2) s lk
+             end)
+          (fun t1 t2 _ _ => lin_atom (term_binop bop.land t1 t2))
+          (fun t r s => r (Z.opp s))
+          (fun n t => lin_atom (term_unop uop.signed t))
+          (fun n t => lin_atom (term_unsigned t)).
+
+      Definition lin_unsigned {n} (t : Term Σ (ty.bvec n)) (s : Z) (lk : LinK) : LinK :=
+        match term_get_val t with
+        | Some v => lin_const (bv.unsigned v) s lk
+        | None   => lin_atom (term_unsigned t) s lk
+        end.
+
+      (* t2 - t1 as a linear form, for ints and (unsigned) bitvectors. *)
+      Definition lin_diff {σ} : Term Σ σ -> Term Σ σ -> option LinK :=
+        match σ as σ return Term Σ σ -> Term Σ σ -> option LinK with
+        | ty.int    => fun t1 t2 => Some (lin_term t2 1 (lin_term t1 (-1) (nil, 0%Z)))
+        | ty.bvec n => fun t1 t2 => Some (lin_unsigned t2 1 (lin_unsigned t1 (-1) (nil, 0%Z)))
+        | _         => fun _ _ => None
+        end.
+
+      (* The value of a linear form lies in [lo, hi], or differs from a. *)
+      Inductive Range : Type :=
+      | range_in (lo hi : option Z)
+      | range_out (a : Z).
+
+      Definition Cstr : Type := Lin * Range.
+
+      Definition lin_gcd (l : Lin) : Z :=
+        fold_right (fun '(_, c) g => Z.gcd c g) 0%Z l.
+
+      (* Divide by the gcd g of the coefficients, rounding the bounds inward. *)
+      Definition cstr_normalize (c : Cstr) : Cstr :=
+        let '(l, r) := c in
+        let g := lin_gcd l in
+        if (g <=? 1)%Z then c else
+          (map (fun '(t, c) => (t, c / g)%Z) l,
+            match r with
+            | range_in lo hi =>
+                range_in (option_map (fun a => Z.opp (Z.opp a / g)) lo)
+                  (option_map (fun b => b / g) hi)
+            | range_out a =>
+                if (a mod g =? 0)%Z then range_out (a / g) else range_in None None
+            end)%Z.
+
+      (* 0 ⋈ l + k *)
+      Definition cstr_ge (lk : LinK) : Cstr :=
+        let '(l, k) := lk in (l, range_in (Some (Z.opp k)) None).
+      Definition cstr_eq (lk : LinK) : Cstr :=
+        let '(l, k) := lk in (l, range_in (Some (Z.opp k)) (Some (Z.opp k))).
+      Definition cstr_ne (lk : LinK) : Cstr :=
+        let '(l, k) := lk in (l, range_out (Z.opp k)).
+
+      Definition relop_cstr {σ} (op : RelOp σ) : Term Σ σ -> Term Σ σ -> option Cstr :=
+        match op with
+        | bop.eq    => fun t1 t2 => option_map cstr_eq (lin_diff t1 t2)
+        | bop.neq   => fun t1 t2 => option_map cstr_ne (lin_diff t1 t2)
+        | bop.le    => fun t1 t2 => Some (cstr_ge (lin_term t2 1 (lin_term t1 (-1) (nil, 0%Z))))
+        | bop.lt    => fun t1 t2 => Some (cstr_ge (lin_term t2 1 (lin_term t1 (-1) (nil, (-1)%Z))))
+        | bop.bvule => fun t1 t2 => Some (cstr_ge (lin_unsigned t2 1 (lin_unsigned t1 (-1) (nil, 0%Z))))
+        | bop.bvult => fun t1 t2 => Some (cstr_ge (lin_unsigned t2 1 (lin_unsigned t1 (-1) (nil, (-1)%Z))))
+        | _         => fun _ _ => None
+        end.
+
+      Definition formula_cstr (F : Formula Σ) : option Cstr :=
+        match F with
+        | formula_relop op t1 t2 => option_map cstr_normalize (relop_cstr op t1 t2)
+        | _ => None
+        end.
+
+      Definition pathcondition_cstrs (C : PathCondition Σ) : list Cstr :=
+        ctx.Ctx_rect (fun _ => list Cstr) nil
+          (fun _ cs F => match formula_cstr F with
+                         | Some c => cons c cs
+                         | None => cs
+                         end) C.
+
+      Definition Interval : Type := option Z * option Z.
+
+      Definition lo_max (a b : option Z) : option Z :=
+        match a, b with
+        | Some x, Some y => Some (Z.max x y)
+        | Some x, None => Some x
+        | None, b => b
+        end.
+      Definition hi_min (a b : option Z) : option Z :=
+        match a, b with
+        | Some x, Some y => Some (Z.min x y)
+        | Some x, None => Some x
+        | None, b => b
+        end.
+
+      (* Bounds every valuation satisfies: unsigned values are nonnegative.
+         No upper bound: the width may be symbolic. *)
+      Definition term_is_unsigned (t : Term Σ ty.int) : bool :=
+        Term_int_case (fun _ => bool)
+          (fun _ _ => false) (fun _ => false) (fun _ _ => false) (fun _ _ => false)
+          (fun _ _ => false) (fun _ _ => false) (fun _ => false) (fun _ _ => false)
+          (fun _ _ => true) t.
+
+      Definition lin_default (l : Lin) : Interval :=
+        match l with
+        | nil => (Some 0%Z, Some 0%Z)
+        | cons (t, c) nil =>
+            if term_is_unsigned t
+            then if (c =? 1)%Z then (Some 0%Z, None)
+                 else if (c =? -1)%Z then (None, Some 0%Z)
+                 else (None, None)
+            else (None, None)
+        | _ => (None, None)
+        end.
+
+      (* Narrow i by the hypotheses on l (or on -l). *)
+      Definition lin_interval (hyps : list Cstr) (l : Lin) : Interval :=
+        fold_right
+          (fun '(l', r) '(lo, hi) =>
+             match r with
+             | range_in lo' hi' =>
+                 if lin_eqb l l' then (lo_max lo lo', hi_min hi hi')
+                 else if lin_eqb l (lin_neg l') then
+                        (lo_max lo (option_map Z.opp hi'), hi_min hi (option_map Z.opp lo'))
+                 else (lo, hi)
+             | range_out _ => (lo, hi)
+             end)
+          (lin_default l) hyps.
+
+      Inductive Verdict : Type := entailed | contradicted | unknown.
+
+      Definition le_opt (a b : option Z) : bool :=
+        match a, b with
+        | Some x, Some y => (x <=? y)%Z
+        | _, _ => false
+        end.
+
+      Definition decide_range (i : Interval) (r : Range) : Verdict :=
+        let '(lo, hi) := i in
+        if le_opt (option_map Z.succ hi) lo then contradicted else
+        match r with
+        | range_in flo fhi =>
+            if (match flo with None => true | Some _ => le_opt flo lo end) &&
+               (match fhi with None => true | Some _ => le_opt hi fhi end)
+            then entailed
+            else if le_opt (option_map Z.succ fhi) lo || le_opt (option_map Z.succ hi) flo ||
+                    le_opt (option_map Z.succ fhi) flo
+            then contradicted
+            else unknown
+        | range_out a =>
+            if le_opt (Some (Z.succ a)) lo || le_opt (option_map Z.succ hi) (Some a)
+            then entailed
+            else if le_opt (Some a) lo && le_opt hi (Some a) then contradicted
+            else unknown
+        end.
+
+      Fixpoint bounds_pathcondition (hyps : list Cstr) (C : PathCondition Σ) :
+        option (list Cstr * PathCondition Σ) :=
+        match C with
+        | [ctx] => Some (hyps, [ctx])
+        | C ▻ F =>
+            '(hyps', C') <- bounds_pathcondition hyps C ;;
+            match formula_cstr F with
+            | None => Some (hyps', C' ▻ F)
+            | Some c =>
+                match decide_range (lin_interval hyps' (fst c)) (snd c) with
+                | entailed     => Some (hyps', C')
+                | contradicted => None
+                | unknown      => Some (cons c hyps', C' ▻ F)
+                end
+            end
+        end.
+
+      Section Sound.
+        Variable (ι : Valuation Σ).
+
+        Lemma lin_add_mono_eval t c l :
+          lin_eval ι (lin_add_mono t c l) = (c * inst (T := STerm ty.int) t ι + lin_eval ι l)%Z.
+        Proof.
+          induction l as [|[t' c'] l IH]; cbn.
+          - destruct (Z.eqb_spec c 0); cbn; subst; lia.
+          - destruct (Term_eqb_spec t t'); subst.
+            + destruct (Z.eqb_spec (c + c') 0); cbn; lia.
+            + cbn. rewrite IH. lia.
+        Qed.
+
+        Lemma lin_add_eval l1 l2 :
+          lin_eval ι (lin_add l1 l2) = (lin_eval ι l1 + lin_eval ι l2)%Z.
+        Proof.
+          induction l1 as [|[t c] l1 IH]; cbn; [lia|].
+          rewrite lin_add_mono_eval. fold (lin_add l1 l2). rewrite IH. lia.
+        Qed.
+
+        Lemma lin_neg_eval l : lin_eval ι (lin_neg l) = Z.opp (lin_eval ι l).
+        Proof. induction l as [|[t c] l IH]; cbn; lia. Qed.
+
+        Lemma lin_eqb_sound l1 l2 : lin_eqb l1 l2 = true -> lin_eval ι l1 = lin_eval ι l2.
+        Proof.
+          unfold lin_eqb. intros [_ H]%andb_prop.
+          destruct lin_add eqn:E; [|discriminate].
+          apply (f_equal (lin_eval ι)) in E.
+          rewrite lin_add_eval lin_neg_eval in E. cbn in E. lia.
+        Qed.
+
+        Definition lk_eval (lk : LinK) : Z := let '(l, k) := lk in (lin_eval ι l + k)%Z.
+
+        Lemma lin_atom_eval t s lk :
+          lk_eval (lin_atom t s lk) = (s * inst (T := STerm ty.int) t ι + lk_eval lk)%Z.
+        Proof. destruct lk; cbn. rewrite lin_add_mono_eval. lia. Qed.
+
+        Lemma lin_const_eval i s lk : lk_eval (lin_const i s lk) = (s * i + lk_eval lk)%Z.
+        Proof. destruct lk; cbn. lia. Qed.
+
+        Lemma lin_term_eval t : forall s lk,
+          lk_eval (lin_term t s lk) = (s * inst (T := STerm ty.int) t ι + lk_eval lk)%Z.
+        Proof.
+          induction t using Term_int_rect; intros s lk; cbn.
+          - now rewrite lin_atom_eval.
+          - now rewrite lin_const_eval.
+          - rewrite IHt1 IHt2. lia.
+          - rewrite IHt1 IHt2. lia.
+          - destruct (term_get_val_spec t1) as [c1|]; subst.
+            + rewrite IHt2. cbn. lia.
+            + destruct (term_get_val_spec t2) as [c2|]; subst.
+              * rewrite IHt1. cbn. lia.
+              * now rewrite lin_atom_eval.
+          - now rewrite lin_atom_eval.
+          - rewrite IHt. lia.
+          - now rewrite lin_atom_eval.
+          - now rewrite lin_atom_eval.
+        Qed.
+
+        Lemma lin_unsigned_eval {n} (t : Term Σ (ty.bvec n)) s lk :
+          lk_eval (lin_unsigned t s lk) =
+            (s * @bv.unsigned n (inst (T := STerm (ty.bvec n)) t ι) + lk_eval lk)%Z.
+        Proof.
+          unfold lin_unsigned. destruct (term_get_val_spec t) as [v|]; subst.
+          - now rewrite lin_const_eval.
+          - now rewrite lin_atom_eval.
+        Qed.
+
+        Lemma lin_diff_eq {σ} (t1 t2 : Term Σ σ) lk : lin_diff t1 t2 = Some lk ->
+          (inst (T := STerm σ) t1 ι = inst (T := STerm σ) t2 ι <-> lk_eval lk = 0%Z).
+        Proof.
+          destruct σ; cbn; try discriminate; intros [= <-].
+          - rewrite !lin_term_eval. cbn. lia.
+          - rewrite !lin_unsigned_eval. cbn. split.
+            + intros ->. lia.
+            + intros H. apply bv.unsigned_inj. lia.
+        Qed.
+
+        Definition lo_ok (lo : option Z) (v : Z) : Prop :=
+          match lo with Some a => (a <= v)%Z | None => True end.
+        Definition hi_ok (hi : option Z) (v : Z) : Prop :=
+          match hi with Some b => (v <= b)%Z | None => True end.
+        Definition range_holds (v : Z) (r : Range) : Prop :=
+          match r with
+          | range_in lo hi => lo_ok lo v /\ hi_ok hi v
+          | range_out a => v <> a
+          end.
+        Definition cstr_holds (c : Cstr) : Prop :=
+          range_holds (lin_eval ι (fst c)) (snd c).
+
+        Lemma cstr_ge_spec lk : cstr_holds (cstr_ge lk) <-> (0 <= lk_eval lk)%Z.
+        Proof. destruct lk; cbn; intuition lia. Qed.
+        Lemma cstr_eq_spec lk : cstr_holds (cstr_eq lk) <-> lk_eval lk = 0%Z.
+        Proof. destruct lk; cbn; intuition lia. Qed.
+        Lemma cstr_ne_spec lk : cstr_holds (cstr_ne lk) <-> lk_eval lk <> 0%Z.
+        Proof. destruct lk; cbn; intuition lia. Qed.
+
+        Lemma relop_cstr_spec {σ} (op : RelOp σ) t1 t2 c : relop_cstr op t1 t2 = Some c ->
+          instprop (formula_relop op t1 t2) ι <-> cstr_holds c.
+        Proof.
+          destruct op; cbn; intros H; try discriminate.
+          - destruct lin_diff eqn:E; cbn in H; inversion H; subst.
+            rewrite cstr_eq_spec. now apply lin_diff_eq.
+          - destruct lin_diff eqn:E; cbn in H; inversion H; subst.
+            rewrite cstr_ne_spec. apply lin_diff_eq in E. intuition.
+          - inversion H; subst. rewrite cstr_ge_spec !lin_term_eval. cbn. lia.
+          - inversion H; subst. rewrite cstr_ge_spec !lin_term_eval. cbn. lia.
+          - inversion H; subst.
+            rewrite cstr_ge_spec !lin_unsigned_eval bv.ule_iff_unsigned_le. cbn. lia.
+          - inversion H; subst.
+            rewrite cstr_ge_spec !lin_unsigned_eval bv.ult_iff_unsigned_lt. cbn. lia.
+        Qed.
+
+        Lemma lin_gcd_divide l t c : In (t, c) l -> (lin_gcd l | c)%Z.
+        Proof.
+          induction l as [|[t' c'] l IH]; cbn; [easy|].
+          intros [[= -> ->]|HIn].
+          - apply Z.gcd_divide_l.
+          - eapply Z.divide_trans; [apply Z.gcd_divide_r|]. now apply IH.
+        Qed.
+
+        Lemma lin_eval_div g l : (0 < g)%Z -> (forall t c, In (t, c) l -> (g | c)%Z) ->
+          lin_eval ι l = (g * lin_eval ι (map (fun '(t, c) => (t, c / g)%Z) l))%Z.
+        Proof.
+          intros Hg. induction l as [|[t c] l IH]; cbn; intros Hdiv; [lia|].
+          rewrite IH. 2: { intros t' c' H'. apply (Hdiv t' c'). now right. }
+          destruct (Hdiv t c (or_introl eq_refl)) as [q ->].
+          rewrite Z.div_mul; lia.
+        Qed.
+
+        Lemma div_lo g a v : (0 < g)%Z -> ((a <= g * v)%Z <-> (- (- a / g) <= v)%Z).
+        Proof.
+          intros Hg. pose proof (Z.div_mod (- a) g ltac:(lia)).
+          pose proof (Z.mod_pos_bound (- a) g Hg).
+          set (q := (- a / g)%Z) in *. set (r := (- a mod g)%Z) in *. nia.
+        Qed.
+
+        Lemma div_hi g b v : (0 < g)%Z -> ((g * v <= b)%Z <-> (v <= b / g)%Z).
+        Proof.
+          intros Hg. pose proof (Z.div_mod b g ltac:(lia)).
+          pose proof (Z.mod_pos_bound b g Hg).
+          set (q := (b / g)%Z) in *. set (r := (b mod g)%Z) in *. nia.
+        Qed.
+
+        Lemma div_out (g a v : Z) : (0 < g)%Z ->
+          ((g * v <> a)%Z <-> if (a mod g =? 0)%Z then v <> (a / g)%Z else True).
+        Proof.
+          intros Hg. pose proof (Z.div_mod a g ltac:(lia)).
+          pose proof (Z.mod_pos_bound a g Hg).
+          set (q := (a / g)%Z) in *. set (r := (a mod g)%Z) in *.
+          clearbody q r. subst a.
+          destruct (Z.eqb_spec r 0) as [->|Hr].
+          - rewrite Z.add_0_r. split.
+            + intros H1 ->. now apply H1.
+            + intros H1 H2. apply H1. apply Z.mul_reg_l in H2; lia.
+          - split; [easy|]. intros _ H1.
+            assert (v - q <= 0 \/ 1 <= v - q)%Z as [Hvq|Hvq] by lia; nia.
+        Qed.
+
+        Lemma cstr_normalize_spec c : cstr_holds (cstr_normalize c) <-> cstr_holds c.
+        Proof.
+          destruct c as [l r]. unfold cstr_normalize.
+          destruct (Z.leb_spec (lin_gcd l) 1); [reflexivity|].
+          unfold cstr_holds; cbn [fst snd].
+          assert (Hl := lin_eval_div (g := lin_gcd l) l ltac:(lia) (lin_gcd_divide l)).
+          rewrite Hl. set (v := lin_eval ι _). clearbody v.
+          destruct r as [lo hi|a]; cbn.
+          - destruct lo, hi; cbn; try rewrite (div_lo (g := lin_gcd l));
+              try rewrite (div_hi (g := lin_gcd l)); try lia; tauto.
+          - rewrite (div_out (g := lin_gcd l)); [|lia].
+            destruct (Z.eqb_spec (a mod lin_gcd l) 0); cbn; tauto.
+        Qed.
+
+        Lemma formula_cstr_spec F c : formula_cstr F = Some c -> instprop F ι <-> cstr_holds c.
+        Proof.
+          destruct F; cbn; try discriminate.
+          destruct relop_cstr eqn:E; cbn; intros [= <-].
+          rewrite cstr_normalize_spec. now apply relop_cstr_spec.
+        Qed.
+
+        Definition interval_holds (i : Interval) (v : Z) : Prop :=
+          lo_ok (fst i) v /\ hi_ok (snd i) v.
+
+        Lemma term_is_unsigned_spec t :
+          term_is_unsigned t = true -> (0 <= inst (T := STerm ty.int) t ι)%Z.
+        Proof.
+          destruct t using Term_int_case; cbn; try discriminate.
+          intros _. apply bv.unsigned_bounds.
+        Qed.
+
+        Lemma lin_default_spec l : interval_holds (lin_default l) (lin_eval ι l).
+        Proof.
+          destruct l as [|[t c] [|]]; cbn; try easy.
+          destruct term_is_unsigned eqn:Hu; cbn; try easy.
+          apply term_is_unsigned_spec in Hu. unfold interval_holds.
+          destruct (Z.eqb_spec c 1); cbn; [lia|].
+          destruct (Z.eqb_spec c (-1)); cbn; [lia|easy].
+        Qed.
+
+        Lemma lin_interval_spec hyps l : Forall cstr_holds hyps ->
+          interval_holds (lin_interval hyps l) (lin_eval ι l).
+        Proof.
+          induction 1 as [|[l' r] hyps Hc _ IH]; [apply lin_default_spec|].
+          unfold lin_interval; cbn [fold_right]; fold (lin_interval hyps l).
+          destruct lin_interval as [lo hi].
+          destruct IH as [IHlo IHhi]. cbn in IHlo, IHhi.
+          destruct r as [lo' hi'|a]; [|easy].
+          destruct Hc as [Hlo Hhi]; cbn in Hlo, Hhi.
+          unfold interval_holds.
+          destruct (lin_eqb l l') eqn:E1.
+          - apply lin_eqb_sound in E1. rewrite <-E1 in Hlo, Hhi.
+            split; cbn.
+            + destruct lo, lo'; cbn in *; lia.
+            + destruct hi, hi'; cbn in *; lia.
+          - destruct (lin_eqb l (lin_neg l')) eqn:E2; [|easy].
+            apply lin_eqb_sound in E2. rewrite lin_neg_eval in E2.
+            split; cbn.
+            + destruct lo, hi'; cbn in *; lia.
+            + destruct hi, lo'; cbn in *; lia.
+        Qed.
+
+        Lemma decide_range_spec i r v : interval_holds i v ->
+          match decide_range i r with
+          | entailed => range_holds v r
+          | contradicted => ~ range_holds v r
+          | unknown => True
+          end.
+        Proof.
+          destruct i as [lo hi]. unfold interval_holds; cbn [fst snd]. intros [Hlo Hhi].
+          destruct r as [flo fhi|a]; destruct lo, hi; try destruct flo; try destruct fhi;
+            cbn in *;
+            repeat match goal with |- context[Z.leb ?x ?y] => destruct (Z.leb_spec x y) end;
+            cbn; intuition lia.
+        Qed.
+
+        Lemma bounds_pathcondition_spec hyps C : Forall cstr_holds hyps ->
+          match bounds_pathcondition hyps C with
+          | Some (hyps', C') =>
+              (instprop C ι <-> instprop C' ι) /\ (instprop C' ι -> Forall cstr_holds hyps')
+          | None => ~ instprop C ι
+          end.
+        Proof.
+          intros Hh. induction C as [|C IH F]; cbn; [tauto|].
+          destruct bounds_pathcondition as [[hyps' C']|]; cbn; [|intuition].
+          destruct IH as [IHiff IHh].
+          destruct formula_cstr as [c|] eqn:Ec; cbn; [|intuition].
+          pose proof (formula_cstr_spec F Ec) as HF.
+          assert (Hd : instprop C' ι ->
+                       match decide_range (lin_interval hyps' (fst c)) (snd c) with
+                       | entailed => range_holds (lin_eval ι (fst c)) (snd c)
+                       | contradicted => ~ range_holds (lin_eval ι (fst c)) (snd c)
+                       | unknown => True
+                       end).
+          { intros HC'. apply decide_range_spec, lin_interval_spec, IHh, HC'. }
+          destruct decide_range; cbn.
+          - split; [|assumption]. split; [intuition|].
+            intros HC'. split; [now apply IHiff|]. apply HF. exact (Hd HC').
+          - intros [HC HFt]. apply HF in HFt. exact (Hd (proj1 IHiff HC) HFt).
+          - split; [intuition|]. intros [HC' HFt].
+            constructor; [now apply HF|now apply IHh].
+        Qed.
+
+        Lemma pathcondition_cstrs_spec C :
+          instprop C ι -> Forall cstr_holds (pathcondition_cstrs C).
+        Proof.
+          induction C as [|C IH F]; cbn; [constructor|].
+          intros [HC HF]. destruct formula_cstr eqn:Ec; [|now apply IH].
+          constructor; [now apply (formula_cstr_spec F Ec)|now apply IH].
+        Qed.
+
+      End Sound.
+
+    End LinearBounds.
+
+    Definition bounds_check {Σ} (hyps C : PathCondition Σ) : option (PathCondition Σ) :=
+      option_map snd (bounds_pathcondition (pathcondition_cstrs hyps) C).
+
+    Lemma bounds_check_spec {w : World} (C : PathCondition w) :
+      option.spec
+        (fun C' => instpred C' ⊣⊢ instpred C)
+        (instpred C ⊢ False)
+        (bounds_check (wco w) C).
+    Proof.
+      unfold bounds_check.
+      pose proof (fun ι (Hpc : instprop (wco w) ι) =>
+                    bounds_pathcondition_spec (ι := ι) C
+                      (@pathcondition_cstrs_spec _ ι (wco w) Hpc)) as H.
+      destruct bounds_pathcondition as [[hyps' C']|]; constructor.
+      - constructor. intros ι Hpc. rewrite !instpred_prop. symmetry. apply (H ι Hpc).
+      - constructor. intros ι Hpc HC. rewrite instpred_prop in HC. now apply (H ι Hpc).
+    Qed.
+
     Definition solver_generic : Solver :=
       fun w0 C0 =>
         match DList.run (simplify_pathcondition C0) with
-        | Some C1 => Some (unify_pathcondition (assumption_pathcondition (wco w0) C1 ctx.nil))
+        | Some C1 =>
+            match bounds_check (wco w0) (assumption_pathcondition (wco w0) C1 ctx.nil) with
+            | Some C2 => Some (unify_pathcondition C2)
+            | None => None
+            end
         | None => None
         end.
 
@@ -1553,17 +2071,21 @@ Module Type GenericSolverOn
     Proof.
       unfold solver_generic. intros w C0.
       pose proof (simplify_pathcondition_spec C0) as Hequiv.
-      destruct run as [C0'|]; constructor; cbn.
-      - pose proof (unify_pathcondition_spec (assumption_pathcondition (wco w) C0' ctx.nil)) as Hunify.
-        destruct (unify_pathcondition (assumption_pathcondition (wco w) C0' ctx.nil)) as (w1 & ν01 & C1).
-        rewrite <-Hunify.
-        rewrite <-Hequiv.
-        pose proof (assumption_pathcondition_spec (wco w) C0' ctx.nil) as Hassumption.
-        iPoseProof wco_valid as "Hwco".
-        iDestruct (Hassumption with "Hwco") as "Hassumption".
-        rewrite bi.emp_sep.
-        now iApply (bi.wand_iff_sym with "Hassumption").
-      - now rewrite <-Hequiv.
+      destruct run as [C0'|]; cbn.
+      - assert (Hassumption : instpred (assumption_pathcondition (wco w) C0' ctx.nil) ⊣⊢
+                                instpred (Some C0')).
+        { pose proof (assumption_pathcondition_spec (wco w) C0' ctx.nil) as Hassumption.
+          iPoseProof wco_valid as "Hwco".
+          iDestruct (Hassumption with "Hwco") as "Hassumption".
+          rewrite bi.emp_sep.
+          now iApply (bi.wand_iff_sym with "Hassumption"). }
+        destruct (bounds_check_spec (assumption_pathcondition (wco w) C0' ctx.nil))
+          as [C2 HC2|HnC2]; constructor.
+        + pose proof (unify_pathcondition_spec C2) as Hunify.
+          destruct (unify_pathcondition C2) as (w1 & ν01 & C1).
+          rewrite <-Hunify. rewrite HC2. now rewrite Hassumption.
+        + rewrite <-Hequiv. now rewrite <-Hassumption.
+      - constructor. now rewrite <-Hequiv.
     Qed.
 
   End GenericSolver.
