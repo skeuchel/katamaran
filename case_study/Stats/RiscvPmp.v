@@ -57,7 +57,7 @@ Goal forall (l bytes : nat) (H : restrict_bytes bytes), True.
   Time show "VCSTAT pmpMatchEntry fuel=1" (vc_stats 1 pmpMatchEntry).
   Time show "VCSTAT pmpAddrRange fuel=1" (vc_stats 1 pmpAddrRange).
   Time show "VCSTAT pmpMatchAddr fuel=1" (vc_stats 1 pmpMatchAddr).
-  Time show "VCSTAT mem_write_value fuel=1" (vc_stats 1 (@mem_write_value bytes H)).
+  Time show "VCSTAT mem_write_value fuel=1" (vc_stats 1 (@mem_write_value 4 restrict_bytes_four)).
   Time show "VCSTAT init_model fuel=1" (vc_stats 1 init_model).
   Time show "VCSTAT step fuel=4" (vc_stats 4 step).
   Time show "VCSTAT fetch fuel=1" (vc_stats 1 fetch).
