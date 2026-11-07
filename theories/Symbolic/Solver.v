@@ -70,12 +70,33 @@ Module Type GenericSolverOn
     Import option.notations.
     Import DList.
 
+    (* A boolean term as a formula, keeping its propositional structure. *)
+    Fixpoint formula_of_bool [Σ] (t : Term Σ ty.bool) : Formula Σ :=
+      Term_bool_case (fun _ => Formula Σ)
+        (fun (*var*) ς _        => formula_bool (term_var ς))
+        (fun (*val*) b          => if b then formula_true else formula_false)
+        (fun (*and*) t1 t2      => formula_and (formula_of_bool t1) (formula_of_bool t2))
+        (fun (*or*)  t1 t2      => formula_or (formula_of_bool t1) (formula_of_bool t2))
+        (fun (*rel*) σ op t1 t2 => formula_relop op t1 t2)
+        (fun (*not*) t1         => formula_of_bool_neg t1)
+        t
+    with
+    formula_of_bool_neg [Σ] (t : Term Σ ty.bool) : Formula Σ :=
+      Term_bool_case (fun _ => Formula Σ)
+        (fun (*var*) ς _        => formula_bool (term_unop uop.not (term_var ς)))
+        (fun (*val*) b          => if b then formula_false else formula_true)
+        (fun (*and*) t1 t2      => formula_or (formula_of_bool_neg t1) (formula_of_bool_neg t2))
+        (fun (*or*)  t1 t2      => formula_and (formula_of_bool_neg t1) (formula_of_bool_neg t2))
+        (fun (*rel*) σ op t1 t2 => formula_relop_neg op t1 t2)
+        (fun (*not*) t1         => formula_of_bool t1)
+        t.
+
     Fixpoint simplify_bool [Σ] (t : Term Σ ty.bool) : DList Σ :=
       Term_bool_case (fun _ => DList Σ)
         (fun (*var*) ς _        => singleton (formula_bool (term_var ς)))
         (fun (*val*) b          => if b then empty else error)
         (fun (*and*) t1 t2      => cat (simplify_bool t1) (simplify_bool t2))
-        (fun (*or*)  t1 t2      => singleton (formula_bool (term_binop bop.or t1 t2)))
+        (fun (*or*)  t1 t2      => singleton (formula_or (formula_of_bool t1) (formula_of_bool t2)))
         (fun (*rel*) σ op t1 t2 => singleton (formula_relop op t1 t2))
         (fun (*not*) t1         => simplify_bool_neg t1)
         t
@@ -84,11 +105,33 @@ Module Type GenericSolverOn
       Term_bool_case (fun _ => DList Σ)
         (fun (*var*) ς _        => singleton (formula_bool (term_unop uop.not (term_var ς))))
         (fun (*val*) b          => if b then error else empty)
-        (fun (*and*) t1 t2      => singleton (formula_bool (term_binop bop.or (term_unop uop.not t1) (term_unop uop.not t2))))
+        (fun (*and*) t1 t2      => singleton (formula_or (formula_of_bool_neg t1) (formula_of_bool_neg t2)))
         (fun (*or*)  t1 t2      => cat (simplify_bool_neg t1) (simplify_bool_neg t2))
         (fun (*rel*) σ op t1 t2 => singleton (formula_relop_neg op t1 t2))
         (fun (*not*) t1         => simplify_bool t1)
         t.
+
+    Lemma formula_of_bool_instprop {Σ} (ι : Valuation Σ) (t : Term Σ ty.bool) :
+      (instprop (formula_of_bool t) ι <-> inst (T := STerm ty.bool) t ι = true) /\
+      (instprop (formula_of_bool_neg t) ι <-> inst (T := STerm ty.bool) t ι = false).
+    Proof.
+      induction t using Term_bool_ind; cbn.
+      - destruct env.lookup; intuition.
+      - destruct b; cbn; intuition.
+      - destruct IHt1 as [-> ->], IHt2 as [-> ->].
+        destruct (inst t1 ι), (inst t2 ι); cbn; intuition.
+      - destruct IHt1 as [-> ->], IHt2 as [-> ->].
+        destruct (inst t1 ι), (inst t2 ι); cbn; intuition.
+      - split; [apply bop.eval_relop_equiv|apply instprop_formula_relop_neg].
+      - destruct IHt as [-> ->]. destruct (inst t ι); cbn; intuition.
+    Qed.
+
+    Lemma formula_of_bool_spec {w : World} (t : Term w ty.bool) :
+      (instpred (formula_of_bool t) ⊣⊢ repₚ (T := fun Σ => Term Σ ty.bool) true t) ∧
+      (instpred (formula_of_bool_neg t) ⊣⊢ repₚ (T := fun Σ => Term Σ ty.bool) false t).
+    Proof.
+      split; constructor; intros ι _; rewrite instpred_prop; apply formula_of_bool_instprop.
+    Qed.
 
     Lemma simplify_bool_spec_combined {w : World} (t : Term w ty.bool) :
       (instpred (simplify_bool t) ⊣⊢ repₚ (T := fun Σ => Term Σ ty.bool) true t) ∧
@@ -98,10 +141,10 @@ Module Type GenericSolverOn
       - destruct b; arw.
       - split.
         + now destruct IHt1 as [-> _], IHt2 as [-> _].
-        + (* need to find a confluent rewrite strategy... *)
-          now rewrite -(term_negb_involutive (term_binop bop.and _ _))
-                         repₚ_term_not' term_not_and.
-      - destruct IHt1 as [_ ->], IHt2 as [_ ->]; arw.
+        + exact (proj2 (formula_of_bool_spec (term_and t1 t2))).
+      - split.
+        + exact (proj1 (formula_of_bool_spec (term_or t1 t2))).
+        + destruct IHt1 as [_ ->], IHt2 as [_ ->]; arw.
     Qed.
 
     Lemma simplify_bool_spec [w : World] (t : Term w ty.bool) :
@@ -1583,38 +1626,6 @@ Module Type GenericSolverOn
       Definition lin_const (i : Z) (s : Z) (lk : LinK) : LinK :=
         let '(l, k) := lk in (l, k + s * i)%Z.
 
-      (* lin_term t s lk denotes s·t + lk. *)
-      Definition lin_term : Term Σ ty.int -> Z -> LinK -> LinK :=
-        Term_int_rect (fun _ => Z -> LinK -> LinK)
-          (fun x xIn => lin_atom (term_var_in xIn))
-          (fun i => lin_const i)
-          (fun t1 t2 r1 r2 s lk => r1 s (r2 s lk))
-          (fun t1 t2 r1 r2 s lk => r1 s (r2 (Z.opp s) lk))
-          (fun t1 t2 r1 r2 s lk =>
-             match term_get_val t1, term_get_val t2 with
-             | Some c, _ => r2 (s * c)%Z lk
-             | _, Some c => r1 (s * c)%Z lk
-             | None, None => lin_atom (term_times t1 t2) s lk
-             end)
-          (fun t1 t2 _ _ => lin_atom (term_binop bop.land t1 t2))
-          (fun t r s => r (Z.opp s))
-          (fun n t => lin_atom (term_unop uop.signed t))
-          (fun n t => lin_atom (term_unsigned t)).
-
-      Definition lin_unsigned {n} (t : Term Σ (ty.bvec n)) (s : Z) (lk : LinK) : LinK :=
-        match term_get_val t with
-        | Some v => lin_const (bv.unsigned v) s lk
-        | None   => lin_atom (term_unsigned t) s lk
-        end.
-
-      (* t2 - t1 as a linear form, for ints and (unsigned) bitvectors. *)
-      Definition lin_diff {σ} : Term Σ σ -> Term Σ σ -> option LinK :=
-        match σ as σ return Term Σ σ -> Term Σ σ -> option LinK with
-        | ty.int    => fun t1 t2 => Some (lin_term t2 1 (lin_term t1 (-1) (nil, 0%Z)))
-        | ty.bvec n => fun t1 t2 => Some (lin_unsigned t2 1 (lin_unsigned t1 (-1) (nil, 0%Z)))
-        | _         => fun _ _ => None
-        end.
-
       (* The value of a linear form lies in [lo, hi], or differs from a. *)
       Inductive Range : Type :=
       | range_in (lo hi : option Z)
@@ -1647,29 +1658,16 @@ Module Type GenericSolverOn
       Definition cstr_ne (lk : LinK) : Cstr :=
         let '(l, k) := lk in (l, range_out (Z.opp k)).
 
-      Definition relop_cstr {σ} (op : RelOp σ) : Term Σ σ -> Term Σ σ -> option Cstr :=
-        match op with
-        | bop.eq    => fun t1 t2 => option_map cstr_eq (lin_diff t1 t2)
-        | bop.neq   => fun t1 t2 => option_map cstr_ne (lin_diff t1 t2)
-        | bop.le    => fun t1 t2 => Some (cstr_ge (lin_term t2 1 (lin_term t1 (-1) (nil, 0%Z))))
-        | bop.lt    => fun t1 t2 => Some (cstr_ge (lin_term t2 1 (lin_term t1 (-1) (nil, (-1)%Z))))
-        | bop.bvule => fun t1 t2 => Some (cstr_ge (lin_unsigned t2 1 (lin_unsigned t1 (-1) (nil, 0%Z))))
-        | bop.bvult => fun t1 t2 => Some (cstr_ge (lin_unsigned t2 1 (lin_unsigned t1 (-1) (nil, (-1)%Z))))
-        | _         => fun _ _ => None
+      (* The negation, if it is a single constraint. *)
+      Definition cstr_negate (c : Cstr) : option Cstr :=
+        let '(l, r) := c in
+        match r with
+        | range_in (Some a) None => Some (l, range_in None (Some (Z.pred a)))
+        | range_in None (Some b) => Some (l, range_in (Some (Z.succ b)) None)
+        | range_in (Some a) (Some b) => if (a =? b)%Z then Some (l, range_out a) else None
+        | range_in None None => None
+        | range_out a => Some (l, range_in (Some a) (Some a))
         end.
-
-      Definition formula_cstr (F : Formula Σ) : option Cstr :=
-        match F with
-        | formula_relop op t1 t2 => option_map cstr_normalize (relop_cstr op t1 t2)
-        | _ => None
-        end.
-
-      Definition pathcondition_cstrs (C : PathCondition Σ) : list Cstr :=
-        ctx.Ctx_rect (fun _ => list Cstr) nil
-          (fun _ cs F => match formula_cstr F with
-                         | Some c => cons c cs
-                         | None => cs
-                         end) C.
 
       Definition Interval : Type := option Z * option Z.
 
@@ -1747,20 +1745,179 @@ Module Type GenericSolverOn
             else unknown
         end.
 
-      Fixpoint bounds_pathcondition (hyps : list Cstr) (C : PathCondition Σ) :
-        option (list Cstr * PathCondition Σ) :=
+      Definition decide_cstr (hyps : list Cstr) (c : Cstr) : Verdict :=
+        decide_range (lin_interval hyps (fst c)) (snd c).
+
+      Section WithHyps.
+        Variable hyps : list Cstr.
+
+        (* t = x + c for a literal c. *)
+        Definition bvadd_const {n} (t : Term Σ (ty.bvec n)) : option (Term Σ (ty.bvec n) * Z) :=
+          Term_bvec_case (fun n _ => option (Term Σ (ty.bvec n) * Z))
+            (fun _ _ _ => None) (fun _ _ => None)
+            (fun n t1 t2 =>
+               match term_get_val t2 with
+               | Some c => Some (t1, bv.unsigned c)
+               | None => match term_get_val t1 with
+                         | Some c => Some (t2, bv.unsigned c)
+                         | None => None
+                         end
+               end)
+            (fun _ _ _ => None) (fun _ _ _ => None) (fun _ _ _ => None) (fun _ _ _ => None)
+            (fun _ _ _ => None) (fun _ _ _ _ => None) (fun _ _ _ _ => None)
+            (fun _ _ _ _ => None) (fun _ _ _ => None) (fun _ _ _ _ _ _ => None)
+            (fun _ _ => None) (fun _ _ => None) (fun _ _ _ _ => None) (fun _ _ _ _ => None)
+            (fun _ _ => None) (fun _ _ _ _ => None) (fun _ _ _ _ _ => None)
+            (fun _ _ _ => None) (fun _ _ _ => None) t.
+
+        (* unsigned (x + c) is unsigned x + c, or that minus 2^n, if the
+           bounds on unsigned x show which. *)
+        Definition lin_unsigned {n} (t : Term Σ (ty.bvec n)) (s : Z) (lk : LinK) : LinK :=
+          match term_get_val t with
+          | Some v => lin_const (bv.unsigned v) s lk
+          | None =>
+              let default := lin_atom (term_unsigned t) s lk in
+              match bvadd_const t with
+              | Some (x, c) =>
+                  let ux := term_unsigned x in
+                  let '(lo, hi) := lin_interval hyps (cons (ux, 1%Z) nil) in
+                  let m := (2 ^ Z.of_nat n)%Z in
+                  if le_opt (option_map (fun h => h + c + 1)%Z hi) (Some m)
+                  then lin_atom ux s (lin_const c s lk)
+                  else match lo with
+                       | Some l => if (0 <? l)%Z && (m <=? l + c)%Z
+                                   then lin_atom ux s (lin_const (c - m) s lk)
+                                   else default
+                       | None => default
+                       end
+              | None => default
+              end
+          end.
+
+        (* lin_term t s lk denotes s·t + lk. *)
+        Definition lin_term : Term Σ ty.int -> Z -> LinK -> LinK :=
+          Term_int_rect (fun _ => Z -> LinK -> LinK)
+            (fun x xIn => lin_atom (term_var_in xIn))
+            (fun i => lin_const i)
+            (fun t1 t2 r1 r2 s lk => r1 s (r2 s lk))
+            (fun t1 t2 r1 r2 s lk => r1 s (r2 (Z.opp s) lk))
+            (fun t1 t2 r1 r2 s lk =>
+               match term_get_val t1, term_get_val t2 with
+               | Some c, _ => r2 (s * c)%Z lk
+               | _, Some c => r1 (s * c)%Z lk
+               | None, None => lin_atom (term_times t1 t2) s lk
+               end)
+            (fun t1 t2 _ _ => lin_atom (term_binop bop.land t1 t2))
+            (fun t r s => r (Z.opp s))
+            (fun n t => lin_atom (term_unop uop.signed t))
+            (fun n t => lin_unsigned t).
+
+        (* t2 - t1 as a linear form, for ints and (unsigned) bitvectors. *)
+        Definition lin_diff {σ} : Term Σ σ -> Term Σ σ -> option LinK :=
+          match σ as σ return Term Σ σ -> Term Σ σ -> option LinK with
+          | ty.int    => fun t1 t2 => Some (lin_term t2 1 (lin_term t1 (-1) (nil, 0%Z)))
+          | ty.bvec n => fun t1 t2 => Some (lin_unsigned t2 1 (lin_unsigned t1 (-1) (nil, 0%Z)))
+          | _         => fun _ _ => None
+          end.
+
+        Definition relop_cstr {σ} (op : RelOp σ) : Term Σ σ -> Term Σ σ -> option Cstr :=
+          match op with
+          | bop.eq    => fun t1 t2 => option_map cstr_eq (lin_diff t1 t2)
+          | bop.neq   => fun t1 t2 => option_map cstr_ne (lin_diff t1 t2)
+          | bop.le    => fun t1 t2 => Some (cstr_ge (lin_term t2 1 (lin_term t1 (-1) (nil, 0%Z))))
+          | bop.lt    => fun t1 t2 => Some (cstr_ge (lin_term t2 1 (lin_term t1 (-1) (nil, (-1)%Z))))
+          | bop.bvule => fun t1 t2 => Some (cstr_ge (lin_unsigned t2 1 (lin_unsigned t1 (-1) (nil, 0%Z))))
+          | bop.bvult => fun t1 t2 => Some (cstr_ge (lin_unsigned t2 1 (lin_unsigned t1 (-1) (nil, (-1)%Z))))
+          | _         => fun _ _ => None
+          end.
+
+        Definition formula_cstr (F : Formula Σ) : option Cstr :=
+          match F with
+          | formula_relop op t1 t2 => option_map cstr_normalize (relop_cstr op t1 t2)
+          | _ => None
+          end.
+
+        Definition formula_disj (F : Formula Σ) : option (Cstr * Cstr) :=
+          match F with
+          | formula_or F1 F2 =>
+              match formula_cstr F1, formula_cstr F2 with
+              | Some c1, Some c2 => Some (c1, c2)
+              | _, _ => None
+              end
+          | _ => None
+          end.
+
+      End WithHyps.
+
+      (* Hypotheses: single constraints and binary disjunctions of them. *)
+      Definition Hyps : Type := list Cstr * list (Cstr * Cstr).
+
+      (* Unit propagation: a disjunction with one refuted side gives the other. *)
+      Definition propagate (ds : list (Cstr * Cstr)) (cs : list Cstr) : list Cstr :=
+        fold_right
+          (fun '(c1, c2) acc =>
+             match decide_cstr cs c1 with
+             | contradicted => cons c2 acc
+             | _ => match decide_cstr cs c2 with
+                    | contradicted => cons c1 acc
+                    | _ => acc
+                    end
+             end) cs ds.
+
+      Definition hyps_add (h : Hyps) (F : Formula Σ) : Hyps :=
+        let '(cs, ds) := h in
+        match formula_cstr cs F with
+        | Some c => (cons c cs, ds)
+        | None => match formula_disj cs F with
+                  | Some d => (cs, cons d ds)
+                  | None => (cs, ds)
+                  end
+        end.
+
+      Definition pathcondition_hyps (C : PathCondition Σ) : Hyps :=
+        ctx.Ctx_rect (fun _ => Hyps) (nil, nil) (fun _ h F => hyps_add h F) C.
+
+      (* Decide the atoms of F from the bounds; in F1 ∧ F2 and F1 ∨ F2, the
+         second part is simplified knowing F1, resp. ¬F1. *)
+      Fixpoint bsimp (ds : list (Cstr * Cstr)) (cs : list Cstr) (F : Formula Σ) : Formula Σ :=
+        match F with
+        | formula_relop op t1 t2 =>
+            match formula_cstr cs F with
+            | Some c => match decide_cstr cs c with
+                        | entailed     => formula_true
+                        | contradicted => formula_false
+                        | unknown      => F
+                        end
+            | None => F
+            end
+        | formula_and F1 F2 =>
+            let F1' := bsimp ds cs F1 in
+            let cs2 := match formula_cstr cs F1' with
+                       | Some c => propagate ds (cons c cs)
+                       | None => cs
+                       end in
+            smart_and F1' (bsimp ds cs2 F2)
+        | formula_or F1 F2 =>
+            let F1' := bsimp ds cs F1 in
+            let cs2 := match option.bind (formula_cstr cs F1') cstr_negate with
+                       | Some c => propagate ds (cons c cs)
+                       | None => cs
+                       end in
+            smart_or F1' (bsimp ds cs2 F2)
+        | _ => F
+        end.
+
+      Fixpoint bounds_pathcondition (h : Hyps) (C : PathCondition Σ) :
+        option (Hyps * PathCondition Σ) :=
         match C with
-        | [ctx] => Some (hyps, [ctx])
+        | [ctx] => Some (h, [ctx])
         | C ▻ F =>
-            '(hyps', C') <- bounds_pathcondition hyps C ;;
-            match formula_cstr F with
-            | None => Some (hyps', C' ▻ F)
-            | Some c =>
-                match decide_range (lin_interval hyps' (fst c)) (snd c) with
-                | entailed     => Some (hyps', C')
-                | contradicted => None
-                | unknown      => Some (cons c hyps', C' ▻ F)
-                end
+            '(h', C') <- bounds_pathcondition h C ;;
+            let '(cs, ds) := h' in
+            match bsimp ds (propagate ds cs) F with
+            | formula_true  => Some (h', C')
+            | formula_false => None
+            | F'            => Some (hyps_add h' F', C' ▻ F')
             end
         end.
 
@@ -1804,44 +1961,6 @@ Module Type GenericSolverOn
         Lemma lin_const_eval i s lk : lk_eval (lin_const i s lk) = (s * i + lk_eval lk)%Z.
         Proof. destruct lk; cbn. lia. Qed.
 
-        Lemma lin_term_eval t : forall s lk,
-          lk_eval (lin_term t s lk) = (s * inst (T := STerm ty.int) t ι + lk_eval lk)%Z.
-        Proof.
-          induction t using Term_int_rect; intros s lk; cbn.
-          - now rewrite lin_atom_eval.
-          - now rewrite lin_const_eval.
-          - rewrite IHt1 IHt2. lia.
-          - rewrite IHt1 IHt2. lia.
-          - destruct (term_get_val_spec t1) as [c1|]; subst.
-            + rewrite IHt2. cbn. lia.
-            + destruct (term_get_val_spec t2) as [c2|]; subst.
-              * rewrite IHt1. cbn. lia.
-              * now rewrite lin_atom_eval.
-          - now rewrite lin_atom_eval.
-          - rewrite IHt. lia.
-          - now rewrite lin_atom_eval.
-          - now rewrite lin_atom_eval.
-        Qed.
-
-        Lemma lin_unsigned_eval {n} (t : Term Σ (ty.bvec n)) s lk :
-          lk_eval (lin_unsigned t s lk) =
-            (s * @bv.unsigned n (inst (T := STerm (ty.bvec n)) t ι) + lk_eval lk)%Z.
-        Proof.
-          unfold lin_unsigned. destruct (term_get_val_spec t) as [v|]; subst.
-          - now rewrite lin_const_eval.
-          - now rewrite lin_atom_eval.
-        Qed.
-
-        Lemma lin_diff_eq {σ} (t1 t2 : Term Σ σ) lk : lin_diff t1 t2 = Some lk ->
-          (inst (T := STerm σ) t1 ι = inst (T := STerm σ) t2 ι <-> lk_eval lk = 0%Z).
-        Proof.
-          destruct σ; cbn; try discriminate; intros [= <-].
-          - rewrite !lin_term_eval. cbn. lia.
-          - rewrite !lin_unsigned_eval. cbn. split.
-            + intros ->. lia.
-            + intros H. apply bv.unsigned_inj. lia.
-        Qed.
-
         Definition lo_ok (lo : option Z) (v : Z) : Prop :=
           match lo with Some a => (a <= v)%Z | None => True end.
         Definition hi_ok (hi : option Z) (v : Z) : Prop :=
@@ -1854,28 +1973,179 @@ Module Type GenericSolverOn
         Definition cstr_holds (c : Cstr) : Prop :=
           range_holds (lin_eval ι (fst c)) (snd c).
 
-        Lemma cstr_ge_spec lk : cstr_holds (cstr_ge lk) <-> (0 <= lk_eval lk)%Z.
-        Proof. destruct lk; cbn; intuition lia. Qed.
-        Lemma cstr_eq_spec lk : cstr_holds (cstr_eq lk) <-> lk_eval lk = 0%Z.
-        Proof. destruct lk; cbn; intuition lia. Qed.
-        Lemma cstr_ne_spec lk : cstr_holds (cstr_ne lk) <-> lk_eval lk <> 0%Z.
-        Proof. destruct lk; cbn; intuition lia. Qed.
-
-        Lemma relop_cstr_spec {σ} (op : RelOp σ) t1 t2 c : relop_cstr op t1 t2 = Some c ->
-          instprop (formula_relop op t1 t2) ι <-> cstr_holds c.
+        Lemma cstr_holds_dec c : cstr_holds c \/ ~ cstr_holds c.
         Proof.
-          destruct op; cbn; intros H; try discriminate.
-          - destruct lin_diff eqn:E; cbn in H; inversion H; subst.
-            rewrite cstr_eq_spec. now apply lin_diff_eq.
-          - destruct lin_diff eqn:E; cbn in H; inversion H; subst.
-            rewrite cstr_ne_spec. apply lin_diff_eq in E. intuition.
-          - inversion H; subst. rewrite cstr_ge_spec !lin_term_eval. cbn. lia.
-          - inversion H; subst. rewrite cstr_ge_spec !lin_term_eval. cbn. lia.
-          - inversion H; subst.
-            rewrite cstr_ge_spec !lin_unsigned_eval bv.ule_iff_unsigned_le. cbn. lia.
-          - inversion H; subst.
-            rewrite cstr_ge_spec !lin_unsigned_eval bv.ult_iff_unsigned_lt. cbn. lia.
+          destruct c as [l [lo hi|a]]; unfold cstr_holds; cbn.
+          - destruct lo, hi; cbn; lia.
+          - lia.
         Qed.
+
+        Definition interval_holds (i : Interval) (v : Z) : Prop :=
+          lo_ok (fst i) v /\ hi_ok (snd i) v.
+
+        Lemma term_is_unsigned_spec t :
+          term_is_unsigned t = true -> (0 <= inst (T := STerm ty.int) t ι)%Z.
+        Proof.
+          destruct t using Term_int_case; cbn; try discriminate.
+          intros _. apply bv.unsigned_bounds.
+        Qed.
+
+        Lemma lin_default_spec l : interval_holds (lin_default l) (lin_eval ι l).
+        Proof.
+          destruct l as [|[t c] [|]]; cbn; try easy.
+          destruct term_is_unsigned eqn:Hu; cbn; try easy.
+          apply term_is_unsigned_spec in Hu. unfold interval_holds.
+          destruct (Z.eqb_spec c 1); cbn; [lia|].
+          destruct (Z.eqb_spec c (-1)); cbn; [lia|easy].
+        Qed.
+
+        Lemma lin_interval_spec hyps l : Forall cstr_holds hyps ->
+          interval_holds (lin_interval hyps l) (lin_eval ι l).
+        Proof.
+          induction 1 as [|[l' r] hyps Hc _ IH]; [apply lin_default_spec|].
+          unfold lin_interval; cbn [fold_right]; fold (lin_interval hyps l).
+          destruct lin_interval as [lo hi].
+          destruct IH as [IHlo IHhi]. cbn in IHlo, IHhi.
+          destruct r as [lo' hi'|a]; [|easy].
+          destruct Hc as [Hlo Hhi]; cbn in Hlo, Hhi.
+          unfold interval_holds.
+          destruct (lin_eqb l l') eqn:E1.
+          - apply lin_eqb_sound in E1. rewrite <-E1 in Hlo, Hhi.
+            split; cbn.
+            + destruct lo, lo'; cbn in *; lia.
+            + destruct hi, hi'; cbn in *; lia.
+          - destruct (lin_eqb l (lin_neg l')) eqn:E2; [|easy].
+            apply lin_eqb_sound in E2. rewrite lin_neg_eval in E2.
+            split; cbn.
+            + destruct lo, hi'; cbn in *; lia.
+            + destruct hi, lo'; cbn in *; lia.
+        Qed.
+
+        Lemma decide_range_spec i r v : interval_holds i v ->
+          match decide_range i r with
+          | entailed => range_holds v r
+          | contradicted => ~ range_holds v r
+          | unknown => True
+          end.
+        Proof.
+          destruct i as [lo hi]. unfold interval_holds; cbn [fst snd]. intros [Hlo Hhi].
+          destruct r as [flo fhi|a]; destruct lo, hi; try destruct flo; try destruct fhi;
+            cbn in *;
+            repeat match goal with |- context[Z.leb ?x ?y] => destruct (Z.leb_spec x y) end;
+            cbn; intuition lia.
+        Qed.
+
+        Lemma decide_cstr_spec hyps c : Forall cstr_holds hyps ->
+          match decide_cstr hyps c with
+          | entailed => cstr_holds c
+          | contradicted => ~ cstr_holds c
+          | unknown => True
+          end.
+        Proof. intros H. apply decide_range_spec, lin_interval_spec, H. Qed.
+
+        Lemma bvadd_const_spec {n} (t : Term Σ (ty.bvec n)) x c :
+          bvadd_const t = Some (x, c) ->
+          exists cv : bv n, bv.unsigned cv = c /\
+            inst (T := STerm (ty.bvec n)) t ι = bv.add (inst (T := STerm (ty.bvec n)) x ι) cv.
+        Proof.
+          revert x c. pattern n, t. revert n t.
+          apply Term_bvec_case; cbn; intros; try discriminate.
+          destruct (term_get_val_spec t2) as [c2|]; subst.
+          - inversion H; subst. now exists c2.
+          - destruct (term_get_val_spec t1) as [c1|]; subst; [|discriminate].
+            inversion H; subst. exists c1. split; [easy|]. apply bv.add_comm.
+        Qed.
+
+        Section WithHyps.
+          Variable (hyps : list Cstr).
+          Hypothesis (Hhyps : Forall cstr_holds hyps).
+
+          Lemma lin_unsigned_eval {n} (t : Term Σ (ty.bvec n)) s lk :
+            lk_eval (lin_unsigned hyps t s lk) =
+              (s * @bv.unsigned n (inst (T := STerm (ty.bvec n)) t ι) + lk_eval lk)%Z.
+          Proof.
+            unfold lin_unsigned. destruct (term_get_val_spec t) as [v|]; subst.
+            { now rewrite lin_const_eval. }
+            destruct bvadd_const as [[x c]|] eqn:Ea; [|now rewrite lin_atom_eval].
+            destruct (@bvadd_const_spec n t x c Ea) as (cv & <- & Ht).
+            pose proof (lin_interval_spec (cons (term_unsigned x, 1%Z) nil) Hhyps) as Hi.
+            destruct lin_interval as [lo hi].
+            destruct Hi as [Hlo Hhi]; cbn [fst snd lin_eval fold_right] in Hlo, Hhi.
+            change (inst (term_unsigned x) ι) with
+              (@bv.unsigned n (inst (T := STerm (ty.bvec n)) x ι)) in Hlo, Hhi.
+            pose proof (bv.unsigned_bounds cv).
+            match type of Hlo with
+            | context[@bv.unsigned _ ?e] => pose proof (bv.unsigned_bounds e); set (vx := e) in *
+            end.
+            destruct (le_opt _ (Some _)) eqn:Es.
+            - rewrite lin_atom_eval lin_const_eval.
+              change (inst (term_unsigned x) ι) with (@bv.unsigned n vx).
+              rewrite Ht.
+              destruct hi; cbn in Es, Hhi; [|discriminate].
+              apply Z.leb_le in Es.
+              rewrite <-bv.unsigned_add_small; lia.
+            - destruct lo as [l|]; [|now rewrite lin_atom_eval].
+              destruct (Z.ltb_spec 0 l); cbn; [|now rewrite lin_atom_eval].
+              destruct (Z.leb_spec (2 ^ Z.of_nat n) (l + bv.unsigned cv)); cbn;
+                [|now rewrite lin_atom_eval].
+              rewrite lin_atom_eval lin_const_eval.
+              change (inst (term_unsigned x) ι) with (@bv.unsigned n vx).
+              rewrite Ht.
+              cbn in Hlo. rewrite <-bv.unsigned_add_large; lia.
+          Qed.
+
+          Lemma lin_term_eval t : forall s lk,
+            lk_eval (lin_term hyps t s lk) = (s * inst (T := STerm ty.int) t ι + lk_eval lk)%Z.
+          Proof.
+            induction t using Term_int_rect; intros s lk; cbn.
+            - now rewrite lin_atom_eval.
+            - now rewrite lin_const_eval.
+            - rewrite IHt1 IHt2. lia.
+            - rewrite IHt1 IHt2. lia.
+            - destruct (term_get_val_spec t1) as [c1|]; subst.
+              + rewrite IHt2. cbn. lia.
+              + destruct (term_get_val_spec t2) as [c2|]; subst.
+                * rewrite IHt1. cbn. lia.
+                * now rewrite lin_atom_eval.
+            - now rewrite lin_atom_eval.
+            - rewrite IHt. lia.
+            - now rewrite lin_atom_eval.
+            - now rewrite lin_unsigned_eval.
+          Qed.
+
+          Lemma lin_diff_eq {σ} (t1 t2 : Term Σ σ) lk : lin_diff hyps t1 t2 = Some lk ->
+            (inst (T := STerm σ) t1 ι = inst (T := STerm σ) t2 ι <-> lk_eval lk = 0%Z).
+          Proof.
+            destruct σ; cbn; try discriminate; intros [= <-].
+            - rewrite !lin_term_eval. cbn. lia.
+            - rewrite !lin_unsigned_eval. cbn. split.
+              + intros ->. lia.
+              + intros H. apply bv.unsigned_inj. lia.
+          Qed.
+
+          Lemma cstr_ge_spec lk : cstr_holds (cstr_ge lk) <-> (0 <= lk_eval lk)%Z.
+          Proof. destruct lk; cbn; intuition lia. Qed.
+          Lemma cstr_eq_spec lk : cstr_holds (cstr_eq lk) <-> lk_eval lk = 0%Z.
+          Proof. destruct lk; cbn; intuition lia. Qed.
+          Lemma cstr_ne_spec lk : cstr_holds (cstr_ne lk) <-> lk_eval lk <> 0%Z.
+          Proof. destruct lk; cbn; intuition lia. Qed.
+
+          Lemma relop_cstr_spec {σ} (op : RelOp σ) t1 t2 c : relop_cstr hyps op t1 t2 = Some c ->
+            instprop (formula_relop op t1 t2) ι <-> cstr_holds c.
+          Proof.
+            destruct op; cbn; intros H; try discriminate.
+            - destruct lin_diff eqn:E; cbn in H; inversion H; subst.
+              rewrite cstr_eq_spec. now apply lin_diff_eq.
+            - destruct lin_diff eqn:E; cbn in H; inversion H; subst.
+              rewrite cstr_ne_spec. apply lin_diff_eq in E. intuition.
+            - inversion H; subst. rewrite cstr_ge_spec !lin_term_eval. cbn. lia.
+            - inversion H; subst. rewrite cstr_ge_spec !lin_term_eval. cbn. lia.
+            - inversion H; subst.
+              rewrite cstr_ge_spec !lin_unsigned_eval bv.ule_iff_unsigned_le. cbn. lia.
+            - inversion H; subst.
+              rewrite cstr_ge_spec !lin_unsigned_eval bv.ult_iff_unsigned_lt. cbn. lia.
+          Qed.
+        End WithHyps.
 
         Lemma lin_gcd_divide l t c : In (t, c) l -> (lin_gcd l | c)%Z.
         Proof.
@@ -1937,101 +2207,131 @@ Module Type GenericSolverOn
             destruct (Z.eqb_spec (a mod lin_gcd l) 0); cbn; tauto.
         Qed.
 
-        Lemma formula_cstr_spec F c : formula_cstr F = Some c -> instprop F ι <-> cstr_holds c.
+        Lemma formula_cstr_spec hyps F c : Forall cstr_holds hyps ->
+          formula_cstr hyps F = Some c -> instprop F ι <-> cstr_holds c.
         Proof.
-          destruct F; cbn; try discriminate.
+          intros Hh. destruct F; cbn; try discriminate.
           destruct relop_cstr eqn:E; cbn; intros [= <-].
-          rewrite cstr_normalize_spec. now apply relop_cstr_spec.
+          rewrite cstr_normalize_spec. now apply (relop_cstr_spec Hh).
         Qed.
 
-        Definition interval_holds (i : Interval) (v : Z) : Prop :=
-          lo_ok (fst i) v /\ hi_ok (snd i) v.
+        Definition disj_holds (d : Cstr * Cstr) : Prop :=
+          cstr_holds (fst d) \/ cstr_holds (snd d).
 
-        Lemma term_is_unsigned_spec t :
-          term_is_unsigned t = true -> (0 <= inst (T := STerm ty.int) t ι)%Z.
+        Lemma formula_disj_spec hyps F d : Forall cstr_holds hyps ->
+          formula_disj hyps F = Some d -> instprop F ι <-> disj_holds d.
         Proof.
-          destruct t using Term_int_case; cbn; try discriminate.
-          intros _. apply bv.unsigned_bounds.
+          intros Hh. destruct F; cbn; try discriminate.
+          destruct formula_cstr eqn:E1; [|discriminate].
+          destruct (formula_cstr hyps F2) eqn:E2; [|discriminate].
+          intros [= <-]. unfold disj_holds; cbn.
+          rewrite (formula_cstr_spec F1 Hh E1) (formula_cstr_spec F2 Hh E2). tauto.
         Qed.
 
-        Lemma lin_default_spec l : interval_holds (lin_default l) (lin_eval ι l).
+        Lemma cstr_negate_spec c c' : cstr_negate c = Some c' -> cstr_holds c' <-> ~ cstr_holds c.
         Proof.
-          destruct l as [|[t c] [|]]; cbn; try easy.
-          destruct term_is_unsigned eqn:Hu; cbn; try easy.
-          apply term_is_unsigned_spec in Hu. unfold interval_holds.
-          destruct (Z.eqb_spec c 1); cbn; [lia|].
-          destruct (Z.eqb_spec c (-1)); cbn; [lia|easy].
+          destruct c as [l [[a|] [b|]|a]]; cbn; try discriminate.
+          - destruct (Z.eqb_spec a b); [|discriminate]. intros [= <-]. subst.
+            unfold cstr_holds; cbn. lia.
+          - intros [= <-]. unfold cstr_holds; cbn. lia.
+          - intros [= <-]. unfold cstr_holds; cbn. lia.
+          - intros [= <-]. unfold cstr_holds; cbn. lia.
         Qed.
 
-        Lemma lin_interval_spec hyps l : Forall cstr_holds hyps ->
-          interval_holds (lin_interval hyps l) (lin_eval ι l).
+        Lemma propagate_spec ds cs : Forall disj_holds ds -> Forall cstr_holds cs ->
+          Forall cstr_holds (propagate ds cs).
         Proof.
-          induction 1 as [|[l' r] hyps Hc _ IH]; [apply lin_default_spec|].
-          unfold lin_interval; cbn [fold_right]; fold (lin_interval hyps l).
-          destruct lin_interval as [lo hi].
-          destruct IH as [IHlo IHhi]. cbn in IHlo, IHhi.
-          destruct r as [lo' hi'|a]; [|easy].
-          destruct Hc as [Hlo Hhi]; cbn in Hlo, Hhi.
-          unfold interval_holds.
-          destruct (lin_eqb l l') eqn:E1.
-          - apply lin_eqb_sound in E1. rewrite <-E1 in Hlo, Hhi.
-            split; cbn.
-            + destruct lo, lo'; cbn in *; lia.
-            + destruct hi, hi'; cbn in *; lia.
-          - destruct (lin_eqb l (lin_neg l')) eqn:E2; [|easy].
-            apply lin_eqb_sound in E2. rewrite lin_neg_eval in E2.
-            split; cbn.
-            + destruct lo, hi'; cbn in *; lia.
-            + destruct hi, lo'; cbn in *; lia.
+          intros Hds Hcs. induction Hds as [|[c1 c2] ds Hd _ IH]; cbn; [easy|].
+          pose proof (decide_cstr_spec c1 Hcs) as H1.
+          pose proof (decide_cstr_spec c2 Hcs) as H2.
+          unfold disj_holds in Hd; cbn in Hd.
+          destruct decide_cstr; [| constructor; [tauto|easy] |];
+            destruct (decide_cstr cs c2); try easy; constructor; tauto.
         Qed.
 
-        Lemma decide_range_spec i r v : interval_holds i v ->
-          match decide_range i r with
-          | entailed => range_holds v r
-          | contradicted => ~ range_holds v r
-          | unknown => True
-          end.
+        Definition hyps_holds (h : Hyps) : Prop :=
+          Forall cstr_holds (fst h) /\ Forall disj_holds (snd h).
+
+        Lemma hyps_add_spec h F : hyps_holds h -> instprop F ι -> hyps_holds (hyps_add h F).
         Proof.
-          destruct i as [lo hi]. unfold interval_holds; cbn [fst snd]. intros [Hlo Hhi].
-          destruct r as [flo fhi|a]; destruct lo, hi; try destruct flo; try destruct fhi;
-            cbn in *;
-            repeat match goal with |- context[Z.leb ?x ?y] => destruct (Z.leb_spec x y) end;
-            cbn; intuition lia.
+          destruct h as [cs ds]. intros [Hcs Hds] HF. unfold hyps_add.
+          destruct formula_cstr eqn:E.
+          - split; [|easy]. constructor; [|easy]. now apply (formula_cstr_spec F Hcs E).
+          - destruct formula_disj eqn:E'; [|easy].
+            split; [easy|]. constructor; [|easy]. now apply (formula_disj_spec F Hcs E').
         Qed.
 
-        Lemma bounds_pathcondition_spec hyps C : Forall cstr_holds hyps ->
-          match bounds_pathcondition hyps C with
-          | Some (hyps', C') =>
-              (instprop C ι <-> instprop C' ι) /\ (instprop C' ι -> Forall cstr_holds hyps')
+        Lemma pathcondition_hyps_spec C : instprop C ι -> hyps_holds (pathcondition_hyps C).
+        Proof.
+          induction C as [|C IH F]; cbn; [split; constructor|].
+          intros [HC HF]. apply hyps_add_spec; auto.
+        Qed.
+
+        Lemma smart_and_instprop F1 F2 :
+          instprop (smart_and F1 F2) ι <-> instprop F1 ι /\ instprop F2 ι.
+        Proof. destruct F1, F2; cbn; tauto. Qed.
+
+        Lemma smart_or_instprop F1 F2 :
+          instprop (smart_or F1 F2) ι <-> instprop F1 ι \/ instprop F2 ι.
+        Proof. destruct F1, F2; cbn; tauto. Qed.
+
+        Lemma bsimp_spec ds F : Forall disj_holds ds -> forall cs, Forall cstr_holds cs ->
+          instprop (bsimp ds cs F) ι <-> instprop F ι.
+        Proof.
+          intros Hds. induction F; intros cs Hcs; cbn [bsimp]; try reflexivity.
+          - destruct formula_cstr as [c|] eqn:E; [|reflexivity].
+            pose proof (formula_cstr_spec _ Hcs E) as HF.
+            pose proof (decide_cstr_spec c Hcs) as Hd.
+            destruct decide_cstr; cbn; tauto.
+          - rewrite smart_and_instprop. rewrite (IHF1 cs Hcs).
+            destruct formula_cstr as [c|] eqn:E.
+            + pose proof (formula_cstr_spec _ Hcs E) as HF1. rewrite IHF1 in HF1; [|easy].
+              split; intros [H1 H2]; split; try easy.
+              * rewrite IHF2 in H2; [easy|]. apply propagate_spec; [easy|].
+                constructor; [now apply HF1|easy].
+              * rewrite IHF2; [easy|]. apply propagate_spec; [easy|].
+                constructor; [now apply HF1|easy].
+            + now rewrite (IHF2 cs Hcs).
+          - rewrite smart_or_instprop. rewrite (IHF1 cs Hcs).
+            destruct (option.bind (formula_cstr cs (bsimp ds cs F1)) cstr_negate) as [c'|] eqn:E.
+            + destruct formula_cstr as [c|] eqn:Ec; cbn in E; [|discriminate].
+              pose proof (formula_cstr_spec _ Hcs Ec) as HF1. rewrite IHF1 in HF1; [|easy].
+              pose proof (@cstr_negate_spec c c' E) as Hn.
+              destruct (cstr_holds_dec c) as [Hc|Hc].
+              * cbn. split; intros _; left; now apply HF1.
+              * assert (Forall cstr_holds (propagate ds (cons c' cs))) as Hcs2.
+                { apply propagate_spec; [easy|]. constructor; [now apply Hn|easy]. }
+                rewrite (IHF2 _ Hcs2). cbn. tauto.
+            + now rewrite (IHF2 cs Hcs).
+        Qed.
+
+        Lemma bounds_pathcondition_spec h C : hyps_holds h ->
+          match bounds_pathcondition h C with
+          | Some (h', C') =>
+              (instprop C ι <-> instprop C' ι) /\ (instprop C' ι -> hyps_holds h')
           | None => ~ instprop C ι
           end.
         Proof.
           intros Hh. induction C as [|C IH F]; cbn; [tauto|].
-          destruct bounds_pathcondition as [[hyps' C']|]; cbn; [|intuition].
+          destruct bounds_pathcondition as [[[cs ds] C']|]; cbn; [|intuition].
           destruct IH as [IHiff IHh].
-          destruct formula_cstr as [c|] eqn:Ec; cbn; [|intuition].
-          pose proof (formula_cstr_spec F Ec) as HF.
-          assert (Hd : instprop C' ι ->
-                       match decide_range (lin_interval hyps' (fst c)) (snd c) with
-                       | entailed => range_holds (lin_eval ι (fst c)) (snd c)
-                       | contradicted => ~ range_holds (lin_eval ι (fst c)) (snd c)
-                       | unknown => True
-                       end).
-          { intros HC'. apply decide_range_spec, lin_interval_spec, IHh, HC'. }
-          destruct decide_range; cbn.
-          - split; [|assumption]. split; [intuition|].
-            intros HC'. split; [now apply IHiff|]. apply HF. exact (Hd HC').
-          - intros [HC HFt]. apply HF in HFt. exact (Hd (proj1 IHiff HC) HFt).
-          - split; [intuition|]. intros [HC' HFt].
-            constructor; [now apply HF|now apply IHh].
-        Qed.
-
-        Lemma pathcondition_cstrs_spec C :
-          instprop C ι -> Forall cstr_holds (pathcondition_cstrs C).
-        Proof.
-          induction C as [|C IH F]; cbn; [constructor|].
-          intros [HC HF]. destruct formula_cstr eqn:Ec; [|now apply IH].
-          constructor; [now apply (formula_cstr_spec F Ec)|now apply IH].
+          assert (HF : instprop C' ι ->
+                       instprop (bsimp ds (propagate ds cs) F) ι <-> instprop F ι).
+          { intros HC'. destruct (IHh HC') as [Hcs Hds].
+            apply bsimp_spec; [easy|]. now apply propagate_spec. }
+          assert (Hgen : forall F', (instprop C' ι -> instprop F' ι <-> instprop F ι) ->
+            (instprop_ctx C ι /\ instprop F ι <-> instprop (C' ▻ F') ι) /\
+            (instprop (C' ▻ F') ι -> hyps_holds (hyps_add (cs, ds) F'))).
+          { intros F' HF'.
+            change (instprop (C' ▻ F') ι) with (instprop C' ι /\ instprop F' ι). split.
+            - split; intros [HC HFt].
+              + assert (instprop C' ι) by now apply IHiff. split; [easy|]. now apply HF'.
+              + split; [now apply IHiff|]. now apply HF'.
+            - intros [HC' HFt]. apply hyps_add_spec; [now apply IHh|exact HFt]. }
+          destruct (bsimp ds (propagate ds cs) F) eqn:E; try exact (Hgen _ HF).
+          - split; [|assumption]. split; [intros [HC _]; now apply IHiff|].
+            intros HC'. split; [now apply IHiff|]. now apply HF.
+          - intros [HC HFt]. apply (HF (proj1 IHiff HC)) in HFt. exact HFt.
         Qed.
 
       End Sound.
@@ -2039,7 +2339,7 @@ Module Type GenericSolverOn
     End LinearBounds.
 
     Definition bounds_check {Σ} (hyps C : PathCondition Σ) : option (PathCondition Σ) :=
-      option_map snd (bounds_pathcondition (pathcondition_cstrs hyps) C).
+      option_map snd (bounds_pathcondition (pathcondition_hyps hyps) C).
 
     Lemma bounds_check_spec {w : World} (C : PathCondition w) :
       option.spec
@@ -2050,8 +2350,8 @@ Module Type GenericSolverOn
       unfold bounds_check.
       pose proof (fun ι (Hpc : instprop (wco w) ι) =>
                     bounds_pathcondition_spec (ι := ι) C
-                      (@pathcondition_cstrs_spec _ ι (wco w) Hpc)) as H.
-      destruct bounds_pathcondition as [[hyps' C']|]; constructor.
+                      (@pathcondition_hyps_spec _ ι (wco w) Hpc)) as H.
+      destruct bounds_pathcondition as [[h' C']|]; constructor.
       - constructor. intros ι Hpc. rewrite !instpred_prop. symmetry. apply (H ι Hpc).
       - constructor. intros ι Hpc HC. rewrite instpred_prop in HC. now apply (H ι Hpc).
     Qed.
