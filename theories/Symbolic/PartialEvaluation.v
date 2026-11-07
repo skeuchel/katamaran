@@ -1124,6 +1124,13 @@ Module Type PartialEvaluationOn (Import B : Base).
       | right _ => term_zext t
       end.
 
+    Definition peval_sext {m n : nat} {p : IsTrue (m <=? n)}
+      (t : Term Σ (ty.bvec m)) : Term Σ (ty.bvec n) :=
+      match eq_dec n m with
+      | left e => eq_rect_r (fun n => Term Σ (ty.bvec n)) t e
+      | right _ => peval_unop' (uop.sext (p := p)) t
+      end.
+
     Definition peval_unop {σ1 σ2} (op : UnOp σ1 σ2) : Term Σ σ1 -> Term Σ σ2 :=
       match op with
       | uop.not                       => peval_not
@@ -1132,6 +1139,7 @@ Module Type PartialEvaluationOn (Import B : Base).
       | uop.bvdrop m                  => peval_bvdrop m
       | uop.bvtake m                  => peval_bvtake m
       | uop.zext                      => peval_zext
+      | uop.sext                      => peval_sext
       | op                            => peval_unop' op
       end.
 
@@ -1214,13 +1222,27 @@ Module Type PartialEvaluationOn (Import B : Base).
       - cbn. unfold bv.zext. now rewrite Heql.
     Qed.
 
+    Lemma peval_sext_sound {m n} {p : IsTrue (m <=? n)} (t : Term Σ (ty.bvec m)) :
+      peval_sext (p := p) t ≡ term_unop uop.sext t.
+    Proof.
+      unfold peval_sext. destruct eq_dec; last apply peval_unop'_sound.
+      intros ι. cbn. unfold bv.sext.
+      destruct bv.leview eqn:?.
+      clear Heql. assert (k = 0) by lia. subst.
+      assert (e = transparent.nat_add_0_r m) by apply uip.
+      subst. unfold bv.sext'. rewrite bv.ones_O.
+      destruct (bv.view (@bv.zero 0)). rewrite ssrbool.if_same, bv.app_nil_r.
+      refine (inst_eq_rect_indexed (T := fun n Σ => Term Σ (ty.bvec n)) _ _ ι).
+    Qed.
+
     Lemma peval_unop_sound {σ1 σ2} (op : UnOp σ1 σ2) (t : Term Σ σ1) :
       peval_unop op t ≡ term_unop op t.
     Proof.
       destruct op; cbn [peval_unop];
         auto using peval_unop'_sound, peval_not_sound, peval_unsigned_sound,
                  peval_bvdrop_sound, peval_bvtake_sound,
-                   peval_vector_subrange_sound, peval_zext_sound.
+                   peval_vector_subrange_sound, peval_zext_sound,
+                   peval_sext_sound.
     Qed.
 
     Definition peval_union {U K} (t : Term Σ (unionk_ty U K)) : Term Σ (ty.union U) :=
