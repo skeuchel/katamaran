@@ -1085,6 +1085,15 @@ Module Export RiscvPmpSignature <: Signature RiscvPmpBase.
     | _       , _           , _         => Some [formula_user prev_addr [cfg; entries; prev]]
     end%ctx.
 
+  Definition simplify_in_mmio {Σ} (bytes : nat) (a : Term Σ ty_xlenbits) : option (PathCondition Σ) :=
+    match term_get_val a with
+    | Some a => if (negb (bytes =? 0)%nat &&
+                    (Z.of_N mmioStartAddr <=? bv.unsigned a) &&
+                    (bv.unsigned a + Z.of_nat bytes <=? Z.of_N (mmioStartAddr + mmioLenAddr)))%Z
+                then Some [] else Some [formula_user (in_mmio bytes) [term_val _ a]]
+    | None   => Some [formula_user (in_mmio bytes) [a]]
+    end%ctx.
+
   Import DList.
 
   Equations(noeqns) simplify_user [Σ] (p : 𝑷) : Env (Term Σ) (𝑷_Ty p) -> option (PathCondition Σ) :=
@@ -1098,7 +1107,7 @@ Module Export RiscvPmpSignature <: Signature RiscvPmpBase.
   | not_within_cfg           | [ paddr; entries ]             => Some [formula_user not_within_cfg [paddr; entries]]%ctx
   | prev_addr                | [ cfg; entries; prev ]         => simplify_prev_addr cfg entries prev
   | in_entries               | [ cfg; entries; prev ]         => Some [formula_user in_entries [cfg; entries; prev]]%ctx
-  | in_mmio bytes            | [ a ]                          => Some [formula_user (in_mmio bytes) [a]]%ctx.
+  | in_mmio bytes            | [ a ]                          => simplify_in_mmio bytes a.
 
   Lemma simplify_sub_perm_spec {Σ} (a1 a2 : Term Σ ty_access_type) :
     simplify_sub_perm a1 a2 ⊣⊢ Some [formula_user sub_perm [a1; a2]].
@@ -1188,6 +1197,16 @@ Module Export RiscvPmpSignature <: Signature RiscvPmpBase.
     now destruct decide_prev_addr.
   Qed.
 
+  Lemma simplify_in_mmio_spec {Σ} (bytes : nat) (a : Term Σ ty_xlenbits) :
+    simplify_in_mmio bytes a ⊣⊢ Some [formula_user (in_mmio bytes) [a]].
+  Proof.
+    unfold simplify_in_mmio. lsolve.
+    match goal with |- context[if ?c then _ else _] => destruct c eqn:Hc end; last easy.
+    apply andb_prop in Hc as [Hc Hhi]. apply andb_prop in Hc as [Hb Hlo].
+    apply negb_true_iff, Nat.eqb_neq in Hb. apply Z.leb_le in Hlo, Hhi.
+    intros ι; cbn. split; auto. intros _. split; auto. now apply bounds_withinMMIO.
+  Qed.
+
   Lemma simplify_user_spec : SolverUserOnlySpec simplify_user.
   Proof.
     intros Σ p ts.
@@ -1202,7 +1221,7 @@ Module Export RiscvPmpSignature <: Signature RiscvPmpBase.
     - reflexivity.
     - simple apply simplify_prev_addr_spec.
     - reflexivity.
-    - reflexivity.
+    - simple apply simplify_in_mmio_spec.
   Qed.
 
   Definition solver : Solver :=
