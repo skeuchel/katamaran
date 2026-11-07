@@ -1633,7 +1633,8 @@ Module RiscvPmpValidContracts.
   Proof.
     symbolic_simpl.
     intros; split; intros; bv_comp; auto.
-    destruct (v + v0 <=ᵘ? v1)%bv eqn:?; bv_comp; auto.
+    - destruct (v + v0 <=ᵘ? v1)%bv eqn:?; bv_comp; auto.
+    - intuition.
   Qed.
 
   Lemma valid_contract_pmpMatchEntry : ValidContract pmpMatchEntry.
