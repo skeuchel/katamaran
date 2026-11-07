@@ -429,7 +429,7 @@ Section BlockVerification.
     all: repeat match goal with
            | H : context [bv.sext' _ 0] |- _ => rewrite sext'_zero in H
            end;
-         now rewrite ?sext'_zero.
+         rewrite ?sext'_zero; intuition congruence.
   Qed.
 
   Lemma sat__femtohandler_not_zero : RVPTVl.safeE vc__femtohandler_not_zero.

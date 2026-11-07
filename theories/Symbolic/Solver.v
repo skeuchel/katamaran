@@ -1067,10 +1067,48 @@ Module Type GenericSolverOn
 
     #[export] Hint Resolve simplify_le_spec simplify_lt_spec : core.
 
+    (* Decide t1 ≠ t2 by what simplify_eq makes of t1 = t2. *)
+    Definition simplify_neq {Σ σ} (t1 t2 : STerm σ Σ) : DList Σ :=
+      let t1 := peval t1 in
+      let t2 := peval t2 in
+      match DList.run (simplify_eq t1 t2) with
+      | None => empty
+      | Some [ctx] => error
+      | Some ([ctx] ▻ formula_relop bop.eq s1 s2) => singleton (formula_relop bop.neq s1 s2)
+      | Some _ => simplify_relopb bop.neq t1 t2
+      end.
+
+    Lemma simplify_neq_spec {w : World} {σ} (t1 t2 : STerm σ w) :
+      instpred (simplify_neq t1 t2) ⊣⊢ instpred (formula_relop bop.neq t1 t2).
+    Proof.
+      assert (Hn : instpred (formula_neq t1 t2) ⊣⊢ instpred (formula_neq (peval t1) (peval t2)))
+        by (constructor; intros; cbn; now rewrite !peval_sound).
+      rewrite Hn. clear Hn.
+      pose proof (simplify_eq_spec (peval t1) (peval t2)) as Heq.
+      pose proof (simplify_relopb_spec bop.neq (peval t1) (peval t2)) as Hdef.
+      rewrite <- instpred_run in Heq.
+      unfold simplify_neq; cbn zeta.
+      generalize dependent (peval t2); generalize dependent (peval t1); intros a b Heq Hdef.
+      assert (Heq' : forall ι, instprop (wco w) ι ->
+                       instprop (run (simplify_eq a b)) ι <-> inst a ι = inst b ι).
+      { intros ι Hpc. destruct Heq as [Heq]. specialize (Heq ι Hpc).
+        now rewrite instpred_prop in Heq. }
+      clear Heq.
+      destruct (run (simplify_eq a b)) as [C|];
+        [destruct C as [|[] F];
+         [|destruct F; try exact Hdef; destruct rop; try exact Hdef|exact Hdef]|].
+      all: constructor; intros ι Hpc; specialize (Heq' ι Hpc); rewrite !instpred_prop;
+        cbn in *; intuition.
+      all: hnf in *; cbn in *; intuition.
+    Qed.
+    #[local] Opaque simplify_neq.
+    #[export] Hint Rewrite @simplify_neq_spec : uniflogic.
+
     Definition simplify_relop {Σ σ} (op : RelOp σ) :
       forall (t1 t2 : STerm σ Σ), DList Σ :=
       match op in RelOp σ return forall (t1 t2 : STerm σ Σ), DList Σ with
       | bop.eq => fun t1 t2 => simplify_eq (peval t1) (peval t2)
+      | bop.neq => simplify_neq
       | bop.le => simplify_le
       | bop.lt => simplify_lt
       | bop.bvule => simplify_bvule

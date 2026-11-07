@@ -1836,13 +1836,8 @@ Module RiscvPmpValidContracts.
   Lemma valid_contract_Medeleg_to_bits : ValidContract Medeleg_to_bits.
   Proof. vm_reflexivity. Qed.
 
-  Lemma valid_contract_exception_delegatee : ValidContractDebugWithFuel InlineOneLevel exception_delegatee.
-  Proof.
-    now apply Symbolic.validcontract_with_erasure_and_fuel_sound;
-      vm_compute;
-      constructor;
-      cbn.
-  Qed.
+  Lemma valid_contract_exception_delegatee : ValidContractWithFuel InlineOneLevel exception_delegatee.
+  Proof. vm_reflexivity. Qed.
 
   Lemma valid_contract_exception_handler : ValidContract exception_handler.
   Proof. vm_reflexivity. Qed.
@@ -2030,7 +2025,7 @@ Module RiscvPmpValidContracts.
     - refine (valid_contract _ H valid_contract_privLevel_to_bits).
     - refine (valid_contract _ H valid_contract_handle_mem_exception).
     - refine (valid_contract _ H valid_contract_exception_handler).
-    - refine (valid_contract_debug_with_fuel _ _ H valid_contract_exception_delegatee).
+    - refine (valid_contract_with_fuel _ _ H valid_contract_exception_delegatee).
     - refine (valid_contract _ H valid_contract_trap_handler).
     - refine (valid_contract _ H valid_contract_prepare_trap_vector).
     - refine (valid_contract _ H valid_contract_tvec_addr).
