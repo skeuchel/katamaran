@@ -40,7 +40,17 @@
         });
       });
 
+      # Rocq with `native_compute` (nixpkgs builds it with -native-compiler no).
+      native = rocqPackages: rocqPackages.overrideScope (self: super: {
+        rocq-core = super.rocq-core.overrideAttrs (old: {
+          configureFlags = (old.configureFlags or [ ]) ++ [ "-native-compiler" "yes" ];
+          # Libraries compile to native code with ocamlopt.
+          propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ [ super.rocq-core.ocamlPackages.ocaml ];
+        });
+      });
+
       rocqPackages920 = patchRocqPackages (hashcons pkgs.rocqPackages_9_2) iris45;
+      rocqPackages920native = patchRocqPackages (native (hashcons pkgs.rocqPackages_9_2)) iris45;
       rocqPackages930 = patchRocqPackages (hashcons pkgs.rocqPackages_9_3) iris45;
 
       # rocq-lsp (provides `pet`); nixpkgs only has it up to Rocq 9.1.
@@ -94,6 +104,11 @@
 
       # Editor/agent tooling. No default dev shell on purpose, so plain
       # `nix develop` stays the build environment.
+      devShells.native = pkgs.mkShell {
+        inputsFrom = [ rocqPackages920native.katamaran ];
+        packages = [ rocqPackages920native.rocq-core ];
+      };
+
       devShells.lsp = pkgs.mkShell {
         inputsFrom = [ rocqPackages920.katamaran ];
         packages = [
