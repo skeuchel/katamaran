@@ -89,13 +89,13 @@ Module Import TestProgram <: Program DefaultBase.
 
   Section FunDefKit.
     Local Coercion stm_exp : Exp >-> Stm.
-    Local Notation "'x'" := (@exp_var _ "x" _ _) : exp_scope.
-    Local Notation "'y'" := (@exp_var _ "y" _ _) : exp_scope.
-    Local Notation "'z'" := (@exp_var _ "z" _ _) : exp_scope.
-    Local Notation "'p'" := (@exp_var _ "p" _ _) : exp_scope.
-    Local Notation "'q'" := (@exp_var _ "q" _ _) : exp_scope.
-    Local Notation "'a'" := (@exp_var _ "a" _ _) : exp_scope.
-    Local Notation "'b'" := (@exp_var _ "b" _ _) : exp_scope.
+    Local Notation "'x'" := (exp_var "x") : exp_scope.
+    Local Notation "'y'" := (exp_var "y") : exp_scope.
+    Local Notation "'z'" := (exp_var "z") : exp_scope.
+    Local Notation "'p'" := (exp_var "p") : exp_scope.
+    Local Notation "'q'" := (exp_var "q") : exp_scope.
+    Local Notation "'a'" := (exp_var "a") : exp_scope.
+    Local Notation "'b'" := (exp_var "b") : exp_scope.
 
     Definition fun_add : Stm ["x" ∷ ty.int; "y" ∷ ty.int] ty.int :=
       x + y.
