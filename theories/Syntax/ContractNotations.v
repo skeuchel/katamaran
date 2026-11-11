@@ -79,10 +79,10 @@ Declare Scope arg_scope.
 Delimit Scope arg_scope with arg.
 
 Module Type ContractNotationsOn
-  (Import B : Base)
-  (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P)
-  (Import AS : AssertionsOn B P W).
+  (Import GLOBAL : GlobalState)
+  (Import P : PredicateKit GLOBAL)
+  (Import W : WorldsMixin GLOBAL P)
+  (Import AS : AssertionsOn GLOBAL P W).
 
 Module ContractNotations.
 

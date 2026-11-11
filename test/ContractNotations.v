@@ -57,10 +57,10 @@ Open Scope string_scope.
 Open Scope Z_scope.
 Open Scope ctx_scope.
 
-Import DefaultBase.
+Import DefaultBase DefaultGlobalState.
 
 (* The program. *)
-Module Import TestProgram <: Program DefaultBase.
+Module Import TestProgram <: Program DefaultGlobalState.
 
   Section FunDeclKit.
     Inductive Fun : PCtx -> Ty -> Set :=
@@ -85,7 +85,7 @@ Module Import TestProgram <: Program DefaultBase.
     Definition 𝑳  : PCtx -> Set := Lem.
   End FunDeclKit.
 
-  Include FunDeclMixin DefaultBase.
+  Include FunDeclMixin DefaultGlobalState.
 
   Section FunDefKit.
     Local Coercion stm_exp : Exp >-> Stm.
@@ -136,7 +136,7 @@ Module Import TestProgram <: Program DefaultBase.
       end.
   End FunDefKit.
 
-  Include DefaultRegStoreKit DefaultBase.
+  Include DefaultRegStoreKit DefaultGlobalState.
 
   (* The foreign function [ext] only shows that [fn] accepts [FunX] symbols.
      Its semantics only matters for relating contracts to the operational
@@ -151,7 +151,7 @@ Module Import TestProgram <: Program DefaultBase.
     Proof. exists γ, μ, (inl ""). constructor. Qed.
   End ForeignKit.
 
-  Include ProgramMixin DefaultBase.
+  Include ProgramMixin DefaultGlobalState.
 
   Import callgraph.
 
@@ -169,16 +169,16 @@ Module Import TestProgram <: Program DefaultBase.
 
 End TestProgram.
 
-Module Import TestSig <: Signature DefaultBase.
-  Include DefaultPredicateKit DefaultBase.
-  Include PredicateMixin DefaultBase.
-  Include WorldsMixin DefaultBase.
-  Include DefaultSolverKit DefaultBase.
-  Include SignatureMixin DefaultBase.
+Module Import TestSig <: Signature DefaultGlobalState.
+  Include DefaultPredicateKit DefaultGlobalState.
+  Include PredicateMixin DefaultGlobalState.
+  Include WorldsMixin DefaultGlobalState.
+  Include DefaultSolverKit DefaultGlobalState.
+  Include SignatureMixin DefaultGlobalState.
 End TestSig.
 
 Module Import TestProgramLogic :=
-  MakeProgramLogic DefaultBase TestSig TestProgram.
+  MakeProgramLogic DefaultGlobalState TestSig TestProgram.
 
 Module Import TestSpecification.
   Import asn.notations.
@@ -416,7 +416,7 @@ End Errors.
 (* Verification of the functions against the contracts written above.         *)
 (******************************************************************************)
 Module Import TestExecutor :=
-  MakeExecutor DefaultBase TestSig TestProgram TestProgramLogic.
+  MakeExecutor DefaultGlobalState TestSig TestProgram TestProgramLogic.
 
 (* The functions satisfy their contracts. *)
 Lemma valid_contract_add : Symbolic.ValidContractReflect sep_contract_add fun_add.
