@@ -156,18 +156,18 @@ Module RefineExecOn
     Qed.
 
     #[export] Instance refine_compat_store_tail {Γ b} {w : World} :
-      Related (RStore (Γ ▻ b) -> RStore Γ) env.tail w env.tail.
+      Related (RStore (Γ ▻ b) -> RStore Γ) nenv.tail w nenv.tail.
     Proof.
       unfold Related, RStore, RInst; crushPredEntails3.
       intros δ sδ Hδ; cbn in *; subst. now env.destroy sδ.
     Qed.
 
     #[export] Instance refine_compat_store_drop {Γ Δ} {w : World} :
-      Related (RStore (Γ ▻▻ Δ) -> RStore Γ) (env.drop Δ) w (env.drop Δ).
+      Related (RStore (Γ ▻▻ Δ) -> RStore Γ) (nenv.drop Δ) w (nenv.drop Δ).
     Proof.
       unfold Related, RStore, RInst; crushPredEntails3.
       intros δ sδ Hδ; cbn in *; subst. env.destroy sδ.
-      now rewrite inst_env_cat !env.drop_cat.
+      now rewrite inst_nenv_cat !nenv.drop_cat.
     Qed.
 
     #[export] Instance refine_pushpop `{R : Rel AT A} {Γ1 Γ2 x σ} {w} :
@@ -206,9 +206,9 @@ Module RefineExecOn
     Proof.
       unfold RStore, RInst; cbn.
       crushPredEntails3.
-      unfold seval_exps, inst, inst_store, inst_env, evals.
-      rewrite env.map_map.
-      apply env.map_ext.
+      unfold seval_exps, inst, inst_store, inst_nenv, evals.
+      rewrite nenv.map_map.
+      apply nenv.map_ext.
       intros.
       rewrite peval_sound.
       now apply refine_seval_exp.
@@ -240,8 +240,8 @@ Module RefineExecOn
     Proof.
       unfold RVal, RStore, RInst.
       crushPredEntails3; subst.
-      unfold inst, inst_store, inst_env.
-      now rewrite env.map_update.
+      unfold inst, inst_store, inst_nenv.
+      now rewrite nenv.map_update.
     Qed.
 
     #[export] Instance refine_compat_env_update {Γ x σ} (xIn : (x∷σ ∈ Γ)%katamaran) (w : World)

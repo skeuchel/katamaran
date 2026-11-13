@@ -809,8 +809,8 @@ Module Type RefinementMonadsOn
       iInduction Es1 as [|Es1] "IHEs1";
         env.destroy Es2; env.destroy E1; env.destroy E2; cbn -[RSat].
       - now iApply (refine_pure (RA := RUnit)).
-      - iDestruct (repₚ_invert_snoc with "HE1") as "(HE1 & Hv0db)".
-        iDestruct (repₚ_invert_snoc with "HE2") as "(HE2 & Hv1v)".
+      - iDestruct (repₚ_invert_nenv_snoc with "HE1") as "(HE1 & Hv0db)".
+        iDestruct (repₚ_invert_nenv_snoc with "HE2") as "(HE2 & Hv1v)".
         iSpecialize ("IHEs1" with "HE1 HE2").
         iApply (refine_bind (RA := RUnit) (RB := RUnit) with "IHEs1"); solve_related.
     Qed.
@@ -948,20 +948,20 @@ Module Type RefinementMonadsOn
 
     #[export] Instance refine_compat_env_lookup {Σ : LCtx} {x : LVar} {σ} {xIn : ctx.In (x∷σ) Σ} {w : World}
       {a : Valuation Σ} {sa : Sub Σ w} :
-      RelatedFrom (RVal σ) (env.lookup a (b := x∷σ) xIn) w (env.lookup sa (b := x∷σ) xIn) (ℛ⟦RNEnv LVar Σ⟧ a sa).
+      RelatedFrom (RVal σ) (nenv.lookup a (b := x∷σ) xIn) w (nenv.lookup sa (b := x∷σ) xIn) (ℛ⟦RNEnv LVar Σ⟧ a sa).
     Proof.
       unfold RelatedFrom. iIntros "H".
-      iApply (repₚ_cong (T1 := Sub Σ) (T2 := STerm σ) (fun ι => env.lookup ι xIn) (fun ιs => env.lookup ιs xIn) with "H").
+      iApply (repₚ_cong (T1 := Sub Σ) (T2 := STerm σ) (fun ι => nenv.lookup ι xIn) (fun ιs => nenv.lookup ιs xIn) with "H").
       intros. now rewrite inst_lookup.
     Qed.
 
     #[export] Instance refine_compat_env_remove {Σ : LCtx} {x : LVar} {σ} {xIn : ctx.In (x∷σ) Σ} {w : World}
       {a : Valuation Σ} {sa : Sub Σ w} :
-      RelatedFrom (RNEnv LVar (Σ - x∷σ)) (env.remove (x∷σ) a xIn) w (env.remove (x∷σ) sa xIn)
+      RelatedFrom (RNEnv LVar (Σ - x∷σ)) (nenv.remove (x∷σ) a xIn) w (nenv.remove (x∷σ) sa xIn)
         (ℛ⟦RNEnv LVar Σ⟧ a sa).
     Proof.
       unfold RelatedFrom. iIntros "H".
-      iApply (repₚ_cong (T1 := Sub Σ) (T2 := Sub (Σ - (x∷σ))) (fun vs => env.remove (x∷σ) vs xIn) (fun vs => env.remove (x∷σ) vs xIn) with "H").
+      iApply (repₚ_cong (T1 := Sub Σ) (T2 := Sub (Σ - (x∷σ))) (fun vs => nenv.remove (x∷σ) vs xIn) (fun vs => nenv.remove (x∷σ) vs xIn) with "H").
       intros. now rewrite <- inst_sub_shift, <- inst_subst, sub_comp_shift.
     Qed.
 

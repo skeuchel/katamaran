@@ -60,7 +60,7 @@ Module Type UnusedWorldInstance
 
   Program Definition winstance_snoc {w} (ι : WInstance w) {b : LVar ∷ Ty} (v : Val (type b)) :
     WInstance (wsnoc w b) :=
-    {| ιassign := env.snoc (ιassign ι) b v; |}.
+    {| ιassign := nenv.snoc (ιassign ι) b v; |}.
   Next Obligation.
   Proof.
     intros. unfold wsnoc. cbn [wctx wco].
@@ -69,9 +69,9 @@ Module Type UnusedWorldInstance
   Qed.
 
   Program Definition winstance_subst {w} (ι : WInstance w) {x σ} {xIn : x∷σ ∈ w}
-    (t : Term (w - x∷σ) σ) (p : inst t (env.remove (x∷σ) (ιassign ι) xIn) = env.lookup (ιassign ι) xIn) :
+    (t : Term (w - x∷σ) σ) (p : inst t (nenv.remove (x∷σ) (ιassign ι) xIn) = nenv.lookup (ιassign ι) xIn) :
     WInstance (wsubst w x t) :=
-    @MkWInstance (wsubst w x t) (env.remove _ (ιassign ι) xIn) _.
+    @MkWInstance (wsubst w x t) (nenv.remove _ (ιassign ι) xIn) _.
   Next Obligation.
     intros *. cbn. rewrite instprop_subst, <- inst_sub_shift in *.
     rewrite inst_sub_single_shift; auto using ιvalid.

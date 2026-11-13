@@ -167,8 +167,8 @@ Section FunDefKit.
   Local Notation "'immediate'" := "immediate" : string_scope.
   Local Notation "'offset'" := "offset" : string_scope.
 
-  Notation "'use' 'lemma' f args" := (stm_lemma f args%env) (at level 10, f at next level) : exp_scope.
-  Notation "'use' 'lemma' f" := (stm_lemma f env.nil) (at level 10, f at next level) : exp_scope.
+  Notation "'use' 'lemma' f args" := (stm_lemma f args%nenv) (at level 10, f at next level) : exp_scope.
+  Notation "'use' 'lemma' f" := (stm_lemma f nenv.nil) (at level 10, f at next level) : exp_scope.
 
   (* NOTE: need to wrap s around parentheses when using this notation (not a real let binding!) *)
   Notation "'let*:' '[' perm ',' beg ',' en ',' cur ']' ':=' cap 'in' s" :=

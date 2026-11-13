@@ -425,9 +425,9 @@ Module Type RiscvPmpIrisBase (Import leftOrRight : LeftOrRight)
   Import iris.program_logic.weakestpre.
 
   Definition WP_loop `{sg : sailGS Σ} : iProp Σ :=
-    semWP env.nil (FunDef loop) (fun _ _ => True%I).
+    semWP nenv.nil (FunDef loop) (fun _ _ => True%I).
   Definition TWP_loop `{sg : sailGS Σ} : iProp Σ :=
-    semTWP env.nil (FunDef loop) (fun _ _ => True%I).
+    semTWP nenv.nil (FunDef loop) (fun _ _ => True%I).
 
   Section PoweredLoop.
   Import Katamaran.Syntax.TypeDecl.
@@ -440,7 +440,7 @@ Module Type RiscvPmpIrisBase (Import leftOrRight : LeftOrRight)
   Lemma semWP_fun_loop `{sg : sailGS Σ} (Q : Post [ctx] ty.unit) :
     ((∀ Γ (δ : CStore Γ), semWP δ (call RiscvPmpProgram.loop_body ;; call RiscvPmpProgram.loop) (λ v _, Q v [env])) ∧
      Q (inl tt) [env])
-    ⊢ semWP env.nil (FunDef loop) Q.
+    ⊢ semWP nenv.nil (FunDef loop) Q.
   Proof.
     iIntros "H". cbn [FunDef]. unfold fun_loop.
     iApply semWP_let. iApply semWP_foreign.
@@ -452,7 +452,7 @@ Module Type RiscvPmpIrisBase (Import leftOrRight : LeftOrRight)
     iApply semWP_pattern_match. iApply semWP_exp. cbn.
     destruct (fun_powered_on μ).
     - iDestruct "H" as "[H _]". iApply (semWP_mono with "[H]"); first iApply "H".
-      iIntros (v δ') "HQ". destruct (env.view δ') as [δ'' ?]. by destruct (env.view δ'').
+      iIntros (v δ') "HQ". destruct (nenv.view δ') as [δ'' ?]. by destruct (nenv.view δ'').
     - iDestruct "H" as "[_ H]". rewrite semWP_val. by iModIntro.
   Qed.
 
@@ -476,7 +476,7 @@ Module Type RiscvPmpIrisBase (Import leftOrRight : LeftOrRight)
     powered_tok true -∗
     (powered_tok true -∗ ∀ Γ (δ : CStore Γ),
          semWP δ (call RiscvPmpProgram.loop_body ;; call RiscvPmpProgram.loop) (λ v _, Q v [env])) -∗
-    semWP env.nil (FunDef loop) Q.
+    semWP nenv.nil (FunDef loop) Q.
   Proof.
     iIntros "Hp H". cbn [FunDef]. unfold fun_loop.
     iApply semWP_let. iApply semWP_foreign.
@@ -488,14 +488,14 @@ Module Type RiscvPmpIrisBase (Import leftOrRight : LeftOrRight)
     rewrite semWP_val. iModIntro. cbn.
     iApply semWP_pattern_match. iApply semWP_exp. cbn. rewrite Hb.
     iSpecialize ("H" with "Hp"). iApply (semWP_mono with "[H]"); first iApply "H".
-    iIntros (v δ') "HQ". destruct (env.view δ') as [δ'' ?]. by destruct (env.view δ'').
+    iIntros (v δ') "HQ". destruct (nenv.view δ') as [δ'' ?]. by destruct (nenv.view δ'').
   Qed.
 
   (* For a machine that is powered off, the main loop ends. *)
   Lemma semWP_fun_loop_off `{sg : sailGS Σ} (Q : Post [ctx] ty.unit) :
     powered_tok false -∗
     (powered_tok false -∗ Q (inl tt) [env]) -∗
-    semWP env.nil (FunDef loop) Q.
+    semWP nenv.nil (FunDef loop) Q.
   Proof.
     iIntros "Hp H". cbn [FunDef]. unfold fun_loop.
     iApply semWP_let. iApply semWP_foreign.

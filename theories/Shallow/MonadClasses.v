@@ -155,8 +155,8 @@ Module Type ShallowMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
 
     Equations(noeqns) assert_eq_nenv {N : Set} [Δ : NCtx N Ty]
       (δ δ' : NamedEnv Val Δ) : M unit :=
-      assert_eq_nenv env.nil          env.nil            := pure tt;
-      assert_eq_nenv (env.snoc δ _ t) (env.snoc δ' _ t') :=
+      assert_eq_nenv nenv.nil          nenv.nil            := pure tt;
+      assert_eq_nenv (nenv.snoc δ _ t) (nenv.snoc δ' _ t') :=
         bind (assert_eq_nenv δ δ') (fun _ => assert_formula (t = t')).
 
     Fixpoint produce {Σ} (asn : Assertion Σ) (ι : Valuation Σ) : M unit :=
@@ -178,7 +178,7 @@ Module Type ShallowMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
           demonic_binary (produce a1 ι) (produce a2 ι)
       | asn.exist ς τ a =>
           t <- demonic τ ;;
-          produce a (env.snoc ι (ς∷τ) t)
+          produce a (nenv.snoc ι (ς∷τ) t)
       | asn.debug =>
           debug (pure tt)
       end.
@@ -201,7 +201,7 @@ Module Type ShallowMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
           angelic_binary (consume a1 ι) (consume a2 ι)
       | asn.exist ς τ a =>
           t <- angelic τ ;;
-          consume a (env.snoc ι (ς∷τ) t)
+          consume a (nenv.snoc ι (ς∷τ) t)
       | asn.debug =>
           debug (pure tt)
       end.
@@ -213,7 +213,7 @@ Module Type ShallowMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
           assert_eq_nenv (inst δ ι) args ;;
           consume req ι ;;
           v <- demonic τ ;;
-          produce ens (env.snoc ι (result∷τ) v) ;;
+          produce ens (nenv.snoc ι (result∷τ) v) ;;
           pure v
       end.
 

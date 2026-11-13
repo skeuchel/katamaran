@@ -57,8 +57,8 @@ Module Type SymbolicMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
     refine (@persistent_subst (fun Σ : LCtx => NamedEnv (Term Σ) Γ) _) : typeclass_instances.
 
   Definition seval_exps {Γ Σ N} (δ : SStore Γ Σ) {Δ} :
-    NamedEnv (X := N) (Exp Γ) Δ -> NamedEnv (Term Σ) Δ
-      := env.map (fun b (e : Exp Γ (type b)) => peval (seval_exp δ e)).
+    NamedEnv (N := N) (Exp Γ) Δ -> NamedEnv (Term Σ) Δ
+      := nenv.map (fun σ (e : Exp Γ σ) => peval (seval_exp δ e)).
 
   Section DebugInfo.
 
@@ -480,24 +480,24 @@ Module Type SymbolicMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
       ⊢ ∀ Δ : NCtx N Ty, M (fun w => NamedEnv (Term w) Δ) :=
       fix rec {w} Δ {struct Δ} :=
         match Δ with
-        | []%ctx => pure []%env
+        | []%ctx => pure []%nenv
         | Γ ▻ x∷σ =>
             bind (rec Γ) (fun w1 _ (tΔ : NamedEnv (Term w1) Γ) =>
             bind (angelic (Some (n x)) σ) (fun w2 ω2 (tσ : Term w2 σ) =>
             pure (A := fun w => NamedEnv (Term w) (Γ ▻ x∷σ))
-              (env.snoc (persist (A := fun w => NamedEnv (Term w) Γ) tΔ ω2) (x∷σ) tσ)))
+              (nenv.snoc (persist (A := fun w => NamedEnv (Term w) Γ) tΔ ω2) (x∷σ) tσ)))
         end.
 
     Definition demonic_ctx {N : Set} (n : N -> LVar) :
       ⊢ ∀ Δ : NCtx N Ty, M (fun w => NamedEnv (Term w) Δ) :=
       fix rec {w} Δ {struct Δ} :=
         match Δ with
-        | []%ctx => pure []%env
+        | []%ctx => pure []%nenv
         | Γ ▻ x∷σ =>
             bind (rec Γ) (fun w1 _ (tΔ : NamedEnv (Term w1) Γ) =>
             bind (demonic (Some (n x)) σ) (fun w2 ω2 (tσ : Term w2 σ) =>
             pure (A := fun w => NamedEnv (Term w) (Γ ▻ x∷σ))
-              (env.snoc (persist (A := fun w => NamedEnv (Term w) Γ) tΔ ω2) (x∷σ) tσ)))
+              (nenv.snoc (persist (A := fun w => NamedEnv (Term w) Γ) tΔ ω2) (x∷σ) tσ)))
         end.
 
     #[local] Arguments angelic_ctx {N} n [w] Δ : rename.
@@ -506,8 +506,8 @@ Module Type SymbolicMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
     Equations(noeqns) assert_eq_nenv {N} :
       let E Δ := fun w : World => NamedEnv (Term w) Δ in
       ⊢ ∀ Δ : NCtx N Ty, AMessage -> E Δ -> E Δ -> M Unit :=
-    assert_eq_nenv msg env.nil          env.nil            := pure tt;
-    assert_eq_nenv msg (env.snoc δ _ t) (env.snoc δ' _ t') :=
+    assert_eq_nenv msg nenv.nil          nenv.nil            := pure tt;
+    assert_eq_nenv msg (nenv.snoc δ _ t) (nenv.snoc δ' _ t') :=
       ⟨ θ ⟩ _ <- assert_eq_nenv msg δ δ' ;;
       assert_formula (fun _ => persist msg θ) (formula_relop bop.eq t t')⟨θ⟩.
 
@@ -532,7 +532,7 @@ Module Type SymbolicMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
           demonic_binary (produce a1 ζ) (produce a2 ζ)
       | asn.exist ς τ a =>
           ⟨ θ ⟩ t <- demonic (Some ς) τ ;;
-          produce a (env.snoc (persist ζ θ) (ς∷τ) t)
+          produce a (nenv.snoc (persist ζ θ) (ς∷τ) t)
       | asn.debug =>
           debug
             (fun h1 =>
@@ -579,7 +579,7 @@ Module Type SymbolicMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
           angelic_binary (consume a1 ζ) (consume a2 ζ)
       | asn.exist ς τ a =>
           ⟨ θ ⟩ t <- angelic (Some ς) τ ;;
-          consume a (env.snoc (persist ζ θ) (ς∷τ) t)
+          consume a (nenv.snoc (persist ζ θ) (ς∷τ) t)
       | asn.debug =>
           debug
             (fun h1 =>

@@ -71,6 +71,18 @@ Module Type OccursCheckOn
           Some (env.snoc ts' _ t')
       end.
 
+  #[export] Instance occurs_check_nenv {N T : Set} {A : LCtx -> T -> Set}
+         {OCA : forall σ, OccursCheck (fun Σ => A Σ σ)} :
+    forall {Γ : NCtx N T}, OccursCheck (fun Σ => NamedEnv (A Σ) Γ) :=
+    fix oc {Γ Σ x} xIn ts {struct ts} :=
+      match ts with
+      | nenv.nil         => Some nenv.nil
+      | nenv.snoc ts b t =>
+          ts' <- occurs_check (OccursCheck := @oc _) xIn ts;;
+          t'  <- occurs_check xIn t;;
+          Some (nenv.snoc ts' b t')
+      end.
+
   #[export] Instance occurs_check_term : forall σ, OccursCheck (fun Σ => Term Σ σ) :=
     fix occurs_check_term {τ Σ x} xIn (t : Term Σ τ) {struct t} : option (Term (Σ - x) τ) :=
       match t with
@@ -90,8 +102,7 @@ Module Type OccursCheckOn
         term_tuple <$> occurs_check (OccursCheck := occurs_check_env (OCT := @occurs_check_term)) xIn ts
       | term_union U K t0 => term_union U K <$> occurs_check_term xIn t0
       | term_record R ts =>
-        let OCTerm xt := @occurs_check_term (@type recordf Ty xt) in
-        term_record R <$> occurs_check (OccursCheck := occurs_check_env (OCT := OCTerm)) xIn ts
+        term_record R <$> occurs_check (OccursCheck := occurs_check_nenv (OCA := @occurs_check_term)) xIn ts
       end.
 
   #[export] Instance occurs_check_list {T : LCtx -> Type} `{OccursCheck T} :
@@ -99,7 +110,7 @@ Module Type OccursCheckOn
     fun _ _ xIn => traverse_list (occurs_check xIn).
 
   #[export] Instance occurs_check_sub {Σ} : OccursCheck (Sub Σ) :=
-    occurs_check_env.
+    occurs_check_nenv.
 
   #[export] Instance occurs_check_pair {AT BT} `{OccursCheck AT, OccursCheck BT} :
     OccursCheck (Pair AT BT) :=
@@ -181,15 +192,33 @@ Module Type OccursCheckOn
     OccursCheckSoundPoint xIn ts.
   Proof. unfold OccursCheckSoundPoint; induction 1; derive. Qed.
 
+  Lemma occurs_check_nenv_shift_point {N T : Set} {A : LCtx -> T -> Set}
+    {subA: forall σ, Subst (fun Σ => A Σ σ)}
+    {ocA : forall σ, OccursCheck (fun Σ => A Σ σ)}
+    {Σ : LCtx} {x} (xIn : x ∈ Σ)
+    {Γ : NCtx N T} (ts : NamedEnv (A (Σ - x)) Γ) :
+    nenv.All (fun σ => OccursCheckShiftPoint xIn) ts ->
+    OccursCheckShiftPoint xIn ts.
+  Proof. unfold OccursCheckShiftPoint. induction 1; derive. Qed.
+
+  Lemma occurs_check_nenv_sound_point {N T : Set} {A : LCtx -> T -> Set}
+    {subA: forall σ, Subst (fun Σ => A Σ σ)}
+    {ocA : forall σ, OccursCheck (fun Σ => A Σ σ)}
+    {Σ : LCtx} {x} (xIn : x ∈ Σ)
+    {Γ : NCtx N T} (ts : NamedEnv (A Σ) Γ) :
+    nenv.All (fun σ t => OccursCheckSoundPoint xIn t) ts ->
+    OccursCheckSoundPoint xIn ts.
+  Proof. unfold OccursCheckSoundPoint; induction 1; derive. Qed.
+
   #[export] Instance occurs_check_laws_term {τ} :
     OccursCheckLaws (fun Σ => Term Σ τ).
   Proof.
     derive.
-    - unfold sub_shift. rewrite env.lookup_tabulate. cbn.
+    - unfold sub_shift. rewrite nenv.lookup_tabulate. cbn.
       now rewrite ctx.occurs_check_view_shift.
     - generalize (occurs_check_env_shift_point IH).
       apply wp_monotonic. intros ? <-. reflexivity.
-    - generalize (occurs_check_env_shift_point IH).
+    - generalize (occurs_check_nenv_shift_point IH).
       apply wp_monotonic. intros ? <-. reflexivity.
     - change
         (@wlp (Term (Σ - x) (type (l∷σ)))
@@ -207,10 +236,10 @@ Module Type OccursCheckOn
            end).
       revert lIn. generalize (l∷σ). intros y yIn.
       destruct ctx.occurs_check_view; constructor; cbn.
-      unfold sub_shift. now rewrite env.lookup_tabulate.
+      unfold sub_shift. now rewrite nenv.lookup_tabulate.
     - generalize (occurs_check_env_sound_point IH).
       apply wlp_monotonic. now intros ts' ->.
-    - generalize (occurs_check_env_sound_point IH).
+    - generalize (occurs_check_nenv_sound_point IH).
       apply wlp_monotonic. now intros ts' ->.
   Qed.
 
@@ -226,8 +255,16 @@ Module Type OccursCheckOn
     OccursCheckLaws (fun Σ => Env (T Σ) Γ).
   Proof. derive. Qed.
 
+  #[export] Instance occurs_check_laws_nenv {N T : Set} {A : LCtx -> T -> Set}
+   {_ : forall σ, Subst (fun Σ => A Σ σ)}
+   {_ : forall σ, OccursCheck (fun Σ => A Σ σ)}
+   {_ : forall σ, OccursCheckLaws (fun Σ => A Σ σ)}
+   {Γ : NCtx N T} :
+    OccursCheckLaws (fun Σ => NamedEnv (A Σ) Γ).
+  Proof. derive. Qed.
+
   #[export] Instance occurs_check_laws_sub {Σ} : OccursCheckLaws (Sub Σ) :=
-    occurs_check_laws_env.
+    occurs_check_laws_nenv.
 
   #[export] Instance occurs_check_laws_pair {AT BT} `{OccursCheckLaws AT, OccursCheckLaws BT} :
     OccursCheckLaws (Pair AT BT).
@@ -283,12 +320,12 @@ Module Type OccursCheckOn
                    [oc xIn ts]. *)
                 return OccursCheckView xIn (env.snoc (subst ts' (sub_shift xIn)) b t0)
                 with
-                | Succ _ _ t0 => Succ (fun Σ => Env (T Σ) _) xIn (ts' ► (b ↦ t0))
+                | Succ _ _ t0 => Succ (fun Σ => Env (T Σ) _) xIn (env.snoc ts' b t0)
                 | Fail _ t0 => Fail xIn
                                  (* Same as above. *)
-                                 ((subst ts' (sub_shift xIn)) ► (b ↦ t0))
+                                 (env.snoc (subst ts' (sub_shift xIn)) b t0)
                 end
-            | Fail _ ts => Fail xIn (ts ► (b ↦ t))
+            | Fail _ ts => Fail xIn (env.snoc ts b t)
             end
         end.
 

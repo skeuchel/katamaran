@@ -1315,15 +1315,15 @@ Module Export RiscvPmpBase <: Base.
     end.
 
   Equations record_fold (R : recordi) : NamedEnv Val (record_field_type R) -> recordt R :=
-  | rpmpcfg_ent  | [l;a;x;w;r]%env               := MkPmpcfg_ent l a x w r
-  | rmstatus     | [mpp;spp;mpie;spie;mie;sie]%env        := MkMstatus mpp spp mpie spie mie sie
-  | rsstatus     | [spp;spie;sie]%env                     := MkSstatus spp spie sie
-  | rminterrupts | [mei;sei;uei;mti;sti;uti;msi;ssi;usi]%env := MkMinterrupts mei sei uei mti sti uti msi ssi usi
-  | rsinterrupts | [sei;uei;sti;uti;ssi;usi]%env := MkSinterrupts sei uei sti uti ssi usi
-  | rmedeleg     | [spf;lpf;fpf;mecall;secall;uecall;saf;saa;laf;laa;br;ii;faf;faa]%env :=
+  | rpmpcfg_ent  | [l;a;x;w;r]%nenv               := MkPmpcfg_ent l a x w r
+  | rmstatus     | [mpp;spp;mpie;spie;mie;sie]%nenv        := MkMstatus mpp spp mpie spie mie sie
+  | rsstatus     | [spp;spie;sie]%nenv                     := MkSstatus spp spie sie
+  | rminterrupts | [mei;sei;uei;mti;sti;uti;msi;ssi;usi]%nenv := MkMinterrupts mei sei uei mti sti uti msi ssi usi
+  | rsinterrupts | [sei;uei;sti;uti;ssi;usi]%nenv := MkSinterrupts sei uei sti uti ssi usi
+  | rmedeleg     | [spf;lpf;fpf;mecall;secall;uecall;saf;saa;laf;laa;br;ii;faf;faa]%nenv :=
                      MkRMedeleg spf lpf fpf mecall secall uecall saf saa laf laa br ii faf faa
-  | rcounteren   | [ir;tm;cy]%env := MkCounteren ir tm cy
-  | rcounterin   | [ir;cy]%env    := MkCounterin ir cy.
+  | rcounteren   | [ir;tm;cy]%nenv := MkCounteren ir tm cy
+  | rcounterin   | [ir;cy]%nenv    := MkCounterin ir cy.
 
   Equations record_unfold (R : recordi) : recordt R -> NamedEnv Val (record_field_type R) :=
   | rpmpcfg_ent  | p := [kv (_ ∷ ty.bool             ; L p);
@@ -1398,7 +1398,7 @@ Module Export RiscvPmpBase <: Base.
                | x: prod _ _ |- _ => destruct x
                end; auto).
     - abstract (now intros [] []).
-    - abstract (intros []; now apply env.Forall_forall).
+    - abstract (intros []; now apply nenv.Forall_forall).
   Defined.
 
   Canonical typedeclkit.

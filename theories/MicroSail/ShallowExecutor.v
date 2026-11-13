@@ -140,12 +140,12 @@ Module Type ShallowExecOn
         (m : CStoreT M (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) A) : CStoreT M Γ1 Γ2 A :=
         fun δ1 =>
           CHeapSpecM.bind (m (δ1 ► (x∷σ ↦ v)))
-            (fun '(a,δ2) => CHeapSpecM.pure (a, env.tail δ2)).
+            (fun '(a,δ2) => CHeapSpecM.pure (a, nenv.tail δ2)).
       Definition pushspops {A Γ1 Γ2 Δ} (δΔ : CStore Δ)
         (m : CStoreT M (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) A) : CStoreT M Γ1 Γ2 A :=
         fun δ1 =>
           CHeapSpecM.bind (m (δ1 ►► δΔ))
-            (fun '(a,δ2) => CHeapSpecM.pure (a, env.drop Δ δ2)).
+            (fun '(a,δ2) => CHeapSpecM.pure (a, nenv.drop Δ δ2)).
       Definition get_local {Γ} : CStoreT M Γ Γ (CStore Γ) :=
         fun δ => CHeapSpecM.pure (δ, δ).
       Definition put_local {Γ1 Γ2} (δ : CStore Γ2) : CStoreT M Γ1 Γ2 unit :=
@@ -368,7 +368,7 @@ Module Type ShallowExecOn
           lenv <- CHeapSpecM.demonic_ctx lvars ;;
           _    <- CHeapSpecM.produce req lenv ;;
           v    <- CStoreT.evalStoreT (exec _ _ s) (inst pats lenv) ;;
-          CHeapSpecM.consume ens (env.snoc lenv (result∷τ) v)
+          CHeapSpecM.consume ens (nenv.snoc lenv (result∷τ) v)
       end.
 
     Definition exec_call_error_no_fuel : ExecCall M :=

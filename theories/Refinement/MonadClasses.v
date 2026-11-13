@@ -159,8 +159,8 @@ Module Type RefinementMonadClassesOn
       iInduction Es1 as [|Es1] "IHEs1";
         env.destroy Es2; env.destroy E1; env.destroy E2; cbn -[RSat].
       - now iApply (refine_pure (RA := RUnit)).
-      - iDestruct (repₚ_invert_snoc with "HE1") as "(HE1 & Hv0db)".
-        iDestruct (repₚ_invert_snoc with "HE2") as "(HE2 & Hv1v)".
+      - iDestruct (repₚ_invert_nenv_snoc with "HE1") as "(HE1 & Hv0db)".
+        iDestruct (repₚ_invert_nenv_snoc with "HE2") as "(HE2 & Hv1v)".
         iSpecialize ("IHEs1" with "HE1 HE2").
         iApply (refine_bind (RA := RUnit) (RB := RUnit) with "IHEs1"); solve_related.
     Qed.

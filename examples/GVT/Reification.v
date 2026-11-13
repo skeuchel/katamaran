@@ -127,7 +127,8 @@ Ltac2 Type rec term := [
   | Record (constr, eenv)                            (* R ts *)
   ]
 (* An environment of terms, innermost entry first. The nil constructor only
-   records the type B of the bindings; a snoc has B, the binding and the term. *)
+   records the type B of the bindings, Ty for an Env and N∷Ty for a NamedEnv;
+   a snoc has B, the binding and the term. *)
 with eenv := [
   | EnvNil (constr)
   | EnvSnoc (constr, constr, term, eenv)
@@ -202,6 +203,9 @@ with reify_env (e : constr) : eenv :=
   lazy_match! e with
   | @env.nil ?b _ => EnvNil b
   | @env.snoc ?b _ _ ?e' ?bb ?t => EnvSnoc b bb (reify_term t) (reify_env e')
+  | @nenv.nil ?n ?ty _ => EnvNil constr:(Binding $n $ty)
+  | @nenv.snoc ?n ?ty _ _ ?e' ?bb ?t =>
+      EnvSnoc constr:(Binding $n $ty) bb (reify_term t) (reify_env e')
   | _ => Control.zero (Tactic_failure (Some (fprintf "reify: unexpected environment '%t'" e)))
   end.
 
@@ -247,9 +251,11 @@ Ltac2 rec reify_sp (sp : constr) : symprop :=
 
 (* The domain of the environment of values matching an environment of terms
    over B. *)
-Ltac2 val_dom (b : constr) : constr :=
-  if Constr.equal b constr:(Ty) then constr:(Val)
-  else constr:(fun xt : $b => Val (type xt)).
+(* The names of a binding type [N∷Ty]. *)
+Ltac2 binding_names (b : constr) : constr :=
+  lazy_match! b with
+  | Binding ?n _ => n
+  end.
 
 Ltac2 rec reflect_term (ctx : constr list) (t : term) : constr :=
   match t with
@@ -276,13 +282,13 @@ Ltac2 rec reflect_term (ctx : constr list) (t : term) : constr :=
 with reflect_env (ctx : constr list) (e : eenv) : constr :=
   match e with
   | EnvNil b =>
-      let d := val_dom b in
-      constr:(@env.nil $b $d)
+      if Constr.equal b constr:(Ty) then constr:(@env.nil Ty Val)
+      else let n := binding_names b in constr:(@nenv.nil $n Ty Val)
   | EnvSnoc b bb t rest =>
-      let d := val_dom b in
       let vs := reflect_env ctx rest in
       let v := reflect_term ctx t in
-      constr:(@env.snoc $b $d _ $vs $bb $v)
+      if Constr.equal b constr:(Ty) then constr:(@env.snoc Ty Val _ $vs $bb $v)
+      else let n := binding_names b in constr:(@nenv.snoc $n Ty Val _ $vs $bb $v)
   end.
 
 Ltac2 rec reflect_formula (ctx : constr list) (f : formula) : constr :=

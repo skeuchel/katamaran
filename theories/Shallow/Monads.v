@@ -189,7 +189,7 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
       forall Δ : NCtx N Ty, CPureSpec (NamedEnv Val Δ) :=
       fix rec Δ {struct Δ} :=
         match Δ with
-        | []      => pure env.nil
+        | []      => pure nenv.nil
         | Δ ▻ x∷σ => vs <- rec Δ;;
                      v  <- demonic σ;;
                      pure (vs ► (x∷σ ↦ v))
@@ -271,8 +271,8 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
 
     Equations(noeqns) assert_eq_nenv {N : Set} [Δ : NCtx N Ty]
       (δ δ' : NamedEnv Val Δ) : CPureSpec unit :=
-      assert_eq_nenv env.nil          env.nil            := pure tt;
-      assert_eq_nenv (env.snoc δ _ t) (env.snoc δ' _ t') :=
+      assert_eq_nenv nenv.nil          nenv.nil            := pure tt;
+      assert_eq_nenv (nenv.snoc δ _ t) (nenv.snoc δ' _ t') :=
         bind (assert_eq_nenv δ δ') (fun _ => assert_formula (t = t')).
 
     Equations(noeqns) assume_eq_env [Δ : Ctx Ty]
@@ -283,8 +283,8 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
 
     Equations(noeqns) assume_eq_nenv {N : Set} [Δ : NCtx N Ty]
       (δ δ' : NamedEnv Val Δ) : CPureSpec unit :=
-      assume_eq_nenv env.nil          env.nil            := pure tt;
-      assume_eq_nenv (env.snoc δ _ t) (env.snoc δ' _ t') :=
+      assume_eq_nenv nenv.nil          nenv.nil            := pure tt;
+      assume_eq_nenv (nenv.snoc δ _ t) (nenv.snoc δ' _ t') :=
         bind (assume_eq_nenv δ δ') (fun _ => assume_formula (t = t')).
 
     Fixpoint assert_eq_chunk (c1 c2 : SCChunk) : CPureSpec unit :=
@@ -326,18 +326,18 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
             replay k ι
         | SymProp.angelicv b k =>
             v <- angelic _ ;;
-            replay k (env.snoc ι b v)
+            replay k (nenv.snoc ι b v)
         | SymProp.demonicv b k =>
             v <- demonic _ ;;
-            replay k (env.snoc ι b v )
+            replay k (nenv.snoc ι b v )
         | @SymProp.assert_vareq _ x σ xIn t msg k =>
-            let ι' := env.remove (x ∷ σ) ι xIn in
+            let ι' := nenv.remove (x ∷ σ) ι xIn in
             let x' := ι.[? x∷σ] in
             let t' := inst t ι' in
             assert_formula (t' = x') ;;
             replay k ι'
         | @SymProp.assume_vareq _ x σ xIn t k =>
-            let ι' := env.remove (x ∷ σ) ι xIn in
+            let ι' := nenv.remove (x ∷ σ) ι xIn in
             let x' := ι.[? x∷σ] in
             let t' := inst t ι' in
             assume_formula (t' = x') ;;
@@ -527,12 +527,12 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
     Proof.
       induction Δ; cbn.
       - split.
-        + now exists env.nil.
-        + intros [vs ?]. now destruct (env.view vs).
+        + now exists nenv.nil.
+        + intros [vs ?]. now destruct (nenv.view vs).
       - destruct b as [x σ]. cbv [angelic bind pure]. split.
         + intros (vs & v & Hwp)%IHΔ.
-          now exists (env.snoc vs (x∷σ) v).
-        + intros [vs Hwp]. destruct (env.view vs) as [vs v].
+          now exists (nenv.snoc vs (x∷σ) v).
+        + intros [vs Hwp]. destruct (nenv.view vs) as [vs v].
           apply IHΔ. now exists vs, v.
     Qed.
 
@@ -542,12 +542,12 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
       induction Δ; cbn.
       - split.
         + intros ? vs.
-          now destruct (env.view vs).
+          now destruct (nenv.view vs).
         + intros Hpost. apply Hpost.
       - destruct b as [x σ]. cbv [demonic bind pure]. split.
         + intros Hwp vs.
-          destruct (env.view vs) as [vs v].
-          now apply (IHΔ (fun vs => forall v, POST (env.snoc vs _ v))).
+          destruct (nenv.view vs) as [vs v].
+          now apply (IHΔ (fun vs => forall v, POST (nenv.snoc vs _ v))).
         + intros HPost. apply IHΔ. intros. apply HPost.
     Qed.
 
@@ -630,9 +630,9 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
       forall Φ,
         assert_eq_nenv δ δ' Φ <-> δ = δ' /\ Φ tt.
     Proof.
-      induction δ; intros Φ; destruct (env.view δ'); cbn; unfold NamedEnv.
+      induction δ; intros Φ; destruct (nenv.view δ'); cbn.
       - intuition auto.
-      - rewrite IHδ, env.inversion_eq_snoc.
+      - rewrite IHδ, nenv.inversion_eq_snoc.
         unfold assert_formula, assert_pathcondition.
         intuition auto.
     Qed.
@@ -946,13 +946,13 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
     Proof.
       revert Φ. induction Δ; cbn; intros Φ.
       - split.
-        + now exists env.nil.
-        + intros [vs ?]. now destruct (env.view vs).
+        + now exists nenv.nil.
+        + intros [vs ?]. now destruct (nenv.view vs).
       - unfold bind, angelic, lift_purespec, pure, CPureSpec.pure,
           CPureSpec.angelic.
         rewrite IHΔ. split.
         + intros (vs & v & H). now exists (vs ► (b ↦ v)).
-        + intros [vs H]. destruct (env.view vs) as [vs v]. now exists vs, v.
+        + intros [vs H]. destruct (nenv.view vs) as [vs v]. now exists vs, v.
     Qed.
 
     Lemma wp_demonic_ctx {N : Set} {Δ : NCtx N Ty} Φ h :
@@ -961,23 +961,23 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
     Proof.
       revert Φ. induction Δ; cbn; intros Φ.
       - split.
-        + intros ? vs. now destruct (env.view vs).
+        + intros ? vs. now destruct (nenv.view vs).
         + intros H. apply H.
       - unfold bind, demonic, lift_purespec, pure, CPureSpec.pure,
           CPureSpec.demonic.
         rewrite IHΔ. split.
-        + intros H vs. destruct (env.view vs) as [vs v]. apply H.
+        + intros H vs. destruct (nenv.view vs) as [vs v]. apply H.
         + intros H vs v. apply H.
     Qed.
 
     Lemma wp_assert_eq_nenv {N} {Δ : NCtx N Ty} (δ δ' : NamedEnv Val Δ) Φ h :
       CHeapSpecM.assert_eq_nenv (M := CHeapSpec) δ δ' Φ h <-> δ = δ' /\ Φ tt h.
     Proof.
-      revert Φ. induction δ; intros Φ; destruct (env.view δ'); cbn; unfold NamedEnv.
+      revert Φ. induction δ; intros Φ; destruct (nenv.view δ'); cbn.
       - intuition auto.
       - unfold bind, assert_formula, lift_purespec, CPureSpec.assert_formula,
           CPureSpec.assert_pathcondition.
-        rewrite IHδ, env.inversion_eq_snoc. intuition auto.
+        rewrite IHδ, nenv.inversion_eq_snoc. intuition auto.
     Qed.
 
     Section WithBI.

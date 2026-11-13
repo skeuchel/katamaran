@@ -246,7 +246,7 @@ Module Type LoopVerification
          case the disjuncts were not found, we simply use True. *)
       Definition transition (t : TransitionTarget) (archstate : ArchState) : iProp Σ :=
         match disjuncts with
-        | Some ds => asn.interpret (ds t) (env.snoc (archstate_valuation archstate) (_∷ty.unit) tt)
+        | Some ds => asn.interpret (ds t) (nenv.snoc (archstate_valuation archstate) (_∷ty.unit) tt)
         | None    => True
         end.
 
@@ -282,12 +282,12 @@ Module Type LoopVerification
 
     Definition semTriple_loop_body : iProp Σ :=
       (∀ (archstate : ArchState),
-          semTriple env.nil (LoopBody_pre archstate)
+          semTriple nenv.nil (LoopBody_pre archstate)
                     (FunDef loop_body)
                     (fun _ _ => LoopBody_post archstate))%I.
 
     Definition semTriple_init_model : iProp Σ :=
-      semTriple env.nil
+      semTriple nenv.nil
                 ((∃ p, reg_pointsTo cur_privilege p) ∗ (∃ es, interp_pmp_entries es) ∗
                  interp_counters ∗
                  (∃ v, reg_pointsTo mip v) ∗
@@ -348,7 +348,7 @@ Module Type LoopVerification
 
     Lemma init_model_iprop : ⊢ semTriple_init_model.
     Proof.
-      iApply (@iris_rule_consequence _ _ _ _ _ env.nil
+      iApply (@iris_rule_consequence _ _ _ _ _ nenv.nil
                ((∃ p : Privilege, cur_privilege ↦ p) ∗
                 (∃ es : list PmpEntryCfg, interp_pmp_entries es) ∗ interp_counters ∗
                 (∃ v, mip ↦ v) ∗
@@ -440,7 +440,7 @@ Module Type LoopVerification
 
     Definition semTriple_loop : iProp Σ :=
       (∀ (R : iProp Σ) (archstate : ArchState),
-          semTriple env.nil (loop_pre R archstate)
+          semTriple nenv.nil (loop_pre R archstate)
                     (FunDef loop)
                     (fun _ _ => True))%I.
 

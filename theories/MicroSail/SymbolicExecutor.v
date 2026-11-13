@@ -381,9 +381,9 @@ Module Type SymbolicExecOn
   Section VerificationConditions.
 
     Inductive VerificationCondition (p : 𝕊 ctx.nil) : Prop :=
-    | vc (P : safe p env.nil).
+    | vc (P : safe p nenv.nil).
 
-    Lemma vc_debug (p : 𝕊 ctx.nil) (H : safe_debug p env.nil) : VerificationCondition p.
+    Lemma vc_debug (p : 𝕊 ctx.nil) (H : safe_debug p nenv.nil) : VerificationCondition p.
     Proof.
       constructor; now rewrite safe_debug_safe in H.
     Qed.
@@ -493,14 +493,14 @@ Module Type SymbolicExecOn
         fun w t m δ =>
           SHeapSpecM.bind (m δ.[x∷σ↦t])
             (fun w1 θ1 '(a,δ1) =>
-               SHeapSpecM.pure (A := WProd AT (SStore Γ2)) (a, env.tail δ1)).
+               SHeapSpecM.pure (A := WProd AT (SStore Γ2)) (a, nenv.tail δ1)).
 
       Definition pushspops {AT Γ1 Γ2 Δ} :
         ⊢ SStore Δ -> SStoreT M (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) AT -> SStoreT M Γ1 Γ2 AT :=
         fun w δΔ m δ =>
           SHeapSpecM.bind (m (δ ►► δΔ))
             (fun w1 θ1 '(a,δ1) =>
-               SHeapSpecM.pure (A := WProd AT (SStore Γ2)) (a, env.drop Δ δ1)).
+               SHeapSpecM.pure (A := WProd AT (SStore Γ2)) (a, nenv.drop Δ δ1)).
 
       Definition get_local {Γ} : ⊢ SStoreT M Γ Γ (SStore Γ) :=
         fun w δ => SHeapSpecM.pure (A := WProd (SStore Γ) (SStore Γ)) (δ, δ).
@@ -783,7 +783,7 @@ Module Type SymbolicExecOn
       ValidContractWithFuel fuel c body.
     Proof.
       unfold ValidContractReflectWithFuel, ValidContractWithFuel. intros Hok.
-      apply (ok_sound _ env.nil) in Hok. now constructor.
+      apply (ok_sound _ nenv.nil) in Hok. now constructor.
     Qed.
 
     Lemma validcontract_reflect_sound {SPEC : Specification} {Δ τ}
