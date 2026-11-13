@@ -126,6 +126,62 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
 
   End WithBI.
 
+  (* Interface of monads with the verification effects and a heap. *)
+  Module CHeapSpecM.
+
+    Class CHeapSpecM (M : Type -> Type) : Type :=
+      { pure {A} : A -> M A;
+        bind {A B} : M A -> (A -> M B) -> M B;
+        error {A} : M A;
+        block {A} : M A;
+        angelic (σ : Ty) : M (Val σ);
+        demonic (σ : Ty) : M (Val σ);
+        angelic_binary {A} : M A -> M A -> M A;
+        demonic_binary {A} : M A -> M A -> M A;
+        assert_formula : Prop -> M unit;
+        assume_formula : Prop -> M unit;
+        angelic_pattern_match {N : Set} {σ} (pat : Pattern (N:=N) σ) :
+          Val σ -> M (MatchResult pat);
+        demonic_pattern_match {N : Set} {σ} (pat : Pattern (N:=N) σ) :
+          Val σ -> M (MatchResult pat);
+        debug {A} : M A -> M A;
+        produce_chunk : SCChunk -> M unit;
+        consume_chunk : SCChunk -> M unit;
+        read_register {τ} (reg : 𝑹𝑬𝑮 τ) : M (Val τ);
+        write_register {τ} (reg : 𝑹𝑬𝑮 τ) : Val τ -> M (Val τ);
+      }.
+    #[global] Arguments pure {M _ A} a.
+    #[global] Arguments bind {M _ A B} m f.
+    #[global] Arguments error {M _ A}.
+    #[global] Arguments block {M _ A}.
+    #[global] Arguments angelic {M _} σ.
+    #[global] Arguments demonic {M _} σ.
+    #[global] Arguments angelic_binary {M _ A} m1 m2.
+    #[global] Arguments demonic_binary {M _ A} m1 m2.
+    #[global] Arguments assert_formula {M _} fml.
+    #[global] Arguments assume_formula {M _} fml.
+    #[global] Arguments angelic_pattern_match {M _ N σ} pat v.
+    #[global] Arguments demonic_pattern_match {M _ N σ} pat v.
+    #[global] Arguments debug {M _ A} m.
+    #[global] Arguments produce_chunk {M _} c.
+    #[global] Arguments consume_chunk {M _} c.
+    #[global] Arguments read_register {M _ τ} reg.
+    #[global] Arguments write_register {M _ τ} reg v.
+
+    Module Import notations.
+      Notation "' x <- ma ;; mb" :=
+        (bind ma (fun x => mb))
+          (at level 20, x pattern, ma at next level, mb at level 200, right associativity,
+             format "' x  <-  ma  ;;  mb").
+      Notation "x <- ma ;; mb" :=
+        (bind ma (fun x => mb))
+          (at level 20, ma at next level, mb at level 200, right associativity).
+      Notation "ma ;; mb" := (bind ma (fun _ => mb)).
+    End notations.
+
+  End CHeapSpecM.
+  Export CHeapSpecM (CHeapSpecM).
+
   (* The pure backwards predicate transformer monad. We use this monad in some
      of the definition of primitives that do no need access to the store or heap
      and that can later be lifted to the proper monad. *)
@@ -1125,6 +1181,28 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
 
   End CHeapSpec.
   Export (hints) CHeapSpec.
+
+  #[export] Instance cheapspecm_cheapspec : CHeapSpecM CHeapSpec :=
+    {| CHeapSpecM.pure A := CHeapSpec.pure;
+       CHeapSpecM.bind A B := CHeapSpec.bind;
+       CHeapSpecM.error A := CHeapSpec.error;
+       CHeapSpecM.block A := CHeapSpec.lift_purespec CPureSpec.block;
+       CHeapSpecM.angelic := CHeapSpec.angelic;
+       CHeapSpecM.demonic := CHeapSpec.demonic;
+       CHeapSpecM.angelic_binary A := CHeapSpec.angelic_binary;
+       CHeapSpecM.demonic_binary A := CHeapSpec.demonic_binary;
+       CHeapSpecM.assert_formula := CHeapSpec.assert_formula;
+       CHeapSpecM.assume_formula := CHeapSpec.assume_formula;
+       CHeapSpecM.angelic_pattern_match N σ pat v :=
+         CHeapSpec.lift_purespec (CPureSpec.angelic_pattern_match pat v);
+       CHeapSpecM.demonic_pattern_match N σ pat v :=
+         CHeapSpec.lift_purespec (CPureSpec.demonic_pattern_match pat v);
+       CHeapSpecM.debug A := CHeapSpec.debug;
+       CHeapSpecM.produce_chunk := CHeapSpec.produce_chunk;
+       CHeapSpecM.consume_chunk := CHeapSpec.consume_chunk;
+       CHeapSpecM.read_register τ := CHeapSpec.read_register;
+       CHeapSpecM.write_register τ := CHeapSpec.write_register;
+    |}.
 
   Module CStatistics.
 

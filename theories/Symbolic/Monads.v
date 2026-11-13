@@ -421,6 +421,68 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
 
   End DebugInfo.
 
+  (* Interface of symbolic monads with the verification effects and a heap.
+     Messages can depend on the current heap. *)
+  Module SHeapSpecM.
+
+    Class SHeapSpecM (M : TYPE -> TYPE) : Type :=
+      { pure {A} : ⊢ A -> M A;
+        bind {A B} : ⊢ M A -> □(A -> M B) -> M B;
+        error {A} : ⊢ (SHeap -> AMessage) -> M A;
+        block {A} : ⊢ M A;
+        angelic (x : option LVar) : ⊢ ∀ σ, M (STerm σ);
+        demonic (x : option LVar) : ⊢ ∀ σ, M (STerm σ);
+        angelic_binary {A} : ⊢ M A -> M A -> M A;
+        demonic_binary {A} : ⊢ M A -> M A -> M A;
+        assert_formula : ⊢ (SHeap -> AMessage) -> Formula -> M Unit;
+        assume_formula : ⊢ Formula -> M Unit;
+        angelic_pattern_match {N : Set} (n : N -> LVar) {σ} (pat : Pattern (N:=N) σ) :
+          ⊢ (SHeap -> AMessage) -> WTerm σ -> M (SMatchResult pat);
+        demonic_pattern_match {N : Set} (n : N -> LVar) {σ} (pat : Pattern (N:=N) σ) :
+          ⊢ WTerm σ -> M (SMatchResult pat);
+        debug {A} : ⊢ (SHeap -> AMessage) -> M A -> M A;
+        produce_chunk : ⊢ Chunk -> M Unit;
+        consume_chunk : ⊢ Chunk -> M Unit;
+        consume_chunk_angelic : ⊢ Chunk -> M Unit;
+        read_register {τ} (reg : 𝑹𝑬𝑮 τ) : ⊢ M (WTerm τ);
+        write_register {τ} (reg : 𝑹𝑬𝑮 τ) : ⊢ WTerm τ -> M (WTerm τ);
+      }.
+    #[global] Arguments pure {M _ A} [w] a.
+    #[global] Arguments bind {M _ A B} [w] m f.
+    #[global] Arguments error {M _ A} [w] msg.
+    #[global] Arguments block {M _ A w}.
+    #[global] Arguments angelic {M _} x [w] σ : rename.
+    #[global] Arguments demonic {M _} x [w] σ : rename.
+    #[global] Arguments angelic_binary {M _ A} [w] m1 m2.
+    #[global] Arguments demonic_binary {M _ A} [w] m1 m2.
+    #[global] Arguments assert_formula {M _} [w] msg fml.
+    #[global] Arguments assume_formula {M _} [w] fml.
+    #[global] Arguments angelic_pattern_match {M _ N} n {σ} pat [w] msg t.
+    #[global] Arguments demonic_pattern_match {M _ N} n {σ} pat [w] t.
+    #[global] Arguments debug {M _ A} [w] msg m.
+    #[global] Arguments produce_chunk {M _} [w] c.
+    #[global] Arguments consume_chunk {M _} [w] c.
+    #[global] Arguments consume_chunk_angelic {M _} [w] c.
+    #[global] Arguments read_register {M _ τ} reg {w}.
+    #[global] Arguments write_register {M _ τ} reg [w] t.
+
+    Module Import notations.
+      Notation "⟨ θ ⟩ ' x <- ma ;; mb" :=
+        (bind ma (fun _ θ x => mb))
+          (at level 0, x pattern,
+             ma at level 19, mb at level 200,
+               right associativity).
+      Notation "⟨ θ ⟩ x <- ma ;; mb" :=
+        (bind ma (fun _ θ x => mb))
+          (at level 0, x at next level,
+             ma at level 19, mb at level 200,
+               right associativity).
+      Notation "x ⟨ θ ⟩" := (persist x θ).
+    End notations.
+
+  End SHeapSpecM.
+  Export SHeapSpecM (SHeapSpecM).
+
   Definition SPureSpec (A : TYPE) : TYPE :=
     □(A -> 𝕊) -> 𝕊.
 
@@ -1309,5 +1371,29 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
         end.
 
   End SHeapSpec.
+
+  #[export] Instance sheapspecm_sheapspec : SHeapSpecM SHeapSpec :=
+    {| SHeapSpecM.pure A := SHeapSpec.pure;
+       SHeapSpecM.bind A B := SHeapSpec.bind;
+       SHeapSpecM.error A := SHeapSpec.error;
+       SHeapSpecM.block A w := SHeapSpec.lift_purespec SPureSpec.block;
+       SHeapSpecM.angelic x w σ := SHeapSpec.angelic x σ;
+       SHeapSpecM.demonic x w σ := SHeapSpec.demonic x σ;
+       SHeapSpecM.angelic_binary A := SHeapSpec.angelic_binary;
+       SHeapSpecM.demonic_binary A := SHeapSpec.demonic_binary;
+       SHeapSpecM.assert_formula := SHeapSpec.assert_formula;
+       SHeapSpecM.assume_formula := SHeapSpec.assume_formula;
+       SHeapSpecM.angelic_pattern_match N n σ pat w msg t Φ h :=
+         SPureSpec.angelic_pattern_match n pat (msg h) t
+           (fun w1 θ1 r => Φ w1 θ1 r (persist h θ1));
+       SHeapSpecM.demonic_pattern_match N n σ pat w t :=
+         SHeapSpec.lift_purespec (SPureSpec.demonic_pattern_match n pat t);
+       SHeapSpecM.debug A := SHeapSpec.debug;
+       SHeapSpecM.produce_chunk := SHeapSpec.produce_chunk;
+       SHeapSpecM.consume_chunk := SHeapSpec.consume_chunk;
+       SHeapSpecM.consume_chunk_angelic := SHeapSpec.consume_chunk_angelic;
+       SHeapSpecM.read_register τ reg w := SHeapSpec.read_register reg;
+       SHeapSpecM.write_register τ := SHeapSpec.write_register;
+    |}.
 
 End SymbolicMonadsOn.
