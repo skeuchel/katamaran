@@ -321,23 +321,25 @@ Fixpoint linearise (jmp : positive) (m : list positive) (p : Pol Z)
   end.
 
 (** What a slack variable stands for: the hypothesis [i], which is an
-    inequality [p >= 0], or an equality read as [p >= 0] or as [- p >= 0]. *)
+    inequality [p >= 0], or an equality read as [p >= 0] or as [- p >= 0].
+    [cnfZ] produces no other hypotheses: a strict inequality is weakened, and
+    a disequality dropped. *)
 Variant hyp : Set :=
 | HypGe (i : nat)
 | HypEq (i : nat) (neg : bool).
 
 Fixpoint linearise_hyps (i : nat) (l : list (NFormula Z)) (st : mons) :
-  list (hyp * lin) * positive :=
+  list (hyp * lin) * mons :=
   match l with
-  | [] => ([], snd st)
+  | [] => ([], st)
   | (p, o) :: l =>
       let (e, st) := linearise 1 [] p (Lin 0 [], st) in
-      let (cs, n) := linearise_hyps (S i) l st in
+      let (cs, st) := linearise_hyps (S i) l st in
       (match o with
        | Equal => (HypEq i false, e) :: (HypEq i true, lopp e) :: cs
        | NonStrict | Strict => (HypGe i, e) :: cs
        | NonEqual => cs
-       end, n)
+       end, st)
   end.
 
 (** Number the constraints from [s] on. *)
@@ -388,7 +390,7 @@ Definition farkas (hs : PositiveMap.t hyp) (c : vec) : option (Psatz Z) :=
     constraints, and what they stand for. *)
 Definition problem (l : list (NFormula Z)) :
   positive * (list cstr * PositiveMap.t hyp) :=
-  let (cs, base) := linearise_hyps 0 l (mempty, 1%positive) in
+  let '(cs, (_, base)) := linearise_hyps 0 l (mempty, 1%positive) in
   (base, slacks base cs).
 
 Definition default_fuel : nat := 1000.

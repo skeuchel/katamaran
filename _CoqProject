@@ -78,6 +78,7 @@ test/SumMaxLen.v
 test/Replay.v
 test/Reification.v
 test/ContractNotations.v
+test/LiaOracle.v
 theories/Base.v
 theories/Bitvector.v
 theories/Context.v
