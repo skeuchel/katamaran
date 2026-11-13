@@ -1693,6 +1693,80 @@ Module Type RefinementMonadsOn
       MkRefineCompat (refine_call_lemma _ _).
   End HeapSpec.
 
+  (* Interface of logical relations between a symbolic and a shallow monad:
+     each operation of [SHeapSpecM] refines that of [CHeapSpecM]. *)
+  Module RHeapSpecM.
+
+    Section WithMonads.
+
+      Context {MT : TYPE -> TYPE} {M : Type -> Type}
+        {smT : SHeapSpecM MT} {cm : CHeapSpecM M}
+        (RM : forall {AT A} (R : Rel AT A), Rel (MT AT) (M A)).
+
+      Class RHeapSpecM : Type :=
+        { refine_pure {AT A} {RA : Rel AT A} {w} :
+            ⊢ ℛ⟦RA -> RM RA⟧ CHeapSpecM.pure (SHeapSpecM.pure (w := w));
+          refine_bind {AT A BT B} {RA : Rel AT A} {RB : Rel BT B} {w} :
+            ⊢ ℛ⟦RM RA -> □ᵣ(RA -> RM RB) -> RM RB⟧
+              CHeapSpecM.bind (SHeapSpecM.bind (w := w));
+          refine_error {AT A} {RA : Rel AT A} {w} :
+            ⊢ ℛ⟦RMsg _ (RM RA)⟧ CHeapSpecM.error (SHeapSpecM.error (w := w));
+          refine_block {AT A} {RA : Rel AT A} {w} :
+            ⊢ ℛ⟦RM RA⟧ CHeapSpecM.block (SHeapSpecM.block (w := w));
+          refine_angelic (x : option LVar) σ {w} :
+            ⊢ ℛ⟦RM (RVal σ)⟧
+              (CHeapSpecM.angelic σ) (SHeapSpecM.angelic x σ (w := w));
+          refine_demonic (x : option LVar) σ {w} :
+            ⊢ ℛ⟦RM (RVal σ)⟧
+              (CHeapSpecM.demonic σ) (SHeapSpecM.demonic x σ (w := w));
+          refine_angelic_binary {AT A} {RA : Rel AT A} {w} :
+            ⊢ ℛ⟦RM RA -> RM RA -> RM RA⟧
+              CHeapSpecM.angelic_binary (SHeapSpecM.angelic_binary (w := w));
+          refine_demonic_binary {AT A} {RA : Rel AT A} {w} :
+            ⊢ ℛ⟦RM RA -> RM RA -> RM RA⟧
+              CHeapSpecM.demonic_binary (SHeapSpecM.demonic_binary (w := w));
+          refine_assert_formula {w} :
+            ⊢ ℛ⟦RMsg _ (RFormula -> RM RUnit)⟧
+              CHeapSpecM.assert_formula (SHeapSpecM.assert_formula (w := w));
+          refine_assume_formula {w} :
+            ⊢ ℛ⟦RFormula -> RM RUnit⟧
+              CHeapSpecM.assume_formula (SHeapSpecM.assume_formula (w := w));
+          refine_angelic_pattern_match {N : Set} (n : N -> LVar)
+            {σ} (pat : Pattern (N:=N) σ) {w} :
+            ⊢ ℛ⟦RMsg _ (RVal σ -> RM (RMatchResult pat))⟧
+              (CHeapSpecM.angelic_pattern_match pat)
+              (SHeapSpecM.angelic_pattern_match n pat (w := w));
+          refine_demonic_pattern_match {N : Set} (n : N -> LVar)
+            {σ} (pat : Pattern (N:=N) σ) {w} :
+            ⊢ ℛ⟦RVal σ -> RM (RMatchResult pat)⟧
+              (CHeapSpecM.demonic_pattern_match pat)
+              (SHeapSpecM.demonic_pattern_match n pat (w := w));
+          refine_debug {AT A} {RA : Rel AT A} {w} :
+            ⊢ ℛ⟦RMsg _ (RM RA -> RM RA)⟧
+              CHeapSpecM.debug (SHeapSpecM.debug (w := w));
+          refine_produce_chunk {w} :
+            ⊢ ℛ⟦RChunk -> RM RUnit⟧
+              CHeapSpecM.produce_chunk (SHeapSpecM.produce_chunk (w := w));
+          refine_consume_chunk {w} :
+            ⊢ ℛ⟦RChunk -> RM RUnit⟧
+              CHeapSpecM.consume_chunk (SHeapSpecM.consume_chunk (w := w));
+          refine_consume_chunk_angelic {w} :
+            ⊢ ℛ⟦RChunk -> RM RUnit⟧
+              CHeapSpecM.consume_chunk (SHeapSpecM.consume_chunk_angelic (w := w));
+          refine_read_register {τ} (reg : 𝑹𝑬𝑮 τ) {w} :
+            ⊢ ℛ⟦RM (RVal τ)⟧
+              (CHeapSpecM.read_register reg) (SHeapSpecM.read_register reg (w := w));
+          refine_write_register {τ} (reg : 𝑹𝑬𝑮 τ) {w} :
+            ⊢ ℛ⟦RVal τ -> RM (RVal τ)⟧
+              (CHeapSpecM.write_register reg) (SHeapSpecM.write_register reg (w := w));
+        }.
+
+    End WithMonads.
+    #[global] Arguments RHeapSpecM {MT M smT cm} RM.
+
+  End RHeapSpecM.
+  Export RHeapSpecM (RHeapSpecM).
+
 End RefinementMonadsOn.
 
 (* Local Variables: *)
