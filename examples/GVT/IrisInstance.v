@@ -494,23 +494,23 @@ Module RiscvPmpIrisInstance <:
 
     Equations(noeqns) luser_inst `{sailRegGS Σ, invGS Σ, mcMemGS Σ, iostateG IOState Σ}
       (p : Predicate) (ts : Env Val (𝑯_Ty p)) : iProp Σ :=
-    | pmp_entries               | [ v ]                => interp_pmp_entries v
-    | pmp_addr_access           | [ entries; m ]       => interp_pmp_addr_access liveAddrs mmioAddrs entries m
-    | pmp_addr_access_without bytes | [ addr; entries; m ] => interp_pmp_addr_access_without liveAddrs mmioAddrs addr bytes entries m
+    | pmp_entries               | [env v]              => interp_pmp_entries v
+    | pmp_addr_access           | [env entries; m]     => interp_pmp_addr_access liveAddrs mmioAddrs entries m
+    | pmp_addr_access_without bytes | [env addr; entries; m] => interp_pmp_addr_access_without liveAddrs mmioAddrs addr bytes entries m
     | gprs                      | _                    => interp_gprs ∅ (* For the Universal Contract verification we always need all GPRs, hence the empty exclude list *)
-    | ptsto                     | [ addr; w ]          => interp_ptsto addr w
-    | ptsto_one _               | [ addr; w ]          => False (* Unary instance has no support for different execution predicates *)
-    | ptstomem_readonly _       | [ addr; w ]          => interp_ptstomem_readonly addr w
+    | ptsto                     | [env addr; w]        => interp_ptsto addr w
+    | ptsto_one _               | [env addr; w]        => False (* Unary instance has no support for different execution predicates *)
+    | ptstomem_readonly _       | [env addr; w]        => interp_ptstomem_readonly addr w
     | inv_mmio bytes            | _                    => interp_inv_mmio bytes
-    | mmio_ptsto                | [ addr; w ]          => interp_mmio_ptsto addr w
-    | mmio_ptstommio _          | [ addr; bs ]         => interp_mmio_ptstommio addr bs
-    | mmio_state _              | [s] (* [unit] *)     => interp_mmio_state_pred s (* We have ownership over st *)
-    | mmio_state_trace bytes    | [env] (* [unit] *)   => interp_mmio_trace_state_inv (* Given st and tr state_prot is satisfied *)
-    | mmio_state_checked_read _ | [addr; w; s; s'] => interp_mmio_state_checked_read addr w s s'
-    | mmio_state_checked_write _ | [addr; w; s; s'] => interp_mmio_state_checked_write addr w s s'
-    | encodes_instr             | [ code; instr ]      => ⌜pure_decode code = instr ⌝%I
-    | ptstomem _                | [ addr; bs]          => interp_ptstomem addr bs
-    | ptstoinstr                | [ addr; instr ]      => interp_ptsto_instr addr instr.
+    | mmio_ptsto                | [env addr; w]        => interp_mmio_ptsto addr w
+    | mmio_ptstommio _          | [env addr; bs]       => interp_mmio_ptstommio addr bs
+    | mmio_state _              | [env s] (* [unit] *)     => interp_mmio_state_pred s (* We have ownership over st *)
+    | mmio_state_trace bytes    | env.nil   (* [unit] *)   => interp_mmio_trace_state_inv (* Given st and tr state_prot is satisfied *)
+    | mmio_state_checked_read _ | [env addr; w; s; s'] => interp_mmio_state_checked_read addr w s s'
+    | mmio_state_checked_write _ | [env addr; w; s; s'] => interp_mmio_state_checked_write addr w s s'
+    | encodes_instr             | [env code; instr]    => ⌜pure_decode code = instr ⌝%I
+    | ptstomem _                | [env addr; bs]       => interp_ptstomem addr bs
+    | ptstoinstr                | [env addr; instr]    => interp_ptsto_instr addr instr.
 
     Ltac destruct_pmp_entries :=
       repeat match goal with

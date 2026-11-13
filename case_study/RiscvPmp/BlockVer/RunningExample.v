@@ -328,7 +328,7 @@ Module RunningExample.
         iApply (semWP2_mono with "Htrip").
         iIntros (? ? [] δ2) "(-> & -> & H)".
         + iApply semWP2_call_inline.
-          destruct (env.view δ2).
+          destruct (nenv.view δ2).
           iApply ("IH" with "[$H $Hk]").
         + now iApply semWP2_fail.
     Qed.

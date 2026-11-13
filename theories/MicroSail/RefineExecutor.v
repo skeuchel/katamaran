@@ -379,7 +379,7 @@ Module RefineExecOn
         unfold SStoreSpec.pushpop, CStoreSpec.pushpop.
         iApply ("Hm" with "[HK] [Hδ Hv] Hh"); rsolve.
         iApply ("HK" with "[$]"); rsolve.
-        iApply (repₚ_cong (T1 := SStore (Γ2 ▻ x∷σ)) (T2 := SStore Γ2) env.tail env.tail); last done.
+        iApply (repₚ_cong (T1 := SStore (Γ2 ▻ x∷σ)) (T2 := SStore Γ2) nenv.tail nenv.tail); last done.
         intros. now env.destroy vs1.
       Qed.
 
@@ -391,9 +391,9 @@ Module RefineExecOn
         unfold SStoreSpec.pushspops, CStoreSpec.pushspops.
         iApply ("Hm" with "[HK] [Hδ Hc] Hh"); rsolve.
         iApply ("HK" with "[$] [] [$]").
-        iApply (repₚ_cong (T1 := SStore (Γ2 ▻▻ Δ)) (T2 := SStore Γ2) (env.drop Δ) (env.drop Δ)); last done.
+        iApply (repₚ_cong (T1 := SStore (Γ2 ▻▻ Δ)) (T2 := SStore Γ2) (nenv.drop Δ) (nenv.drop Δ)); last done.
         intros. env.destroy vs1.
-        now rewrite inst_env_cat !env.drop_cat.
+        now rewrite inst_nenv_cat !nenv.drop_cat.
       Qed.
 
       Lemma refine_get_local {Γ} {w} :
@@ -438,9 +438,9 @@ Module RefineExecOn
       Proof.
         unfold RStore, RInst; cbn.
         crushPredEntails3.
-        unfold seval_exps, inst, inst_store, inst_env, evals.
-        rewrite env.map_map.
-        apply env.map_ext.
+        unfold seval_exps, inst, inst_store, inst_nenv, evals.
+        rewrite nenv.map_map.
+        apply nenv.map_ext.
         intros.
         rewrite peval_sound.
         now apply refine_seval_exp.
@@ -472,8 +472,8 @@ Module RefineExecOn
       Proof.
         unfold RVal, RStore, RInst.
         crushPredEntails3; subst.
-        unfold inst, inst_store, inst_env.
-        now rewrite env.map_update.
+        unfold inst, inst_store, inst_nenv.
+        now rewrite nenv.map_update.
       Qed.
 
       Lemma refine_assign {Γ x σ} {xIn : (x∷σ ∈ Γ)%katamaran} {w} :

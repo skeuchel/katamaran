@@ -1519,8 +1519,8 @@ Module RiscvPmpValidContracts.
 
   Section Debug.
     Coercion stm_exp : Exp >-> Stm.
-    Local Notation "'use' 'lemma' lem args" := (stm_lemma lem args%env) (at level 10, lem at next level) : exp_scope.
-    Local Notation "'use' 'lemma' lem" := (stm_lemma lem env.nil) (at level 10, lem at next level) : exp_scope.
+    Local Notation "'use' 'lemma' lem args" := (stm_lemma lem args%nenv) (at level 10, lem at next level) : exp_scope.
+    Local Notation "'use' 'lemma' lem" := (stm_lemma lem nenv.nil) (at level 10, lem at next level) : exp_scope.
 
     Import RiscvNotations.
     Import RiscvμSailNotations.

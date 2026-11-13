@@ -921,8 +921,8 @@ Module Type RefinementMonadsOn
       iInduction Es1 as [|Es1] "IHEs1";
         env.destroy Es2; env.destroy E1; env.destroy E2; cbn -[RSat].
       - now iApply (refine_pure (RA := RUnit)).
-      - iDestruct (repₚ_invert_snoc with "HE1") as "(HE1 & Hv0db)".
-        iDestruct (repₚ_invert_snoc with "HE2") as "(HE2 & Hv1v)".
+      - iDestruct (repₚ_invert_nenv_snoc with "HE1") as "(HE1 & Hv0db)".
+        iDestruct (repₚ_invert_nenv_snoc with "HE2") as "(HE2 & Hv1v)".
         iSpecialize ("IHEs1" with "HE1 HE2").
         iApply (refine_bind (RA := RUnit) (RB := RUnit) with "IHEs1"); rsolve.
         iApply refine_formula_persist.
@@ -1084,19 +1084,19 @@ Module Type RefinementMonadsOn
       - rewrite <-inst_sub_shift.
         rewrite <-inst_subst.
         iApply (refine_inst_subst (T := STerm σ) with "Hι").
-      - iApply (repₚ_cong (T1 := Sub Σ) (T2 := STerm σ) (fun ι => env.lookup ι xIn) (fun ιs => env.lookup ιs xIn) with "Hι").
+      - iApply (repₚ_cong (T1 := Sub Σ) (T2 := STerm σ) (fun ι => nenv.lookup ι xIn) (fun ιs => nenv.lookup ιs xIn) with "Hι").
         intros. now rewrite inst_lookup.
       - iApply "IH".
-        iApply (repₚ_cong (T1 := Sub Σ) (T2 := Sub (Σ - (x∷σ))) (fun vs => env.remove (x∷σ) vs xIn) (fun vs => env.remove (x∷σ) vs xIn) with "[Hι]").
+        iApply (repₚ_cong (T1 := Sub Σ) (T2 := Sub (Σ - (x∷σ))) (fun vs => nenv.remove (x∷σ) vs xIn) (fun vs => nenv.remove (x∷σ) vs xIn) with "[Hι]").
         { intros. now rewrite <- inst_sub_shift, <- inst_subst, sub_comp_shift. }
         now rewrite forgetting_repₚ.
       - rewrite <-inst_sub_shift.
         rewrite <-inst_subst.
         iApply (refine_inst_subst (T := STerm σ) with "Hι").
-      - iApply (repₚ_cong (T1 := Sub Σ) (T2 := STerm σ) (fun ι => env.lookup ι xIn) (fun ιs => env.lookup ιs xIn) with "Hι").
+      - iApply (repₚ_cong (T1 := Sub Σ) (T2 := STerm σ) (fun ι => nenv.lookup ι xIn) (fun ιs => nenv.lookup ιs xIn) with "Hι").
         intros. now rewrite inst_lookup.
       - iApply "IH".
-        iApply (repₚ_cong (T1 := Sub Σ) (T2 := Sub (Σ - (x∷σ))) (fun vs => env.remove (x∷σ) vs xIn) (fun vs => env.remove (x∷σ) vs xIn) with "[Hι]").
+        iApply (repₚ_cong (T1 := Sub Σ) (T2 := Sub (Σ - (x∷σ))) (fun vs => nenv.remove (x∷σ) vs xIn) (fun vs => nenv.remove (x∷σ) vs xIn) with "[Hι]").
         { intros. now rewrite <- inst_sub_shift, <- inst_subst, sub_comp_shift. }
         now rewrite forgetting_repₚ.
       - now iApply "IH".

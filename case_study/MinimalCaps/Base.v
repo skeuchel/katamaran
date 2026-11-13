@@ -360,12 +360,12 @@ Module Export MinCapsBase <: Base.
     match R  with
     | capability =>
       fun c=>
-        env.nil
+        nenv.nil
           ► ("cap_permission" ∷ ty.perm ↦ cap_permission c)
           ► ("cap_begin"      ∷ ty.addr ↦ cap_begin c)
           ► ("cap_end"        ∷ ty.addr ↦ cap_end c)
           ► ("cap_cursor"     ∷ ty.addr ↦ cap_cursor c)
-    end%env.
+    end%nenv.
 
   #[export,refine] Instance typedefkit : TypeDefKit typedenotekit :=
     {| unionk           := union_constructor;
@@ -386,7 +386,7 @@ Module Export MinCapsBase <: Base.
                   | x: prod _ _ |- _ => destruct x
                   end; auto).
     - abstract (now intros [] []).
-    - abstract (intros []; now apply env.Forall_forall).
+    - abstract (intros []; now apply nenv.Forall_forall).
   Defined.
 
   Canonical typedeclkit.

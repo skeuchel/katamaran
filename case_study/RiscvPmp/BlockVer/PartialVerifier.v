@@ -179,7 +179,7 @@ Module RiscvPmpBlockVerifPartialVerifier
         fun w =>
           ⟨ θ0 ⟩ δ <- demonic_ctx id Σ ;;
           ⟨ θ1 ⟩ a <- demonic (Some "a") _ ;;
-          let δ1 := env.snoc (persist ( A:= Sub Σ) δ θ1) _ a in
+          let δ1 := nenv.snoc (persist ( A:= Sub Σ) δ θ1) _ a in
           ⟨ θ2 ⟩ _ <- produce req δ1 ;;
           let a2 := persist__term a θ2 in
           ⟨ θ3 ⟩ na <- sexec_block_addr b a2 a2 ;;
@@ -445,7 +445,7 @@ Module RiscvPmpBlockVerifPartialVerifier
       Proof.
         intros Hverif ι.
         apply sound_cexec_triple_addr.
-        apply (safeE_safe env.nil), postprocess2_sound in Hverif.
+        apply (safeE_safe nenv.nil), postprocess2_sound in Hverif.
         apply LogicalSoundness.psafe_safe in Hverif; [|done].
         revert Hverif.
         apply rexec_triple_addr.
@@ -568,7 +568,7 @@ Module RiscvPmpBlockVerifPartialVerifier
         fun _ =>
           ⟨ θ1 ⟩ lenv1 <- demonic_ctx id Σ ;;
           ⟨ θ2 ⟩ a2 <- demonic (Some "a") _ ;;
-          let lenv2 := env.snoc (persist (A := Sub Σ) lenv1 θ2) _ a2 in
+          let lenv2 := nenv.snoc (persist (A := Sub Σ) lenv1 θ2) _ a2 in
           ⟨ θ3 ⟩ _ <- produce req lenv2 ;;
           let a3 := persist__term a2 θ3 in
           ⟨ θ4 ⟩ na <- sexec_annotated_block_addr b a3 a3 ;;
@@ -783,7 +783,7 @@ Module RiscvPmpBlockVerifPartialVerifier
         unfold sannotated_block_verification_condition, SHeapSpec.run.
         intros lemSem Hverif ι.
         apply sound_cexec_annotated_block_triple_addr; auto.
-        apply (safeE_safe env.nil), postprocess2_sound in Hverif.
+        apply (safeE_safe nenv.nil), postprocess2_sound in Hverif.
         apply LogicalSoundness.psafe_safe in Hverif; [|done].
         revert Hverif.
         apply rexec_annotated_block_triple_addr.

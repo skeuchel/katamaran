@@ -251,11 +251,11 @@ Section FemtoKernel.
   (* First performs the public write, then the private write. *)
   Example femtokernel_handler_not_zero_asm' (data_addr exit_addr : N) : list ASM :=
     [ ADDI t0 zero (bv.of_N 42)
-    ; AnnotLemmaInvocation (close_mmio_write (bv.of_N mmio_write_adv) WORD) [nenv exp_val ty_xlenbits bv.zero; exp_val ty_regno t0]%env
+    ; AnnotLemmaInvocation (close_mmio_write (bv.of_N mmio_write_adv) WORD) [nenv exp_val ty_xlenbits bv.zero; exp_val ty_regno t0]%nenv
     ; STORE (bv.of_N mmio_write_adv) t0 zero WORD (* works because mmio_write_adv fits into 12 bits. *)
     ; UTYPE bv.zero ra RISCV_AUIPC
     ; Λ x, LOAD (bv.of_N (data_addr - (x - 4))) ra ra false WORD
-    ; AnnotLemmaInvocation (close_mmio_write (bv.of_N mmio_write_addr) WORD) [nenv exp_val ty_xlenbits bv.zero; exp_val ty_regno ra]%env
+    ; AnnotLemmaInvocation (close_mmio_write (bv.of_N mmio_write_addr) WORD) [nenv exp_val ty_xlenbits bv.zero; exp_val ty_regno ra]%nenv
     ; STORE (bv.of_N mmio_write_addr) ra zero WORD
     ; ADD ra zero zero (* We need to clear ra, as it contains the secret *)
     ; RISCV_JALR (bv.of_N exit_addr) zero zero (* works because the exit block addr fits into 12 bits *)
@@ -267,10 +267,10 @@ Section FemtoKernel.
   Example femtokernel_handler_is_zero_asm' (data_addr exit_addr : N) : list ASM :=
     [ UTYPE bv.zero ra RISCV_AUIPC
     ; Λ x, LOAD (bv.of_N (data_addr - (x - 4))) ra ra false WORD
-    ; AnnotLemmaInvocation (close_mmio_write (bv.of_N mmio_write_addr) WORD) [nenv exp_val ty_xlenbits bv.zero; exp_val ty_regno ra]%env
+    ; AnnotLemmaInvocation (close_mmio_write (bv.of_N mmio_write_addr) WORD) [nenv exp_val ty_xlenbits bv.zero; exp_val ty_regno ra]%nenv
     ; STORE (bv.of_N mmio_write_addr) ra zero WORD
     ; ADDI t0 zero (bv.of_N 42)
-    ; AnnotLemmaInvocation (close_mmio_write (bv.of_N mmio_write_adv) WORD) [nenv exp_val ty_xlenbits bv.zero; exp_val ty_regno t0]%env
+    ; AnnotLemmaInvocation (close_mmio_write (bv.of_N mmio_write_adv) WORD) [nenv exp_val ty_xlenbits bv.zero; exp_val ty_regno t0]%nenv
     ; STORE (bv.of_N mmio_write_adv) t0 zero WORD
     ; ADD ra zero zero (* We need to clear ra, as it contains the secret *)
     ; RISCV_JALR (bv.of_N exit_addr) zero zero
@@ -300,7 +300,7 @@ Section FemtoKernel.
 
   (* Powers off the machine, with exit value 0. *)
   Example femtokernel_handler_shutdown_asm : list AnnotInstr :=
-    [ AnnotLemmaInvocation (close_mmio_write (bv.of_N 0) WORD) [nenv exp_val ty_xlenbits mmioShutdownAddr; exp_val ty_regno zero]%env
+    [ AnnotLemmaInvocation (close_mmio_write (bv.of_N 0) WORD) [nenv exp_val ty_xlenbits mmioShutdownAddr; exp_val ty_regno zero]%nenv
     ; STORE (bv.of_N 0) zero t0 WORD
     ].
 
@@ -310,7 +310,7 @@ Section FemtoKernel.
   Example femtokernel_handler_secret_write_asm' (data_addr : N) : list ASM :=
     [ UTYPE bv.zero ra RISCV_AUIPC
     ; Λ x, LOAD (bv.of_N (data_addr - (x - 4))) ra ra false WORD
-    ; AnnotLemmaInvocation (close_mmio_write (bv.of_N mmio_write_addr) WORD) [nenv exp_val ty_xlenbits bv.zero; exp_val ty_regno ra]%env
+    ; AnnotLemmaInvocation (close_mmio_write (bv.of_N mmio_write_addr) WORD) [nenv exp_val ty_xlenbits bv.zero; exp_val ty_regno ra]%nenv
     ; STORE (bv.of_N mmio_write_addr) ra zero WORD (* works because mmio_write_adv fits into 12 bits. *)
     ; ADD ra zero zero (* We need to clear ra, as it contains the secret *)
     ].

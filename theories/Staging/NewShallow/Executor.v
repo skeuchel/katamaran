@@ -107,8 +107,8 @@ Module Type NewShallowExecOn
          lazymatch goal with
          (* These first rules do not change the provability if the goal, i.e.
             these steps are always complete. *)
-         | x : NamedEnv Val [ctx] |- _ => destruct (env.view x)
-         | x: NamedEnv Val (_ ▻ _) |- _ => destruct (env.view x)
+         | x : NamedEnv Val [ctx] |- _ => destruct (nenv.view x)
+         | x: NamedEnv Val (_ ▻ _) |- _ => destruct (nenv.view x)
          | |- _ ⊣⊢ _ => apply bi.entails_anti_sym
          | |- False ⊢ _ => apply bi.False_elim
          | |- _ ⊢ True => apply bi.True_intro
@@ -251,10 +251,10 @@ Module Type NewShallowExecOn
       Proof.
         revert Φ; induction Δ as [|Δ IHΔ [x σ]]; intros Φ; cbn; [|rewrite IHΔ].
         - iSplit; [iIntros "H"; now iExists [env]|].
-          iIntros "(%vs & H)". now destruct (env.view vs).
+          iIntros "(%vs & H)". now destruct (nenv.view vs).
         - iSplit.
           + iIntros "(%vs & %v & H)". now iExists (vs ► (x∷σ ↦ v)).
-          + iIntros "(%vs & H)". destruct (env.view vs) as [vs v].
+          + iIntros "(%vs & H)". destruct (nenv.view vs) as [vs v].
             now iExists vs, v.
       Qed.
 
@@ -262,10 +262,10 @@ Module Type NewShallowExecOn
         demonic_ctx Δ Φ ⊣⊢ ∀ vs : NamedEnv Val Δ, Φ vs.
       Proof.
         revert Φ; induction Δ as [|Δ IHΔ [x σ]]; intros Φ; cbn; [|rewrite IHΔ].
-        - iSplit; [iIntros "H %vs"; now destruct (env.view vs)|].
+        - iSplit; [iIntros "H %vs"; now destruct (nenv.view vs)|].
           iIntros "H". iApply "H".
         - iSplit.
-          + iIntros "H %vs". destruct (env.view vs) as [vs v]. iApply "H".
+          + iIntros "H %vs". destruct (nenv.view vs) as [vs v]. iApply "H".
           + iIntros "H %vs %v". iApply "H".
       Qed.
 
@@ -348,8 +348,8 @@ Module Type NewShallowExecOn
 
       Equations(noeqns) assert_eq_nenv {N : Set} [Δ : NCtx N Ty]
         (δ δ' : NamedEnv Val Δ) : CPureSpec unit :=
-        assert_eq_nenv env.nil          env.nil            := pure tt;
-        assert_eq_nenv (env.snoc δ _ t) (env.snoc δ' _ t') :=
+        assert_eq_nenv nenv.nil          nenv.nil            := pure tt;
+        assert_eq_nenv (nenv.snoc δ _ t) (nenv.snoc δ' _ t') :=
           bind (assert_eq_nenv δ δ') (fun _ => assert_formula (t = t')).
 
       Lemma wp_assert_formula {F : Prop} (Φ : unit -> L) :
@@ -374,10 +374,9 @@ Module Type NewShallowExecOn
         forall POST,
           assert_eq_nenv δ δ' POST ⊣⊢ ⌜δ = δ'⌝ ∧ POST tt.
       Proof.
-        unfold NamedEnv.
         induction δ; intros POST; env.destroy δ'; cbn; cbv [bind assert_formula].
         - solve_wp.
-        - rewrite IHδ env.inversion_eq_snoc.
+        - rewrite IHδ nenv.inversion_eq_snoc.
           solve_wp.
       Qed.
 
@@ -426,7 +425,7 @@ Module Type NewShallowExecOn
               (produce a2 ι)
         | asn.exist ς τ a =>
           v <- demonic τ ;;
-          produce a (env.snoc ι (ς∷τ) v)
+          produce a (nenv.snoc ι (ς∷τ) v)
         | asn.debug => pure tt
         end.
 
@@ -444,7 +443,7 @@ Module Type NewShallowExecOn
         | asn.or a1 a2 => angelic_binary (consume a1 ι) (consume a2 ι)
         | asn.exist ς τ a =>
           v <- angelic τ ;;
-          consume a (env.snoc ι (ς∷τ) v)
+          consume a (nenv.snoc ι (ς∷τ) v)
         | asn.debug => pure tt
         end.
 
@@ -492,7 +491,7 @@ Module Type NewShallowExecOn
             assert_eq_nenv args (inst δ ι) ;;
             consume req ι ;;
             v <- demonic τ ;;
-            produce ens (env.snoc ι (result∷τ) v) ;;
+            produce ens (nenv.snoc ι (result∷τ) v) ;;
             pure v
           end.
 
@@ -675,11 +674,11 @@ Module Type NewShallowExecOn
 
       Definition pushpop {A Γ1 Γ2 x σ} (v : Val σ)
         (d : CHeapSpecM (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) A) : CHeapSpecM Γ1 Γ2 A :=
-        fun POST δ0 => d (fun a δ1 => POST a (env.tail δ1)) (δ0 ► (x∷σ ↦ v)).
+        fun POST δ0 => d (fun a δ1 => POST a (nenv.tail δ1)) (δ0 ► (x∷σ ↦ v)).
       #[global] Arguments pushpop {_ _ _ _ _} v d _ /.
       Definition pushspops {A} {Γ1 Γ2 Δ} (δΔ : CStore Δ)
         (d : CHeapSpecM (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) A) : CHeapSpecM Γ1 Γ2 A :=
-        fun POST δ0 => d (fun a δ1 => POST a (env.drop Δ δ1)) (δ0 ►► δΔ).
+        fun POST δ0 => d (fun a δ1 => POST a (nenv.drop Δ δ1)) (δ0 ►► δΔ).
       #[global] Arguments pushspops {_ _ _ _} δΔ d _ /.
       Definition get_local {Γ} : CHeapSpecM Γ Γ (CStore Γ) :=
         fun POST δ => POST δ δ.
@@ -806,7 +805,7 @@ Module Type NewShallowExecOn
           lenv <- CPureSpec.demonic_ctx lvars ;;
           _    <- CPureSpec.produce req lenv ;;
           v    <- CStoreSpec.evalStoreSpec (exec s) (inst pats lenv) ;;
-          CPureSpec.consume ens (env.snoc lenv (result∷τ) v)
+          CPureSpec.consume ens (nenv.snoc lenv (result∷τ) v)
       end%mut.
 
     (* Lemma mon_exec_contract {Δ τ} (c : SepContract Δ τ) (s : Stm Δ τ) : *)
@@ -1147,7 +1146,7 @@ Module Type NewShallowExecOn
       (*   specialize (vcenv ctr eq_refl). *)
       (*   destruct ctr as [ctxΣ θΔ req res ens]; cbn in *. *)
       (*   apply bi.forall_intro. intros ι. *)
-      (*   rewrite env.Forall_forall in vcenv. *)
+      (*   rewrite nenv.Forall_forall in vcenv. *)
       (*   change (emp ⊢ ?P) with (⊢ P). *)
       (*   specialize (vcenv ι). revert vcenv. *)
       (*   apply bi.bi_emp_valid_mono. *)

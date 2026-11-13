@@ -302,11 +302,11 @@ Module Type GenericSolverOn
         Definition simplify_eq_record_val (R : recordi)
           (ts : NamedEnv (Term Σ) (recordf_ty R)) (v : Val (ty.record R)) :
           DList Σ :=
-          env.Env_rect
+          nenv.NamedEnv_rect
             (fun Δ _ => NamedEnv Val Δ → DList Σ)
             (fun _ => empty)
             (fun Δ _ IHts b t vs =>
-               let (vsΔ,vb) := env.view vs in
+               let (vsΔ,vb) := nenv.view vs in
                cat (IHts vsΔ) (simplify_eq_val t vb))
             ts
             (recordv_unfold R v).
@@ -651,8 +651,8 @@ Module Type GenericSolverOn
 
         Equations(noeqns) formula_eqs_nctx {N} {Δ : NCtx N Ty}
           (δ δ' : NamedEnv (Term Σ) Δ) : DList Σ :=
-        | env.nil,        env.nil          => empty
-        | env.snoc δ _ t, env.snoc δ' _ t' =>
+        | nenv.nil,        nenv.nil          => empty
+        | nenv.snoc δ _ t, nenv.snoc δ' _ t' =>
             cat (formula_eqs_nctx δ δ') (simplify_eq t t').
 
         Definition simplify_eq_tuple {σs} (tls : Env (Term Σ) σs)
@@ -778,7 +778,7 @@ Module Type GenericSolverOn
           generalize (recordv_unfold R v); intros vs.
           unfold simplify_eq_record_val.
           rewrite recordv_unfold_fold.
-          induction IH; destruct (env.view vs); arw.
+          induction IH; destruct (nenv.view vs); arw.
           arw_slow. apply bi.sep_proper; auto.
       Qed.
       #[local] Opaque simplify_eq_val.
@@ -904,9 +904,9 @@ Module Type GenericSolverOn
             generalize (recordv_unfold R v); intros vs.
             unfold simplify_eq_record_val.
             rewrite recordv_unfold_fold.
-            induction IH; destruct (env.view vs); arw.
+            induction IH; destruct (nenv.view vs); arw.
             arw_slow. apply bi.sep_proper; auto.
-          + induction IH; destruct (env.view ts0); arw.
+          + induction IH; destruct (nenv.view ts0); arw.
             arw_slow. apply bi.sep_proper; auto.
       Qed.
 

@@ -149,18 +149,18 @@ Module ContractNotations.
   Fixpoint lctx_union (Σ1 Σ2 : LCtx) :
     { Σ : LCtx & (Sub Σ1 Σ * Sub Σ2 Σ)%type } :=
     match Σ2 with
-    | ε        => existT Σ1 (sub_id Σ1 , [env])
+    | ε        => existT Σ1 (sub_id Σ1 , nenv.nil)
     | Σ2 ▻ x∷σ =>
         let u := lctx_union Σ1 Σ2 in
         match lvar_find (projT1 u) x σ with
         | Some xIn =>
             existT (projT1 u)
               (fst (projT2 u) ,
-               env.snoc (snd (projT2 u)) (x∷σ) (term_var_in xIn))
+               nenv.snoc (snd (projT2 u)) (x∷σ) (term_var_in xIn))
         | None =>
             existT (projT1 u ▻ x∷σ)
               (subst (fst (projT2 u)) sub_wk1 ,
-               env.snoc (subst (snd (projT2 u)) sub_wk1) (x∷σ)
+               nenv.snoc (subst (snd (projT2 u)) sub_wk1) (x∷σ)
                  (term_var_in ctx.in_zero))
         end
     end.
@@ -187,12 +187,12 @@ Module ContractNotations.
     match Γ , Δ with
     | Γ ▻ a , Δ ▻ y∷_ =>
         let u := lctx_union (args_lvars Γ) (arg_lvars a) in
-        env.snoc
+        nenv.snoc
           (subst (args_store Γ Δ) (fst (projT2 u)))
           (arg_name a y∷arg_type a)
           (subst (arg_term a) (snd (projT2 u)))
-    | ε     , _ => [env]
-    | _ ▻ _ , ε => [env]
+    | ε     , _ => nenv.nil
+    | _ ▻ _ , ε => nenv.nil
     end.
 
   (* The argument list of a contract for a function or lemma with program

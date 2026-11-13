@@ -1647,7 +1647,7 @@ Module inv := invariants.
     iMod (femtokernel_splitMemory with "Hmem") as "(%rG & Hinit & Hhandler0 & Hhandler1 & Hhandler2 & #Hinv & Hdata & Hstate & Hadv)"; try eassumption.
     iModIntro.
     iSplitR "".
-    - destruct (env.view δ).  (* INV and frag of state *)
+    - destruct (nenv.view δ).  (* INV and frag of state *)
       iApply femtokernel_init_safe.
       cbn -[femtokernel_handler_gen_block0 femtokernel_handler_gen_block1 femtokernel_handler_gen_block2].
       iSplitL "Hpc Hnpc Hinit".

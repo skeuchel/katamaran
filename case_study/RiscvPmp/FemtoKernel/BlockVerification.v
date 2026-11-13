@@ -525,10 +525,10 @@ Section BlockVerification.
         let ι__csrs := csrs_valuation archstate vmie in
         semTripleBlock_
           (λ a, @asn.interpret _ PredDef _ PRE
-                  (ι__csrs ►► ι ►► env.nil.["a" ∷ ty_xlenbits ↦ a]))
+                  (ι__csrs ►► ι ►► nenv.nil.["a" ∷ ty_xlenbits ↦ a]))
           a (filter_AST b)
           (λ a an, @asn.interpret _ PredDef _ POST
-                     (ι__csrs ►► ι ►► env.nil.["a" ∷ ty_xlenbits ↦ a].["an" ∷ ty_xlenbits ↦ an])).
+                     (ι__csrs ►► ι ►► nenv.nil.["a" ∷ ty_xlenbits ↦ a].["an" ∷ ty_xlenbits ↦ an])).
 
     Definition contract_femtohandler_builder_left `{sG : RVPBASEl.sailGS Σ} {Γ}
       (ι : Valuation Γ)
@@ -560,7 +560,7 @@ Section BlockVerification.
 
     Definition contract_femtoinit : BlockContract :=
       MkBlockContract
-        env.nil
+        nenv.nil
         femtokernel_init_pre
         femtokernel_init_gen
         femtokernel_init_post.
@@ -585,7 +585,7 @@ Section BlockVerification.
 
     Definition contract_femtohandler_entry (x5 x10 : Val ty_xlenbits) : BlockContract :=
       MkBlockContract
-        env.nil.["x5" ∷ ty_xlenbits ↦ x5].["x10" ∷ ty_xlenbits ↦ x10]
+        nenv.nil.["x5" ∷ ty_xlenbits ↦ x5].["x10" ∷ ty_xlenbits ↦ x10]
         femtokernel_handler_entry_pre
         femtokernel_handler_entry
         femtokernel_handler_entry_post.
@@ -610,7 +610,7 @@ Section BlockVerification.
 
     Definition contract_femtohandler_dispatch (x1 secret : Val ty_xlenbits) : BlockContract :=
       MkBlockContract
-        env.nil.["x1" ∷ ty_xlenbits ↦ x1].["secret" ∷ ty_xlenbits ↦ secret]
+        nenv.nil.["x1" ∷ ty_xlenbits ↦ x1].["secret" ∷ ty_xlenbits ↦ secret]
         femtokernel_handler_dispatch_pre
         femtokernel_handler_dispatch
         femtokernel_handler_dispatch_post.
@@ -635,7 +635,7 @@ Section BlockVerification.
 
     Definition contract_femtohandler_not_zero (x1 x5 secret : Val ty_xlenbits) : BlockContract :=
       MkBlockContract
-        env.nil.["x1" ∷ ty_xlenbits ↦ x1].["x5" ∷ ty_xlenbits ↦ x5].["secret" ∷ ty_xlenbits ↦ secret]
+        nenv.nil.["x1" ∷ ty_xlenbits ↦ x1].["x5" ∷ ty_xlenbits ↦ x5].["secret" ∷ ty_xlenbits ↦ secret]
         femtokernel_handler_not_zero_pre
         femtokernel_handler_not_zero
         femtokernel_handler_ack_post.
@@ -660,7 +660,7 @@ Section BlockVerification.
 
     Definition contract_femtohandler_is_zero (x1 x5 secret : Val ty_xlenbits) : BlockContract :=
       MkBlockContract
-        env.nil.["x1" ∷ ty_xlenbits ↦ x1].["x5" ∷ ty_xlenbits ↦ x5].["secret" ∷ ty_xlenbits ↦ secret]
+        nenv.nil.["x1" ∷ ty_xlenbits ↦ x1].["x5" ∷ ty_xlenbits ↦ x5].["secret" ∷ ty_xlenbits ↦ secret]
         femtokernel_handler_is_zero_pre
         femtokernel_handler_is_zero
         femtokernel_handler_ack_post.
@@ -685,7 +685,7 @@ Section BlockVerification.
 
     Definition contract_femtohandler_secret_write (x1 secret : Val ty_xlenbits) : BlockContract :=
       MkBlockContract
-        env.nil.["x1" ∷ ty_xlenbits ↦ x1].["secret" ∷ ty_xlenbits ↦ secret]
+        nenv.nil.["x1" ∷ ty_xlenbits ↦ x1].["secret" ∷ ty_xlenbits ↦ secret]
         femtokernel_handler_secret_write_pre
         femtokernel_handler_secret_write
         femtokernel_handler_secret_write_post.
@@ -710,7 +710,7 @@ Section BlockVerification.
 
     Definition contract_femtohandler_exit : BlockContract :=
       MkBlockContract
-        env.nil
+        nenv.nil
         femtokernel_handler_exit_pre
         femtokernel_handler_exit
         femtokernel_handler_exit_post.
@@ -735,7 +735,7 @@ Section BlockVerification.
 
     Definition contract_femtohandler_shutdown_check (x1 x5 x10 : Val ty_xlenbits) : BlockContract :=
       MkBlockContract
-        env.nil.["x1" ∷ ty_xlenbits ↦ x1].["x5" ∷ ty_xlenbits ↦ x5].["x10" ∷ ty_xlenbits ↦ x10]
+        nenv.nil.["x1" ∷ ty_xlenbits ↦ x1].["x5" ∷ ty_xlenbits ↦ x5].["x10" ∷ ty_xlenbits ↦ x10]
         femtokernel_handler_shutdown_check_pre
         femtokernel_handler_shutdown_check
         femtokernel_handler_shutdown_check_post.
@@ -760,7 +760,7 @@ Section BlockVerification.
 
     Definition contract_femtohandler_shutdown : BlockContract :=
       MkBlockContract
-        env.nil
+        nenv.nil
         femtokernel_handler_shutdown_pre
         femtokernel_handler_shutdown
         femtokernel_handler_shutdown_post.

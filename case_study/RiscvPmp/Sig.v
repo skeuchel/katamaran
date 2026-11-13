@@ -1088,17 +1088,17 @@ Module Export RiscvPmpSignature <: Signature RiscvPmpBase.
   Import DList.
 
   Equations(noeqns) simplify_user [Σ] (p : 𝑷) : Env (Term Σ) (𝑷_Ty p) -> option (PathCondition Σ) :=
-  | gen_pmp_access               | [ paddr; width; lo; entries; priv; perm ] => simplify_gen_pmp_access paddr width lo entries priv perm
-  | pmp_access               | [ paddr; width; entries; priv; perm ] => simplify_pmp_access paddr width entries priv perm
-  | pmp_check_perms          | [ cfg; acc; priv ]             => simplify_pmp_check_perms cfg acc priv
-  | pmp_check_rwx            | [ cfg; acc ]                   => simplify_pmp_check_rwx cfg acc
-  | sub_perm                 | [ a1; a2 ]                     => simplify_sub_perm a1 a2
-  | access_pmp_perm          | [ a; p ]                       => simplify_access_pmp_perm a p
-  | within_cfg               | [ paddr; cfg; prevaddr; addr]  => simplify_within_cfg paddr cfg prevaddr addr
-  | not_within_cfg           | [ paddr; entries ]             => Some [formula_user not_within_cfg [paddr; entries]]%ctx
-  | prev_addr                | [ cfg; entries; prev ]         => simplify_prev_addr cfg entries prev
-  | in_entries               | [ cfg; entries; prev ]         => Some [formula_user in_entries [cfg; entries; prev]]%ctx
-  | in_mmio bytes            | [ a ]                          => Some [formula_user (in_mmio bytes) [a]]%ctx.
+  | gen_pmp_access               | [env paddr; width; lo; entries; priv; perm] => simplify_gen_pmp_access paddr width lo entries priv perm
+  | pmp_access               | [env paddr; width; entries; priv; perm] => simplify_pmp_access paddr width entries priv perm
+  | pmp_check_perms          | [env cfg; acc; priv]           => simplify_pmp_check_perms cfg acc priv
+  | pmp_check_rwx            | [env cfg; acc]                 => simplify_pmp_check_rwx cfg acc
+  | sub_perm                 | [env a1; a2]                   => simplify_sub_perm a1 a2
+  | access_pmp_perm          | [env a; p]                     => simplify_access_pmp_perm a p
+  | within_cfg               | [env paddr; cfg; prevaddr; addr] => simplify_within_cfg paddr cfg prevaddr addr
+  | not_within_cfg           | [env paddr; entries]           => Some [formula_user not_within_cfg [paddr; entries]]%ctx
+  | prev_addr                | [env cfg; entries; prev]       => simplify_prev_addr cfg entries prev
+  | in_entries               | [env cfg; entries; prev]       => Some [formula_user in_entries [cfg; entries; prev]]%ctx
+  | in_mmio bytes            | [env a]                        => Some [formula_user (in_mmio bytes) [a]]%ctx.
 
   Lemma simplify_sub_perm_spec {Σ} (a1 a2 : Term Σ ty_access_type) :
     simplify_sub_perm a1 a2 ⊣⊢ Some [formula_user sub_perm [a1; a2]].
@@ -1227,7 +1227,7 @@ Module Export RiscvPmpSignature <: Signature RiscvPmpBase.
       ctx.map (fun '(x::σ) => x::σ) Δ ▻▻ Σ.
 
     Definition create_localstore (Δ : PCtx) (Σ : LCtx) : SStore Δ (sep_contract_logvars Δ Σ) :=
-      (env.tabulate (fun '(x::σ) xIn =>
+      (nenv.tabulate (D := Term _) (fun '(x::σ) xIn =>
                        @term_var
                          (sep_contract_logvars Δ Σ)
                          x

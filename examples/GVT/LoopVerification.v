@@ -206,7 +206,7 @@ Section Loop.
        case the disjuncts were not found, we simply use True. *)
     Definition transition (t : TransitionTarget) (archstate : ArchState) : iProp Σ :=
       match disjuncts with
-      | Some ds => asn.interpret (ds t) (env.snoc (archstate_valuation archstate) (_∷ty.unit) tt)
+      | Some ds => asn.interpret (ds t) (nenv.snoc (archstate_valuation archstate) (_∷ty.unit) tt)
       | None    => True
       end.
 
@@ -234,12 +234,12 @@ Section Loop.
 
   Definition semTriple_step : iProp Σ :=
     (∀ (archstate : ArchState),
-        semTriple env.nil (Step_pre archstate)
+        semTriple nenv.nil (Step_pre archstate)
                   (FunDef step)
                   (fun _ _ => Step_post archstate))%I.
 
   Definition semTriple_init_model : iProp Σ :=
-    semTriple env.nil
+    semTriple nenv.nil
               ((∃ p, reg_pointsTo cur_privilege p) ∗ (∃ es, interp_pmp_entries es))%I
               (FunDef init_model)
               (fun _ _ => reg_pointsTo cur_privilege Machine ∗ (∃ es, interp_pmp_entries es))%I.
@@ -282,7 +282,7 @@ Section Loop.
 
   Lemma init_model_iprop : ⊢ semTriple_init_model.
   Proof.
-    iApply (@iris_rule_consequence _ _ _ _ _ env.nil
+    iApply (@iris_rule_consequence _ _ _ _ _ nenv.nil
              ((∃ p : Privilege, cur_privilege ↦ p) ∗
               (∃ es : list PmpEntryCfg, interp_pmp_entries es))
              _ _ _ fun_init_model _ _)%I.
@@ -352,7 +352,7 @@ Section Loop.
 
   Definition semTriple_loop : iProp Σ :=
     (∀ (archstate : ArchState),
-        semTriple env.nil (loop_pre archstate)
+        semTriple nenv.nil (loop_pre archstate)
                   (FunDef loop)
                   (fun _ _ => True))%I.
 

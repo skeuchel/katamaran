@@ -354,7 +354,7 @@ Module Import MinCapsSignature <: Signature MinCapsBase.
 
     (* create_localstore returns a localstore based on a function signature. *)
     Definition create_localstore (Δ : PCtx) (Σ : LCtx) : SStore Δ (sep_contract_logvars Δ Σ) :=
-      (env.tabulate (fun '(x::σ) xIn =>
+      (nenv.tabulate (D := Term _) (fun '(x::σ) xIn =>
                        @term_var
                          (sep_contract_logvars Δ Σ)
                          x

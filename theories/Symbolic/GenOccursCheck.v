@@ -72,7 +72,7 @@ Module Type GenOccursCheckOn
     | term_unop op t             => term_unop op (substSU_term t ζ)
     | term_tuple ts              => term_tuple (env.map (fun _ t => substSU_term t ζ) ts)
     | term_union U K t           => term_union U K (substSU_term t ζ)
-    | term_record R ts           => term_record R (env.map (fun _ t => substSU_term t ζ) ts)
+    | term_record R ts           => term_record R (nenv.map (fun _ t => substSU_term t ζ) ts)
     end.
 
   #[export] Instance SubstSUTerm `{SubstUniv Sb} {σ} : SubstSU Sb (fun Σ => Term Σ σ) :=
@@ -102,14 +102,19 @@ Module Type GenOccursCheckOn
       SubstSU Sb (fun Σ => Env (T Σ) Δ) :=
       fun Σ1 Σ2 ts ζ => env.map (fun b t => suT b _ _ t ζ) ts.
 
+  #[export] Instance SubstSU_nenv `{SubstUniv Sb} {N T : Set} {A : LCtx -> T -> Set} {Δ : NCtx N T}
+    (suA : forall σ : T, SubstSU Sb (fun Σ => A Σ σ)) :
+      SubstSU Sb (fun Σ => NamedEnv (A Σ) Δ) :=
+      fun Σ1 Σ2 ts ζ => nenv.map (fun σ t => suA σ _ _ t ζ) ts.
+
   #[export] Instance SubstSU_sub `{SubstUniv Sb} {Δ} :
-    SubstSU Sb (Sub Δ) := fun Σ1 Σ2 => SubstSU_env (fun _ => SubstSUTerm) _.
+    SubstSU Sb (Sub Δ) := fun Σ1 Σ2 => SubstSU_nenv (fun _ => SubstSUTerm) _.
 
   Lemma substSU_lookup `{SubstUniv Sb} {Γ Σ Σ' x σ} (xInΓ : x∷σ ∈ Γ) (ζ : Sb Σ Σ') (δ : SStore Γ Σ) :
       substSU δ.[?? x] ζ = (substSU δ ζ).[?? x].
     Proof.
-      unfold substSU at 2, SubstSU_env.
-      now rewrite env.lookup_map.
+      unfold substSU at 2, SubstSU_nenv.
+      now rewrite nenv.lookup_map.
     Qed.
 
   #[export] Instance substSU_pair `{SubstSU Sb T1, SubstSU Sb T2} : SubstSU Sb (Pair T1 T2) :=
@@ -166,10 +171,22 @@ Module Type GenOccursCheckOn
     now eapply ssuLT.
   Qed.
 
+  #[export] Instance substSubstSULaws_nenv `{SubstUniv Sb} {N T : Set} {Δ : NCtx N T}
+    {A : LCtx -> T -> Set}
+    {sA : forall σ, Subst (fun Σ => A Σ σ)}
+    {sSA : forall σ, SubstSU Sb (fun Σ => A Σ σ)}
+    (ssuLA : forall σ, SubstSubstSULaws Sb (fun Σ => A Σ σ)) :
+    SubstSubstSULaws Sb (fun Σ => NamedEnv (A Σ) Δ).
+  Proof.
+    intros Σ1 Σ2 ζ t.
+    eapply nenv.map_ext; intros.
+    now eapply ssuLA.
+  Qed.
+
   #[export] Instance substSubstSULaws_sub `{SubstUniv Sb} {Δ} :
       SubstSubstSULaws Sb (Sub Δ).
   Proof.
-    eapply substSubstSULaws_env.
+    eapply substSubstSULaws_nenv.
     intros.
     now eapply substSubstSUTermLaws.
   Qed.
@@ -213,6 +230,19 @@ Module Type GenOccursCheckOn
     now apply suLT.
   Qed.
 
+  #[export] Instance substSULaws_nenv `{SubstUnivLaws Sb} {N T : Set} {Δ : NCtx N T}
+    {A : LCtx -> T -> Set}
+    {sA : forall σ, SubstSU Sb (fun Σ => A Σ σ)}
+    (suLA : forall σ, SubstSULaws Sb (fun Σ => A Σ σ)) :
+    SubstSULaws Sb (fun Σ => NamedEnv (A Σ) Δ).
+  Proof.
+    intros ? ? ? ζ1 ζ2 ts.
+    induction ts; first reflexivity.
+    cbn.
+    f_equal; first assumption.
+    now apply suLA.
+  Qed.
+
   Class SubstUnivVar (Sb : LCtx -> LCtx -> Type) :=
     suVar : forall {x Σ} (xIn : x ∈ Σ), Sb [ x ]%ctx  Σ.
   (* Arguments SubstUnivVar Sb. *)
@@ -236,7 +266,7 @@ Module Type GenOccursCheckOn
   Arguments SubstUnivVarDown Sb {H}.
 
   Class SubstUnivVarLaws `{SubstUniv Sb, SubstUnivVar Sb} : Prop :=
-    suVarSound : forall `(xIn : x ∈ Σ), interpSU (suVar xIn) = [ term_var_in xIn ]%env.
+    suVarSound : forall `(xIn : x ∈ Σ), interpSU (suVar xIn) = [ term_var_in xIn ]%nenv.
   Arguments SubstUnivVarLaws Sb {H} {H0}.
 
   Record BoxSb Sb (T : LCtx -> Type) (Σ : LCtx) : Type :=
@@ -379,9 +409,22 @@ Module Type GenOccursCheckOn
       forall {Γ : Ctx I}, GenOccursCheck (fun Σ => Env (T Σ) Γ) :=
       fix oc {Γ Σ} ts {struct ts} :=
       match ts with
-      | env.nil         => weakenInit [env]
+      | env.nil         => weakenInit env.nil
       | env.snoc ts _ t => liftBinOp (fun _ ts' t' => env.snoc (B := I) ts' _ t')
                              (fun _ _ _ _ _ => eq_refl)(oc ts) (gen_occurs_check (GenOccursCheck := OCT _) t)
+      end.
+
+  #[export] Instance gen_occurs_check_nenv `{SubstUnivMeet Sb, SubstUnivLaws Sb}
+    {N T : Set} {A : LCtx -> T -> Set}
+    {sA : forall σ : T, SubstSU Sb (fun Σ : LCtx => A Σ σ)}
+    {sA : forall σ : T, SubstSULaws Sb (fun Σ : LCtx => A Σ σ)}
+      {OCA : forall σ, GenOccursCheck (fun Σ => A Σ σ)} :
+      forall {Γ : NCtx N T}, GenOccursCheck (fun Σ => NamedEnv (A Σ) Γ) :=
+      fix oc {Γ Σ} ts {struct ts} :=
+      match ts with
+      | nenv.nil         => weakenInit [env]
+      | nenv.snoc ts b t => liftBinOp (fun _ ts' t' => nenv.snoc ts' b t')
+                              (fun _ _ _ _ _ => eq_refl)(oc ts) (gen_occurs_check (GenOccursCheck := OCA _) t)
       end.
 
   Lemma boxSbLaws_term_var `{SubstUniv Sb} {sSUM : SubstUnivMeet Sb} {sSUL : SubstUnivLaws Sb} {Σ x τ} (xIn : x∷τ ∈ Σ) : BoxSbLaws (boxSb (T := fun Σ => Term Σ τ) (term_var x)).
@@ -403,7 +446,7 @@ Module Type GenOccursCheckOn
       | term_union U K t0 => liftUnOp (fun _ => term_union U K) (fun _ _ _ _ => eq_refl) (gen_occurs_check_term t0)
       | term_record R ts =>
           liftUnOp (fun _ => term_record R) (fun _ _ _ _ => eq_refl)
-            (gen_occurs_check_env (OCT := fun _ => @gen_occurs_check_term _) ts)
+            (gen_occurs_check_nenv (OCA := @gen_occurs_check_term) ts)
       end.
 
   #[export] Instance gen_occurs_check_list `{SubstUnivMeet Sb, SubstUnivLaws Sb} {T : LCtx -> Type} {sT : SubstSU Sb T} {sTL : SubstSULaws Sb T} {ocT : GenOccursCheck T} :
@@ -601,6 +644,21 @@ Module Type GenOccursCheckOn
     fun {Γ} => MkGenOccursCheckLaws _ _ _ _ _.
   Proof.
     induction t.
+    - now refine (weakenInitRefines eq env.nil eq_refl).
+    - refine (liftBinOp_weakenedRefines (R2 := eq)(fun _ ts' t' => env.snoc ts' b t') _ IHt (oc_sound db));
+      typeclasses eauto.
+  Qed.
+
+  #[export, refine] Instance gen_occurs_check_laws_nenv `{SubstUnivMeet Sb} {_ : SubstUnivLaws Sb} {_ : SubstUnivMeetLaws Sb}
+    {N T : Set} {A : LCtx -> T -> Set}
+    {sA : forall σ : T, SubstSU Sb (fun Σ : LCtx => A Σ σ)}
+    {slA : forall σ : T, SubstSULaws Sb (fun Σ : LCtx => A Σ σ)}
+    {OCA : forall σ, GenOccursCheck (Sb := Sb) (fun Σ => A Σ σ)}
+    {OCAL : forall σ, GenOccursCheckLaws (Sb := Sb) (fun Σ => A Σ σ) (fun _ => eq) } :
+    forall {Γ : NCtx N T}, GenOccursCheckLaws (Sb := Sb) (fun Σ => NamedEnv (A Σ) Γ) (fun _ => eq) :=
+    fun {Γ} => MkGenOccursCheckLaws _ _ _ _ _.
+  Proof.
+    induction t.
     - now refine (weakenInitRefines eq [env] eq_refl).
     - refine (liftBinOp_weakenedRefines (R2 := eq)(fun _ ts' t' => ts' ► (b ↦ t')) _ IHt (oc_sound db));
       typeclasses eauto.
@@ -622,7 +680,7 @@ Module Type GenOccursCheckOn
     - eapply (liftUnOp_weakenedRefines (R1 := eq) (fun _ => term_tuple)).
       { typeclasses eauto. }
       induction IH; cbn.
-      + refine (weakenInitRefines _ [env] eq_refl).
+      + refine (weakenInitRefines _ env.nil eq_refl).
       + eapply (liftBinOp_weakenedRefines (fun _ E d => env.snoc E b d)); try eassumption.
         typeclasses eauto.
     - eapply (liftUnOp_weakenedRefines (fun _ => term_union U K)); try eassumption.
@@ -631,7 +689,7 @@ Module Type GenOccursCheckOn
       + typeclasses eauto.
       + induction IH; cbn.
         * refine (weakenInitRefines _ [env] eq_refl).
-        * refine (liftBinOp_weakenedRefines (fun _ E d => env.snoc E b d) _ IHIH q).
+        * refine (liftBinOp_weakenedRefines (fun _ E d => nenv.snoc E b d) _ IHIH q).
   Qed.
 
   #[export,refine] Instance gen_occurs_check_laws_list
@@ -647,7 +705,7 @@ Module Type GenOccursCheckOn
   Qed.
 
   #[export] Instance gen_occurs_check_laws_sub `{SubstUnivVarLaws Sb} {_ : SubstUnivMeet Sb} {_ : SubstUnivLaws Sb} {_ : SubstUnivMeetLaws Sb} {Σ} :
-    GenOccursCheckLaws (Sub Σ)  (fun _ => eq) := gen_occurs_check_laws_env (T := fun Σ b => Term Σ (type b)).
+    GenOccursCheckLaws (Sub Σ)  (fun _ => eq) := gen_occurs_check_laws_nenv (A := Term).
 
   (* #[export,refine] Instance gen_occurs_check_laws_pair `{SubstUnivMeet Sb, SubstLaws AT, SubstLaws BT} {_ : SubstUnivLaws Sb} {_ : SubstUnivMeetLaws Sb} *)
   (*   {_ : GenOccursCheck AT} {_ : GenOccursCheckLaws AT} *)
@@ -1026,12 +1084,12 @@ Module Type GenOccursCheckOn
                   (fun x Σ y xIn wk => WkSkipVar y wk).
 
     Lemma interpWk_wkVar : forall {x Σ} {xIn : x ∈ Σ},
-      interpWk (wkVar xIn) = [ term_var_in xIn ]%env.
+      interpWk (wkVar xIn) = [ term_var_in xIn ]%nenv.
     Proof.
       eapply ctx.In_ind.
       - intros.
         refine (f_equal (fun x => x.[b ↦ _]) _).
-        match goal with |- ?env = [env] => now destruct (env.view env) end.
+        match goal with |- ?env = [env] => now destruct (nenv.view env) end.
       - intros.
         change (interpWk (wkVar (ctx.in_succ bIn))) with
                  (subst (interpWk (wkVar bIn)) (sub_wk1 (b := b'))).

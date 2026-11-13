@@ -66,7 +66,7 @@ Module Type InstantiationOn
   (Import TM : TermsOn TY).
 
   Local Abbreviation LCtx := (NCtx LVar Ty).
-  Local Abbreviation Valuation Σ := (Env (fun xt : Binding LVar Ty => Val (type xt)) Σ).
+  Local Abbreviation Valuation Σ := (@NamedEnv LVar Ty Val Σ).
   Local Abbreviation CStore := (@NamedEnv PVar Ty Val).
 
   (* This type class connects a symbolic representation of a type with its
@@ -116,16 +116,31 @@ Module Type InstantiationOn
     Lift (fun Σ => Env (S Σ) Γ) (Env A Γ) :=
     fun Σ => env.map (fun (b : T) (a : A b) => lift a).
 
+  #[export] Instance inst_nenv {N T : Set} {S : LCtx -> T -> Set} {A : T -> Set}
+    {InstSA : forall τ : T, Inst (fun Σ => S Σ τ) (A τ)} {Γ : NCtx N T} :
+    Inst (fun Σ => NamedEnv (S Σ) Γ) (NamedEnv A Γ) :=
+    fun Σ xs ι => nenv.map (fun (τ : T) (s : S Σ τ) => inst s ι) xs.
+  #[export] Instance lift_nenv {N T : Set} {S : LCtx -> T -> Set} {A : T -> Set}
+    {InstSA : forall τ : T, Lift (fun Σ => S Σ τ) (A τ)} {Γ : NCtx N T} :
+    Lift (fun Σ => NamedEnv (S Σ) Γ) (NamedEnv A Γ) :=
+    fun Σ => nenv.map (fun (τ : T) (a : A τ) => lift a).
+
   Lemma inst_env_snoc {B : Set} {AT : LCtx -> B -> Set}
     {A : B -> Set} {_ : forall b : B, Inst (fun Σ => AT Σ b) (A b)}
     {Γ : Ctx B} {Σ} (ι : Valuation Σ) (E : Env (AT Σ) Γ) (b : B) (a : AT Σ b) :
     inst (env.snoc E b a) ι = env.snoc (inst E ι) b (inst a ι).
   Proof. reflexivity. Qed.
 
+  Lemma inst_nenv_snoc {N T : Set} {AT : LCtx -> T -> Set}
+    {A : T -> Set} {_ : forall τ : T, Inst (fun Σ => AT Σ τ) (A τ)}
+    {Γ : NCtx N T} {Σ} (ι : Valuation Σ) (E : NamedEnv (AT Σ) Γ) b (a : AT Σ (type b)) :
+    inst (nenv.snoc E b a) ι = nenv.snoc (inst E ι) b (inst a ι).
+  Proof. reflexivity. Qed.
+
   #[export] Instance inst_term : forall {σ}, Inst (fun Σ => Term Σ σ) (Val σ) :=
     fix inst_term {σ : Ty} [Σ : LCtx] (t : Term Σ σ) (ι : Valuation Σ) {struct t} : Val σ :=
     match t in Term _ σ return Val σ with
-    | term_var_in bIn            => env.lookup ι bIn
+    | term_var_in bIn            => nenv.lookup ι bIn
     | term_val _ v               => v
     | term_binop op t1 t2        => bop.eval op
                                       (inst (Inst := @inst_term _) t1 ι)
@@ -136,14 +151,13 @@ Module Type InstantiationOn
         envrec.of_env (inst (Inst := inst_env (InstSA := @inst_term)) ts ι)
     | @term_union _ U K t        => unionv_fold U (existT K (inst (Inst := inst_term) t ι))
     | @term_record _ R ts        =>
-        let InstTerm xt := @inst_term (@type recordf Ty xt) in
-        recordv_fold R (inst (Inst := inst_env (InstSA := InstTerm)) ts ι)
+        recordv_fold R (inst (Inst := inst_nenv (InstSA := @inst_term)) ts ι)
     end.
   #[export] Instance lift_term {σ} : Lift (fun Σ => Term Σ σ) (Val σ) :=
     fun Σ v => term_val σ v.
 
   #[export] Instance inst_sub {Σ} : Inst (Sub Σ) (Valuation Σ) :=
-    inst_env.
+    inst_nenv.
 
   Class InstSubst (T : LCtx -> Type) (A : Type) `{Inst T A, Subst T} : Prop :=
     inst_subst : forall {Σ Σ'} (ζ : Sub Σ Σ') (ι : Valuation Σ') (t : T Σ),
@@ -207,12 +221,38 @@ Module Type InstantiationOn
     intros; apply inst_lift.
   Qed.
 
+  #[export] Instance inst_subst_nenv {N T : Set} {S : LCtx -> T -> Set} {A : T -> Set}
+         {_ : forall τ : T, Inst (fun Σ => S Σ τ) (A τ)}
+         {_ : forall τ : T, Subst (fun Σ => S Σ τ)}
+         {_ : forall τ : T, InstSubst (fun Σ => S Σ τ) (A τ)}
+         {Γ : NCtx N T} :
+    InstSubst (fun Σ => NamedEnv (S Σ) Γ) (NamedEnv A Γ).
+  Proof.
+    intros ? ? ζ ι E.
+    unfold inst, inst_nenv, subst, SubstNamedEnv at 1.
+    rewrite nenv.map_map. apply nenv.map_ext.
+    intros b s; apply inst_subst.
+  Qed.
+
+  #[export] Instance inst_lift_nenv {N T : Set} {S : LCtx -> T -> Set} {A : T -> Set}
+         {_ : forall τ : T, Inst (fun Σ => S Σ τ) (A τ)}
+         {_ : forall τ : T, Lift (fun Σ => S Σ τ) (A τ)}
+         {_ : forall τ : T, InstLift (fun Σ => S Σ τ) (A τ)}
+         {Γ : NCtx N T} :
+    InstLift (fun Σ => NamedEnv (S Σ) Γ) (NamedEnv A Γ).
+  Proof.
+    intros ? ι E.
+    unfold inst, inst_nenv, lift, lift_nenv.
+    rewrite nenv.map_map. apply nenv.map_id_eq.
+    intros; apply inst_lift.
+  Qed.
+
   #[export] Instance inst_subst_term {σ} : InstSubst (fun Σ => Term Σ σ) (Val σ).
   Proof.
     unfold InstSubst.
     induction t; cbn; try (repeat f_equal; auto; fail).
-    - unfold inst, inst_sub, inst_env.
-      now rewrite env.lookup_map.
+    - unfold inst, inst_sub, inst_nenv.
+      now rewrite nenv.lookup_map.
     - f_equal. induction IH; cbn; now f_equal.
     - f_equal. induction IH; cbn; now f_equal.
   Qed.
@@ -231,85 +271,93 @@ Module Type InstantiationOn
   Qed.
 
   #[export] Instance inst_subst_sub {Σ} : InstSubst (Sub Σ) (Valuation Σ).
-  Proof. apply inst_subst_env. Qed.
+  Proof. apply inst_subst_nenv. Qed.
 
   #[export] Instance inst_lift_sub {Σ} : InstLift (Sub Σ) (Valuation Σ).
-  Proof. apply inst_lift_env. Qed.
+  Proof. apply inst_lift_nenv. Qed.
 
   Lemma inst_sub_wk1 {Σ b v} (ι : Valuation Σ) :
     inst sub_wk1 (ι ► (b ↦ v)) = ι.
   Proof.
-    apply env.lookup_extensional. intros [x σ] ?.
-    unfold inst, inst_sub, inst_env, sub_wk1.
-    now rewrite env.map_tabulate, env.lookup_tabulate.
+    apply nenv.lookup_extensional. intros [x σ] ?.
+    unfold inst, inst_sub, inst_nenv, sub_wk1.
+    now rewrite nenv.map_tabulate, nenv.lookup_tabulate.
   Qed.
 
   Lemma inst_sub_id {Σ} (ι : Valuation Σ) :
     inst (sub_id Σ) ι = ι.
   Proof.
-    apply env.lookup_extensional. intros [x τ] ?.
-    unfold inst, inst_sub, inst_env, sub_id.
-    now rewrite env.map_tabulate, env.lookup_tabulate.
+    apply nenv.lookup_extensional. intros [x τ] ?.
+    unfold inst, inst_sub, inst_nenv, sub_id.
+    now rewrite nenv.map_tabulate, nenv.lookup_tabulate.
   Qed.
 
   Lemma inst_sub_snoc {Σ0 Σ1} (ι : Valuation Σ1) (ζ : Sub Σ0 Σ1) b (t : Term Σ1 (type b)) :
-    inst (sub_snoc ζ b t) ι = env.snoc (inst ζ ι) b (inst t ι).
+    inst (sub_snoc ζ b t) ι = nenv.snoc (inst ζ ι) b (inst t ι).
   Proof. reflexivity. Qed.
 
   Lemma inst_env_cat {T : Set} {AT : LCtx -> T -> Set} {A : T -> Set}
      {instAT : forall τ : T, Inst (fun Σ : LCtx => AT Σ τ) (A τ)}
      {Σ : LCtx} {Γ Δ : Ctx T} (EΓ : Env (fun τ => AT Σ τ) Γ) (EΔ : Env (fun τ => AT Σ τ) Δ)
      (ι : Valuation Σ) :
-    inst (EΓ ►► EΔ) ι = inst EΓ ι ►► inst EΔ ι.
+    inst (EΓ ►► EΔ)%env ι = (inst EΓ ι ►► inst EΔ ι)%env.
   Proof.
     unfold inst, inst_env; cbn.
     now rewrite env.map_cat.
   Qed.
 
+  Lemma inst_nenv_cat {N T : Set} {AT : LCtx -> T -> Set} {A : T -> Set}
+     {instAT : forall τ : T, Inst (fun Σ : LCtx => AT Σ τ) (A τ)}
+     {Σ : LCtx} {Γ Δ : NCtx N T} (EΓ : NamedEnv (AT Σ) Γ) (EΔ : NamedEnv (AT Σ) Δ)
+     (ι : Valuation Σ) :
+    inst (EΓ ►► EΔ) ι = inst EΓ ι ►► inst EΔ ι.
+  Proof.
+    unfold inst, inst_nenv; cbn.
+    now rewrite nenv.map_cat.
+  Qed.
+
   Lemma inst_sub_cat {Σ Γ Δ : LCtx} (ζΓ : Sub Γ Σ) (ζΔ : Sub Δ Σ) (ι : Valuation Σ) :
     inst (A := Valuation _) (ζΓ ►► ζΔ) ι = inst ζΓ ι ►► inst ζΔ ι.
-  Proof.
-    apply (@inst_env_cat (LVar ∷ Ty) (fun Σ b => Term Σ (type b))).
-  Qed.
+  Proof. apply inst_nenv_cat. Qed.
 
   Lemma inst_sub_cat_left {Σ Δ : LCtx} (ι : Valuation Δ) (ιΔ : Valuation Σ) :
     inst (sub_cat_left Δ) (ιΔ ►► ι) = ιΔ.
   Proof.
-    eapply env.lookup_extensional.
+    eapply nenv.lookup_extensional.
     intros b bInΔ.
-    unfold inst, inst_sub, inst_env, sub_cat_left.
-    rewrite ?env.lookup_map, env.lookup_tabulate. cbn.
-    now rewrite env.lookup_cat_left.
+    unfold inst, inst_sub, inst_nenv, sub_cat_left.
+    rewrite ?nenv.lookup_map, nenv.lookup_tabulate. cbn.
+    now rewrite nenv.lookup_cat_left.
   Qed.
 
   Lemma inst_sub_cat_left_drop {Σ Δ : LCtx} (ι : Valuation (Σ ▻▻ Δ)) :
-    inst (sub_cat_left Δ) ι = env.drop Δ ι.
+    inst (sub_cat_left Δ) ι = nenv.drop Δ ι.
   Proof.
-    eapply env.lookup_extensional.
+    eapply nenv.lookup_extensional.
     intros b bInΔ.
-    unfold inst, inst_sub, inst_env, sub_cat_left.
-    rewrite ?env.lookup_map, env.lookup_tabulate. cbn.
-    now rewrite env.lookup_drop.
+    unfold inst, inst_sub, inst_nenv, sub_cat_left.
+    rewrite ?nenv.lookup_map, nenv.lookup_tabulate. cbn.
+    now rewrite nenv.lookup_drop.
   Qed.
 
   Lemma inst_sub_cat_right {Σ Δ : LCtx} (ι : Valuation Δ) (ιΔ : Valuation Σ) :
     inst (sub_cat_right Δ) (ιΔ ►► ι) = ι.
   Proof.
-    eapply env.lookup_extensional.
+    eapply nenv.lookup_extensional.
     intros b bInΔ.
-    unfold inst, inst_sub, inst_env, sub_cat_right.
-    rewrite ?env.lookup_map, env.lookup_tabulate. cbn.
-    now rewrite env.lookup_cat_right.
+    unfold inst, inst_sub, inst_nenv, sub_cat_right.
+    rewrite ?nenv.lookup_map, nenv.lookup_tabulate. cbn.
+    now rewrite nenv.lookup_cat_right.
   Qed.
 
   Lemma inst_sub_cat_right_take {Σ Δ : LCtx} (ι : Valuation (Σ ▻▻ Δ)) :
-    inst (sub_cat_right Δ) ι = env.take Δ ι.
+    inst (sub_cat_right Δ) ι = nenv.take Δ ι.
   Proof.
-    eapply env.lookup_extensional.
+    eapply nenv.lookup_extensional.
     intros b bInΔ.
-    unfold inst, inst_sub, inst_env, sub_cat_right.
-    rewrite ?env.lookup_map, env.lookup_tabulate. cbn.
-    now rewrite env.lookup_take_lt.
+    unfold inst, inst_sub, inst_nenv, sub_cat_right.
+    rewrite ?nenv.lookup_map, nenv.lookup_tabulate. cbn.
+    now rewrite nenv.lookup_take_lt.
   Qed.
 
   Lemma inst_sub_up1 {Σ1 Σ2 b} (ζ12 : Sub Σ1 Σ2) (ι2 : Valuation Σ2) (v : Val (type b)) :
@@ -327,62 +375,62 @@ Module Type InstantiationOn
   Qed.
 
   Lemma inst_sub_shift {Σ} (ι : Valuation Σ) {b} (bIn : b ∈ Σ) :
-    inst (sub_shift bIn) ι = env.remove b ι bIn.
+    inst (sub_shift bIn) ι = nenv.remove b ι bIn.
   Proof.
-    rewrite env.remove_remove'.
-    apply env.lookup_extensional. intros [y τ] yIn.
-    unfold env.remove', sub_shift, inst, inst_sub, inst_env.
-    now rewrite env.lookup_map, ?env.lookup_tabulate.
+    rewrite nenv.remove_remove'.
+    apply nenv.lookup_extensional. intros [y τ] yIn.
+    unfold nenv.remove', sub_shift, inst, inst_sub, inst_nenv.
+    now rewrite nenv.lookup_map, ?nenv.lookup_tabulate.
   Qed.
 
   Lemma inst_sub_single_shift {Σ} (ι : Valuation Σ) {x σ} (xIn : x∷σ ∈ Σ) (t : Term (Σ - x∷σ) σ) :
-    inst t (inst (sub_shift xIn) ι) = env.lookup ι xIn ->
+    inst t (inst (sub_shift xIn) ι) = nenv.lookup ι xIn ->
     inst (sub_single xIn t) (inst (sub_shift xIn) ι) = ι.
   Proof.
-    rewrite inst_sub_shift, env.remove_remove'. intros HYP.
-    apply env.lookup_extensional. intros y yIn.
-    unfold inst, inst_sub, inst_env, sub_single; cbn.
-    rewrite env.lookup_map, env.lookup_tabulate.
+    rewrite inst_sub_shift, nenv.remove_remove'. intros HYP.
+    apply nenv.lookup_extensional. intros y yIn.
+    unfold inst, inst_sub, inst_nenv, sub_single; cbn.
+    rewrite nenv.lookup_map, nenv.lookup_tabulate.
     destruct (ctx.occurs_check_view); [easy|cbn].
-    unfold env.remove'. now rewrite env.lookup_tabulate.
+    unfold nenv.remove'. now rewrite nenv.lookup_tabulate.
   Qed.
 
   Lemma inst_remove {Σ1 Σ2 : LCtx} (ι : Valuation Σ2) (E : Sub Σ1 Σ2) {b} (bIn : b ∈ Σ1) :
-    inst (env.remove b E bIn) ι = env.remove b (inst E ι) bIn.
+    inst (nenv.remove b E bIn) ι = nenv.remove b (inst E ι) bIn.
   Proof.
-    unfold inst, inst_sub, inst_env, Sub in *.
-    now apply env.remove_map.
+    unfold inst, inst_sub, inst_nenv, Sub in *.
+    now apply nenv.remove_map.
   Qed.
 
   Lemma sub_single_zero {Σ : LCtx} {x : LVar∷Ty} (t : Term Σ (type x)) :
-    (sub_single ctx.in_zero t) = env.snoc (sub_id Σ) x t.
+    (sub_single ctx.in_zero t) = nenv.snoc (sub_id Σ) x t.
   Proof.
-    eapply env.lookup_extensional.
+    eapply nenv.lookup_extensional.
     intros [x' σ'] ([|n] & eq); cbn in *.
     - now subst.
-    - rewrite env.lookup_tabulate; cbn.
+    - rewrite nenv.lookup_tabulate; cbn.
       now rewrite lookup_sub_id.
   Qed.
 
   Lemma inst_sub_single2 {Σ : LCtx} {x σ} (xIn : x∷σ ∈ Σ)
         (t : Term (Σ - x∷σ) σ) (ι : Valuation (Σ - x∷σ)) :
-    inst (sub_single xIn t) ι = env.insert xIn ι (inst t ι).
+    inst (sub_single xIn t) ι = nenv.insert xIn ι (inst t ι).
   Proof.
-    rewrite env.insert_insert_eq'.
-    apply env.lookup_extensional. intros y yIn.
-    unfold env.insert', sub_single; cbn.
-    unfold inst at 1, inst_sub, inst_env.
-    rewrite env.lookup_map, ?env.lookup_tabulate.
+    rewrite nenv.insert_insert_eq'.
+    apply nenv.lookup_extensional. intros y yIn.
+    unfold nenv.insert', sub_single; cbn.
+    unfold inst at 1, inst_sub, inst_nenv.
+    rewrite nenv.lookup_map, ?nenv.lookup_tabulate.
     now destruct (ctx.occurs_check_view xIn yIn).
   Qed.
 
   Lemma inst_lookup {Σ0 Σ1} (ι : Valuation Σ1) (ζ : Sub Σ0 Σ1) x τ (xIn : x∷τ ∈ Σ0) :
-    inst (env.lookup ζ xIn) ι = env.lookup (inst (A := Valuation Σ0) ζ ι) xIn.
-  Proof. unfold inst, inst_sub, inst_env. now rewrite env.lookup_map. Qed.
+    inst (nenv.lookup ζ xIn) ι = nenv.lookup (inst (A := Valuation Σ0) ζ ι) xIn.
+  Proof. unfold inst, inst_sub, inst_nenv. now rewrite nenv.lookup_map. Qed.
 
   Lemma inst_sub_single_shift_2 {Σ} (ι : Valuation Σ) {x σ} (xIn : x∷σ ∈ Σ) (t : Term (Σ - x∷σ) σ) :
     inst (sub_single xIn t) (inst (sub_shift xIn) ι) = ι ->
-    inst t (inst (sub_shift xIn) ι) = env.lookup ι xIn.
+    inst t (inst (sub_shift xIn) ι) = nenv.lookup ι xIn.
   Proof.
     intros <-.
     rewrite <-inst_lookup.
@@ -429,11 +477,11 @@ Module Type InstantiationOn
   Proof. intros ? ? []; cbn; f_equal; apply inst_lift. Qed.
 
   #[export] Instance inst_store {Γ} : Inst (SStore Γ) (CStore Γ) :=
-    inst_env.
+    inst_nenv.
   #[export] Instance inst_subst_store {Γ} : InstSubst (SStore Γ) (CStore Γ).
-  Proof. apply inst_subst_env. Qed.
+  Proof. apply inst_subst_nenv. Qed.
   #[export] Instance inst_lift_store {Γ} : InstLift (SStore Γ) (CStore Γ).
-  Proof. apply inst_lift_env. Qed.
+  Proof. apply inst_lift_nenv. Qed.
 
   Section SemanticEquivalence.
 
@@ -482,7 +530,7 @@ Module Type InstantiationOn
         (@env.snoc _ (Term Σ) σs).
     #[export,program] Instance proper_namedenv_snoc {N Σ} {Δ : NCtx N Ty} :
       Proper ((≡) ==> forall_relation (fun b : N∷Ty => (≡) ==> (≡)))
-        (@env.snoc _ (fun b => Term Σ (type b)) Δ).
+        (@nenv.snoc _ _ (Term Σ) Δ).
 
     Lemma term_orb_false_l [Σ] (b : Term Σ ty.bool) :
       term_binop bop.or (term_val ty.bool false) b ≡ b.
@@ -788,7 +836,7 @@ Module Type InstantiationOn
     | term_val _ v     => (* We inlined lift here, so that user solvers that use
                              this operation are spared with a inst_lift rewrite
                              when pattern matching on symbolic records. *)
-                          Some (env.map (fun _ v => term_val _ v) (recordv_unfold R v))
+                          Some (nenv.map (fun _ v => term_val _ v) (recordv_unfold R v))
     | term_record R ts => Some ts
     | _                => None.
 
@@ -797,7 +845,7 @@ Module Type InstantiationOn
         (fun ts =>
            forall ι : Valuation Σ,
              inst (T := fun Σ => Term Σ (ty.record R)) (A := recordt R) s ι =
-             recordv_fold R (inst (T := fun Σ => NamedEnv (fun τ => Term Σ τ) (recordf_ty R)) (A := NamedEnv Val (recordf_ty R)) ts ι))
+             recordv_fold R (inst (T := fun Σ => NamedEnv (Term Σ) (recordf_ty R)) (A := NamedEnv Val (recordf_ty R)) ts ι))
         (term_get_record s).
     Proof.
       dependent elimination s; try constructor; auto. intros ι. cbn.

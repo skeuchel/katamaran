@@ -305,24 +305,24 @@ Module Type RiscvPmpIrisInstance2
 
     Equations(noeqns) luser_inst2 `{sailRegGS2 Σ, invGS Σ, mG : memGS2 Σ}
       (p : Predicate) (ts : Env Val (𝑯_Ty p)) : iProp Σ :=
-    | pmp_entries              | [ v ]                => interp_pmp_entries v
-    | pmp_addr_access          | [ entries; m ]       => interp_pmp_addr_access liveAddrs mmioAddrs entries m
-    | pmp_addr_access_without bytes | [ addr; entries; m ] => interp_pmp_addr_access_without liveAddrs mmioAddrs addr bytes entries m
+    | pmp_entries              | [env v]              => interp_pmp_entries v
+    | pmp_addr_access          | [env entries; m]     => interp_pmp_addr_access liveAddrs mmioAddrs entries m
+    | pmp_addr_access_without bytes | [env addr; entries; m] => interp_pmp_addr_access_without liveAddrs mmioAddrs addr bytes entries m
     | gprs                     | _                    => interp_gprs ∅
-    | ptsto                    | [ addr; w ]          => interp_ptsto addr w
-    | ptsto_one k              | [ addr; w ]          => interp_ptsto_one k addr w
-    | ptstomem_readonly _      | [ addr; w ]          => interp_ptstomem_readonly addr w
+    | ptsto                    | [env addr; w]        => interp_ptsto addr w
+    | ptsto_one k              | [env addr; w]        => interp_ptsto_one k addr w
+    | ptstomem_readonly _      | [env addr; w]        => interp_ptstomem_readonly addr w
     | inv_mmio bytes           | _                    => interp_inv_mmio (mG := mG) bytes
-    | mmio_checked_write _     | [ addr; w ]          => interp_mmio_checked_write addr w
-    | encodes_instr            | [ code; instr ]      => ⌜ pure_decode code = instr ⌝%I
-    | ptstomem _               | [ addr; bs]          => interp_ptstomem addr bs
-    | ptstoinstr               | [ addr; instr ]      => interp_ptsto_instr addr instr
+    | mmio_checked_write _     | [env addr; w]        => interp_mmio_checked_write addr w
+    | encodes_instr            | [env code; instr]    => ⌜ pure_decode code = instr ⌝%I
+    | ptstomem _               | [env addr; bs]       => interp_ptstomem addr bs
+    | ptstoinstr               | [env addr; instr]    => interp_ptsto_instr addr instr
     (* The binary versions of the pending-write predicates own the ghost state
        of both executions, so that they can be split into the unary versions. *)
     | Sig.nothingPending       | _                    => nothingPending2
-    | Sig.written width        | [ addr; val ]        => written2 (mkEvent IOWrite addr width val)
-    | Sig.written_shutdown width | [ addr; val ]      => written2 (mkEvent IOShutdown addr width val)
-    | Sig.powered              | [ b ]                => powered2 b.
+    | Sig.written width        | [env addr; val]      => written2 (mkEvent IOWrite addr width val)
+    | Sig.written_shutdown width | [env addr; val]    => written2 (mkEvent IOShutdown addr width val)
+    | Sig.powered              | [env b]              => powered2 b.
 
     Ltac destruct_pmp_entries :=
       repeat match goal with
@@ -496,7 +496,7 @@ Module Type RiscvPmpIrisInstance2
   Qed.
 
   Definition WP2_loop `{sailGS2 Σ} (R : iProp Σ) : iProp Σ :=
-    semWP2 env.nil env.nil (FunDef loop) (FunDef loop) (λ v1 δ1 v2 δ2, ⌜v1 = v2⌝ ∗ ⌜δ1 = δ2⌝ ∗ R)%I.
+    semWP2 nenv.nil nenv.nil (FunDef loop) (FunDef loop) (λ v1 δ1 v2 δ2, ⌜v1 = v2⌝ ∗ ⌜δ1 = δ2⌝ ∗ R)%I.
 
   #[export] Instance sailGS2_to_memGS2 `{sG : sailGS2 Σ} : memGS2 Σ :=
     sailGS2_memGS.
@@ -543,13 +543,13 @@ Module Type RiscvPmpIrisInstance2
       iDestruct (RVPBASEr.powered_on_agree (sg := sailGS2_sailGS_right) with "[Hmem] [Hp]") as "(%Hb & Hmem & Hp)";
         [iExact "Hmem" | iExact "Hp" |].
       iSpecialize ("H" with "Hp").
-      iSpecialize ("H" $! _ (env.snoc (env.nil : CStore [ctx]) ("on"∷ty.bool) true) γ21 μ21 with "[$Hregs $Hmem]").
+      iSpecialize ("H" $! _ (nenv.snoc (nenv.nil : CStore [ctx]) ("on"∷ty.bool) true) γ21 μ21 with "[$Hregs $Hmem]").
       iApply (RVPBASEl.semWP_mono with "H").
       iIntros (v1 δ1') "(%γ22 & %μ22 & %δ2' & %s2' & %v2 & %Hsteps & %Hval & Hregs & Hmem & HQ)".
       iExists γ22, μ22, [env], (of_ival v2), v2. iFrame "Hregs Hmem HQ".
       iPureIntro. split; last apply stm_to_val_of_ival.
       rewrite (stm_to_val_eq Hval) in Hsteps.
-      destruct (env.view δ2') as [δ2'' von]. destruct (env.view δ2'').
+      destruct (nenv.view δ2') as [δ2'' von]. destruct (nenv.view δ2'').
       cbn [FunDef]. unfold fun_loop.
       (* let: the power check *)
       eapply step_trans. constructor.
@@ -558,16 +558,16 @@ Module Type RiscvPmpIrisInstance2
       eapply step_trans. constructor.
       (* the branch on the power status, inside the block of the let *)
       eapply Steps_trans.
-      { eapply (Steps_block (δΔ2 := (env.snoc (env.nil : CStore [ctx]) ("on"∷ty.bool) von))). cbn.
+      { eapply (Steps_block (δΔ2 := (nenv.snoc (nenv.nil : CStore [ctx]) ("on"∷ty.bool) von))). cbn.
         eapply step_trans. constructor.
         eapply step_trans. constructor. constructor.
         eapply step_trans. constructor. cbn.
-        eapply (Steps_block (δ1 := (env.snoc (env.nil : CStore [ctx]) ("on"∷ty.bool) true)) (δΔ1 := [env])
-                            (δ2 := (env.snoc (env.nil : CStore [ctx]) ("on"∷ty.bool) von)) (δΔ2 := [env])).
+        eapply (Steps_block (δ1 := (nenv.snoc (nenv.nil : CStore [ctx]) ("on"∷ty.bool) true)) (δΔ1 := [env])
+                            (δ2 := (nenv.snoc (nenv.nil : CStore [ctx]) ("on"∷ty.bool) von)) (δΔ2 := [env])).
         exact Hsteps. }
       (* leaving both blocks *)
       destruct v2; cbn [of_ival]; (eapply Steps_trans;
-        [ eapply (Steps_block (δ2 := [env]) (δΔ2 := (env.snoc (env.nil : CStore [ctx]) ("on"∷ty.bool) von)));
+        [ eapply (Steps_block (δ2 := [env]) (δΔ2 := (nenv.snoc (nenv.nil : CStore [ctx]) ("on"∷ty.bool) von)));
           eapply step_trans; [apply (st_block_value (Γ := ["on"∷ty.bool])) || apply (st_block_fail (Γ := ["on"∷ty.bool])) | apply step_refl]
         | eapply step_trans; [apply (st_block_value (Γ := [ctx])) || apply (st_block_fail (Γ := [ctx])) | apply step_refl] ]).
     Qed.
@@ -609,7 +609,7 @@ Module Type RiscvPmpIrisInstance2
         cbn. rewrite Hb.
         eapply step_trans. constructor.
         eapply Steps_trans.
-        { eapply (Steps_block (δΔ2 := (env.snoc (env.nil : CStore [ctx]) ("on"∷ty.bool) false))). cbn.
+        { eapply (Steps_block (δΔ2 := (nenv.snoc (nenv.nil : CStore [ctx]) ("on"∷ty.bool) false))). cbn.
           eapply step_trans. constructor.
           eapply step_trans. constructor. constructor.
           eapply step_trans. constructor. cbn.

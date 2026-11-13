@@ -1236,10 +1236,10 @@ Module Type PartialEvaluationOn (Import B : Base).
     Import option.notations.
     Fixpoint peval_record' {rfs : NCtx recordf Ty} (ts : NamedEnv (Term Σ) rfs) {struct ts} : option (NamedEnv Val rfs) :=
       match ts with
-      | env.nil         => Some [env]
-      | env.snoc ts _ t => vs <- peval_record' ts ;;
+      | nenv.nil         => Some [env]
+      | nenv.snoc ts _ t => vs <- peval_record' ts ;;
                            v  <- term_get_val t ;;
-                           Some (env.snoc vs _ v)
+                           Some (nenv.snoc vs _ v)
       end.
 
     Definition peval_record R (ts : NamedEnv (Term Σ) (recordf_ty R)) : Term Σ (ty.record R) :=
@@ -1533,7 +1533,7 @@ Module Type PartialEvaluationOn (Import B : Base).
       | term_unop op t             => peval2_unop op (peval2 t)
       | term_tuple ts              => term_tuple (env.map (fun b t => CanonTerm_to_Term (peval2 t)) ts)
       | term_union U K t           => peval_union (CanonTerm_to_Term (peval2 t))
-      | term_record R ts           => peval_record R (env.map (fun b t => CanonTerm_to_Term (peval2 t)) ts)
+      | term_record R ts           => peval_record R (nenv.map (fun b t => CanonTerm_to_Term (peval2 t)) ts)
       end.
 
     Lemma peval2_sound [σ] (t : Term Σ σ) :

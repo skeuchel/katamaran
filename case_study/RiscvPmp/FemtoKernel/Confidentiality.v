@@ -1157,7 +1157,7 @@ Section RelationalVerification.
     - iIntros "(Hmem & Hregs)".
       iMod (femtokernel_splitMemory_rel μfk1 μfk2 μft1 μft2 μobs μon1 μon2 μadv with "Hmem")
         as "(Hinit & Hhandler & Hdata & #Hmmio & Hnp & Hpow & Hadv)".
-      destruct (env.view δ1), (env.view δ2).
+      destruct (nenv.view δ1), (nenv.view δ2).
       iPoseProof (femtokernel_init_safe_rel (femto_init_archstate γ1)
                    (read_register γ1 mie)
                    with "[-]") as "H".

@@ -381,7 +381,7 @@ Section Contracts.
           MkSepContract
             Δ τ
             (sep_contract_pun_logvars Δ Σ)
-            (env.tabulate (fun '(x∷σ) xIn =>
+            (nenv.tabulate (D := Term _) (fun '(x∷σ) xIn =>
                              @term_var
                                (sep_contract_pun_logvars Δ Σ)
                                (PVartoLVar x)
@@ -409,7 +409,7 @@ Section Contracts.
 
     Definition interpret_contract_postcondition {Δ τ} (c : SepContract Δ τ)
       (ι : Valuation (sep_contract_logic_variables c)) (result : Val τ) : PROP :=
-        interpret (sep_contract_postcondition c) (env.snoc ι (sep_contract_result c ∷ τ) result).
+        interpret (sep_contract_postcondition c) (nenv.snoc ι (sep_contract_result c ∷ τ) result).
 
   End ContractInt.
 

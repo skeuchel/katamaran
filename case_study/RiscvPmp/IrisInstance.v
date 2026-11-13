@@ -392,22 +392,22 @@ Module Type RiscvPmpIrisInstance (LOR : LeftOrRight)
 
     Equations(noeqns) luser_inst {rG : trivGS Σ}
       (p : Predicate) (ts : Env Val (𝑯_Ty p)) : iProp Σ :=
-    | pmp_entries              | [ v ]                => interp_pmp_entries v
-    | pmp_addr_access          | [ entries; m ]       => interp_pmp_addr_access liveAddrs mmioAddrs entries m
-    | pmp_addr_access_without bytes | [ addr; entries; m ] => interp_pmp_addr_access_without liveAddrs mmioAddrs addr bytes entries m
+    | pmp_entries              | [env v]              => interp_pmp_entries v
+    | pmp_addr_access          | [env entries; m]     => interp_pmp_addr_access liveAddrs mmioAddrs entries m
+    | pmp_addr_access_without bytes | [env addr; entries; m] => interp_pmp_addr_access_without liveAddrs mmioAddrs addr bytes entries m
     | gprs                     | _                    => interp_gprs ∅ (* For the Universal Contract verification we always need all GPRs, hence the empty exclude list *)
-    | ptsto                    | [ addr; w ]          => interp_ptsto addr w
-    | ptsto_one _              | [ addr; w ]          => False (* Unary instance has no support for different execution predicates *)
-    | ptstomem_readonly _      | [ addr; w ]          => interp_ptstomem_readonly addr w
+    | ptsto                    | [env addr; w]        => interp_ptsto addr w
+    | ptsto_one _              | [env addr; w]        => False (* Unary instance has no support for different execution predicates *)
+    | ptstomem_readonly _      | [env addr; w]        => interp_ptstomem_readonly addr w
     | inv_mmio bytes           | _                    => @interp_inv_mmio _ mG2  _ bytes
-    | mmio_checked_write _     | [ addr; w ]          => interp_mmio_checked_write addr w
-    | encodes_instr            | [ code; instr ]      => ⌜ pure_decode code = instr ⌝%I
-    | ptstomem _               | [ addr; bs]          => interp_ptstomem addr bs
-    | ptstoinstr               | [ addr; instr ]      => interp_ptsto_instr addr instr
+    | mmio_checked_write _     | [env addr; w]        => interp_mmio_checked_write addr w
+    | encodes_instr            | [env code; instr]    => ⌜ pure_decode code = instr ⌝%I
+    | ptstomem _               | [env addr; bs]       => interp_ptstomem addr bs
+    | ptstoinstr               | [env addr; instr]    => interp_ptsto_instr addr instr
     | Sig.nothingPending           | _                => nothingPending
-    | Sig.written width        | [ addr; val ]        => written (mkEvent IOWrite addr width val)
-    | Sig.written_shutdown width | [ addr; val ]      => written (mkEvent IOShutdown addr width val)
-    | Sig.powered              | [ b ]                => powered b
+    | Sig.written width        | [env addr; val]      => written (mkEvent IOWrite addr width val)
+    | Sig.written_shutdown width | [env addr; val]    => written (mkEvent IOShutdown addr width val)
+    | Sig.powered              | [env b]              => powered b
     .
 
     Ltac destruct_pmp_entries :=

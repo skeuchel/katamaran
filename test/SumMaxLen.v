@@ -467,7 +467,7 @@ Module Import ExampleModel.
               (* We could make it more general and allow arbitrary expressions
               as the arguments instead of values. But this is just form
               demonstration purposes. *)
-              ⟨ γ, μ, δ, stm_call f (env.map (fun _ => exp_val _) (inst args ι)) ⟩
+              ⟨ γ, μ, δ, stm_call f (nenv.map (fun _ => exp_val _) (inst args ι)) ⟩
                 --->*
               ⟨ γ', μ', δ', stm_val σ v ⟩  ->
               asn.interpret_pure post ι.[result∷σ ↦ v]
@@ -495,7 +495,7 @@ Module Import ExampleModel.
         iIntros "_".
         iExists ι.
         unfold DefaultBase.evals.
-        rewrite env.map_map env.map_id.
+        rewrite nenv.map_map nenv.map_id.
         rewrite interpret_assertion_pure_or_not; auto.
         iSplit; [trivial|].
         iSplitL; [trivial|].
@@ -512,7 +512,7 @@ Module Import ExampleModel.
         (s ≤ m * l)%Z /\ (0 ≤ l)%Z.
     Proof.
       intros xs s m l Hsteps.
-      generalize (adequacy_pure summaxlen I I Γ δ δ γ γ' μ μ' (env.snoc env.nil _ xs) eq_refl _ Hsteps).
+      generalize (adequacy_pure summaxlen I I Γ δ δ γ γ' μ μ' (nenv.snoc nenv.nil _ xs) eq_refl _ Hsteps).
       cbn. intuition.
     Qed.
 

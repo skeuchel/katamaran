@@ -73,10 +73,7 @@ Module Type BaseMixin (Import TY : Types).
   Abbreviation LCtx := (NCtx LVar Ty).
   Abbreviation Val := (@ty.Val typedeclkit typedenotekit).
 
-  Abbreviation Valuation Σ :=
-    (@Env (Binding LVar Ty)
-       (fun xt : Binding LVar Ty =>
-          Val (@type _ _ xt)) Σ).
+  Abbreviation Valuation Σ := (@NamedEnv LVar Ty Val Σ).
 
   Abbreviation CStore := (@NamedEnv PVar Ty Val).
 
@@ -106,7 +103,7 @@ Module Type BaseMixin (Import TY : Types).
       unfold inst at 1; cbn.
       induction p; cbn.
       - reflexivity.
-      - destruct (env.view ts); cbn.
+      - destruct (nenv.view ts); cbn.
         f_equal. apply IHp.
     Qed.
 
@@ -118,7 +115,7 @@ Module Type BaseMixin (Import TY : Types).
       unfold inst at 1; cbn.
       induction p; cbn.
       - reflexivity.
-      - destruct (env.view ts); cbn.
+      - destruct (nenv.view ts); cbn.
         f_equal. apply IHp.
     Qed.
 
@@ -130,7 +127,7 @@ Module Type BaseMixin (Import TY : Types).
       unfold inst at 1; cbn.
       induction p; cbn.
       - reflexivity.
-      - destruct (env.view ts); cbn.
+      - destruct (nenv.view ts); cbn.
         f_equal. apply IHp.
     Qed.
 
@@ -138,7 +135,7 @@ Module Type BaseMixin (Import TY : Types).
       forall (pc : PatternCase pat), NamedEnv (Term Σ) (PatternCaseCtx pc) -> Term Σ σ :=
       match pat with
       | pat_var x =>
-          fun _ ts => env.head ts
+          fun _ ts => nenv.head ts
       | pat_bool =>
           fun b _ => term_val ty.bool b
       | pat_list σ x y =>
@@ -146,20 +143,20 @@ Module Type BaseMixin (Import TY : Types).
             match b with
             | true => fun _ => term_val (ty.list σ) nil
             | false => fun Eht =>
-                         let (Eh,t) := env.view Eht in
-                         let (E,h)  := env.view Eh in
+                         let (Eh,t) := nenv.view Eht in
+                         let (E,h)  := nenv.view Eh in
                          term_binop bop.cons h t
             end
       | pat_pair x y =>
           fun _ Exy =>
-            let (Ex,vτ) := env.view Exy in
-            let (E,vσ)  := env.view Ex in
+            let (Ex,vτ) := nenv.view Exy in
+            let (E,vσ)  := nenv.view Ex in
             term_binop bop.pair vσ vτ
       | pat_sum σ0 τ x y =>
           fun b =>
             match b with
-            | true => fun ts => term_unop uop.inl (env.head ts)
-            | false => fun ts => term_unop uop.inr (env.head ts)
+            | true => fun ts => term_unop uop.inl (nenv.head ts)
+            | false => fun ts => term_unop uop.inr (nenv.head ts)
             end
       | pat_unit =>
           fun pc _ => term_val ty.unit pc
@@ -167,8 +164,8 @@ Module Type BaseMixin (Import TY : Types).
           fun v _ => term_val (ty.enum E) v
       | pat_bvec_split m n x y =>
           fun _ Exy =>
-            let (Ex,vr) := env.view Exy in
-            let (E,vl)  := env.view Ex in
+            let (Ex,vr) := nenv.view Exy in
+            let (E,vl)  := nenv.view Ex in
             term_binop bop.bvapp vl vr
       | pat_bvec_exhaustive m =>
           fun v _ => term_val (ty.bvec m) v
@@ -236,15 +233,15 @@ Module Type BaseMixin (Import TY : Types).
       | exp_bvec es        => term_bvec (Vector.map seval_exp es)
       | exp_tuple es       => term_tuple (env.map (@seval_exp) es)
       | exp_union E K e    => term_union E K (seval_exp e)
-      | exp_record R es    => term_record R (env.map (fun _ => seval_exp) es)
+      | exp_record R es    => term_record R (nenv.map (fun _ => seval_exp) es)
       end%exp.
 
   Lemma eval_exp_inst {Γ Σ τ} (ι : Valuation Σ) (δΓΣ : SStore Γ Σ) (e : Exp Γ τ) :
     eval e (inst δΓΣ ι) = inst (seval_exp δΓΣ e) ι.
   Proof.
     induction e; cbn; repeat f_equal; auto.
-    { unfold inst, inst_store, inst_env at 1; cbn.
-      now rewrite env.lookup_map.
+    { unfold inst, inst_store, inst_nenv at 1; cbn.
+      now rewrite nenv.lookup_map.
     }
     2: {
       induction es as [|eb n es IHes]; cbn in *.

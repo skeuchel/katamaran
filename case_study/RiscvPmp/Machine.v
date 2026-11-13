@@ -397,8 +397,8 @@ Module Import RiscvPmpProgram <: Program RiscvPmpBase.
   Import Bitvector.bv.notations.
   Local Coercion stm_exp : Exp >-> Stm.
 
-  Notation "'use' 'lemma' lem args" := (stm_lemma lem args%env) (at level 10, lem at next level) : exp_scope.
-  Notation "'use' 'lemma' lem" := (stm_lemma lem env.nil) (at level 10, lem at next level) : exp_scope.
+  Notation "'use' 'lemma' lem args" := (stm_lemma lem args%nenv) (at level 10, lem at next level) : exp_scope.
+  Notation "'use' 'lemma' lem" := (stm_lemma lem nenv.nil) (at level 10, lem at next level) : exp_scope.
 
   Definition zero_reg {Γ} : Stm Γ ty_xlenbits := exp_val ty_xlenbits (Bitvector.bv.of_N 0).
 

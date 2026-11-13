@@ -38,16 +38,16 @@ Section WithBi.
 
   Section Forall.
 
-    Context {B : Set} {D : B -> Set}.
+    Context {N T : Set} {D : T -> Set}.
 
-    Fixpoint Forall {Δ : Ctx B} : (Env D Δ -> L) -> L :=
+    Fixpoint Forall {Δ : NCtx N T} : (NamedEnv D Δ -> L) -> L :=
       match Δ with
-      | ctx.nil      => fun P => P env.nil
-      | ctx.snoc Δ b => fun P => Forall (fun E => ∀ v, P (env.snoc E b v))
+      | ctx.nil      => fun P => P nenv.nil
+      | ctx.snoc Δ b => fun P => Forall (fun E => ∀ v, P (nenv.snoc E b v))
       end%I.
 
-    Lemma Forall_forall (Δ : Ctx B) (P : Env D Δ -> L) :
-      (Forall P) ⊣⊢ (∀ E : Env D Δ, P E).
+    Lemma Forall_forall (Δ : NCtx N T) (P : NamedEnv D Δ -> L) :
+      (Forall P) ⊣⊢ (∀ E : NamedEnv D Δ, P E).
     Proof.
       induction Δ; cbn.
       - apply bi.entails_anti_sym.
@@ -55,10 +55,10 @@ Section WithBi.
         + apply bi.forall_elim.
       - rewrite IHΔ. clear IHΔ.
         apply bi.entails_anti_sym; apply bi.forall_intro.
-        + intros E. destruct (env.view E) as [E v].
+        + intros E. destruct (nenv.view E) as [E v].
           now apply (forall_elim' E), (forall_elim' v).
         + intros E. apply bi.forall_intro. intros v.
-          now apply (forall_elim' (env.snoc E _ v)).
+          now apply (forall_elim' (nenv.snoc E _ v)).
     Qed.
 
   End Forall.

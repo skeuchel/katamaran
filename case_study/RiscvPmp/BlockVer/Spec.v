@@ -125,7 +125,7 @@ Module RiscvPmpBlockVerifSpec.
     ctx.map (fun '(x::σ) => x::σ) Δ ▻▻ Σ.
 
   Definition create_localstore (Δ : PCtx) (Σ : LCtx) : SStore Δ (sep_contract_logvars Δ Σ) :=
-    (env.tabulate (fun '(x::σ) xIn =>
+    (nenv.tabulate (D := Term _) (fun '(x::σ) xIn =>
                      @term_var
                        (sep_contract_logvars Δ Σ)
                        x
@@ -1049,18 +1049,18 @@ Module Type RiscvPmpIrisInstanceWithContracts
     (* Contracts written with the contract notations have a logic variable
        context that is only a list after computation. *)
     lazymatch type of ι with
-    | Env ?D ?Σ => let Σ' := eval cbn in Σ in change (Env D Σ') in ι
+    | NamedEnv ?D ?Σ => let Σ' := eval cbn in Σ in change (NamedEnv D Σ') in ι
     | _ => idtac
     end;
     repeat
       match type of ι with
-      | Env _ (ctx.snoc _ (MkB ?s _)) =>
+      | NamedEnv _ (ctx.snoc _ (MkB ?s _)) =>
           string_to_ident_cps s
             ltac:(fun id =>
                     let fr := fresh id in
-                    destruct (env.view ι) as [ι fr];
+                    destruct (nenv.view ι) as [ι fr];
                     destruct_syminstance ι)
-      | Env _ ctx.nil => destruct (env.view ι)
+      | NamedEnv _ ctx.nil => destruct (nenv.view ι)
       | _ => idtac
       end.
 

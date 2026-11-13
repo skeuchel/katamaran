@@ -572,7 +572,6 @@ Local Ltac solve :=
        ] in *;
       repeat
        match goal with
-       | H: NamedEnv _ _ |- _ => unfold NamedEnv in H
        | H: _ /\ _ |- _ => destruct H
        | H: Z.ltb _ _ = true |- _ => apply Z.ltb_lt in H
        | H: Z.ltb _ _ = false |- _ => apply Z.ltb_ge in H
