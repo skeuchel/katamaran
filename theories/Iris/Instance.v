@@ -223,7 +223,7 @@ Section Soundness.
             (R : Val τ -> CStore Γ -> iProp Σ) :
             ⊢ (semTriple δ P s Q -∗
                         (∀ (v : Val σ) (δ' : CStore Γ),
-                            semTriple (env.snoc δ' (x∷σ) v) (Q v δ') k (fun v δ'' => R v (env.tail δ'')) ) -∗
+                            semTriple (nenv.snoc δ' (x∷σ) v) (Q v δ') k (fun v δ'' => R v (nenv.tail δ'')) ) -∗
                         semTriple δ P (let: x := s in k) R).
     Proof.
         iIntros "trips tripk P".
@@ -238,7 +238,7 @@ Section Soundness.
             (Δ : PCtx) (δΔ : CStore Δ)
             (τ : Ty) (k : Stm (Γ ▻▻ Δ) τ)
             (P : iProp Σ) (R : Val τ -> CStore Γ -> iProp Σ) :
-            ⊢ (semTriple (δ ►► δΔ) P k (fun v δ'' => R v (env.drop Δ δ'')) -∗
+            ⊢ (semTriple (δ ►► δΔ) P k (fun v δ'' => R v (nenv.drop Δ δ'')) -∗
                     semTriple δ P (stm_block δΔ k) R).
     Proof.
         iIntros "tripk P". iPoseProof ("tripk" with "P") as "wpk".
@@ -315,7 +315,7 @@ Section Soundness.
     Lemma iris_rule_stm_assign {Γ} (δ : CStore Γ)
             (x : PVar) (σ : Ty) (xIn : x∷σ ∈ Γ) (s : Stm Γ σ)
             (P : iProp Σ) (R : Val σ -> CStore Γ -> iProp Σ) :
-            ⊢ (semTriple δ P s (fun v δ' => R v (@env.update _ _ _ δ' (x∷_) _ v)) -∗
+            ⊢ (semTriple δ P s (fun v δ' => R v (@nenv.update _ _ _ _ δ' (x∷_) _ v)) -∗
             semTriple δ P (stm_assign x s) R).
     Proof.
         iIntros "trips P".
@@ -397,7 +397,7 @@ Section Soundness.
         ⊢ semTriple δΓ P s Q -∗
         (∀ pc δpc δΓ1,
             semTriple (δΓ1 ►► δpc) (Q (pattern_match_val_reverse pat pc δpc) δΓ1) (rhs pc)
-            (λ vτ (δ' : CStore (Γ ▻▻ PatternCaseCtx pc)), R vτ (env.drop (PatternCaseCtx pc) δ'))) -∗
+            (λ vτ (δ' : CStore (Γ ▻▻ PatternCaseCtx pc)), R vτ (nenv.drop (PatternCaseCtx pc) δ'))) -∗
         semTriple δΓ P (stm_pattern_match s pat rhs) R.
     Proof.
         iIntros "WPs WPrhs P".
@@ -418,7 +418,7 @@ Section Soundness.
         | MkSepContract _ _ ctxΣ θΔ pre result post =>
         Sep.Logic.Forall (fun (ι : Valuation ctxΣ) =>
             semTriple (inst θΔ ι) (asn.interpret pre ι) body
-                    (fun v δ' => asn.interpret post (env.snoc ι (result∷σ) v)))
+                    (fun v δ' => asn.interpret post (nenv.snoc ι (result∷σ) v)))
         end.
 
     (* Uses projections rather than a match, so that using it for a concrete
@@ -428,7 +428,7 @@ Section Soundness.
             semTriple (inst (sep_contract_localstore contract) ι)
                     (asn.interpret (sep_contract_precondition contract) ι) body
                     (fun v δ' => asn.interpret (sep_contract_postcondition contract)
-                                   (env.snoc ι (sep_contract_result contract∷σ) v)).
+                                   (nenv.snoc ι (sep_contract_result contract∷σ) v)).
 
     Definition ValidContractForeign {Δ τ} (contract : SepContract Δ τ) (f : 𝑭𝑿 Δ τ) : Prop :=
         forall Γ (es : NamedEnv (Exp Γ) Δ) (δ : CStore Γ),
@@ -437,7 +437,7 @@ Section Soundness.
             forall (ι : Valuation Σ'),
             evals es δ = inst θΔ ι ->
             ⊢ semTriple δ (asn.interpret req ι) (stm_foreign f es)
-            (fun v δ' => asn.interpret ens (env.snoc ι (result∷τ) v) ∗ bi_pure (δ' = δ))
+            (fun v δ' => asn.interpret ens (nenv.snoc ι (result∷τ) v) ∗ bi_pure (δ' = δ))
         end.
 
     Definition valid_contract_curry {Δ σ} (body : Stm Δ σ) (contract : SepContract Δ σ) :
@@ -549,7 +549,7 @@ Section Soundness.
             (R : Val τ -> CStore Γ -> iProp Σ) :
             ⊢ (semTTriple δ P s Q -∗
                         (∀ (v : Val σ) (δ' : CStore Γ),
-                            semTTriple (env.snoc δ' (x∷σ) v) (Q v δ') k (fun v δ'' => R v (env.tail δ'')) ) -∗
+                            semTTriple (nenv.snoc δ' (x∷σ) v) (Q v δ') k (fun v δ'' => R v (nenv.tail δ'')) ) -∗
                         semTTriple δ P (let: x := s in k) R).
     Proof.
         iIntros "trips tripk P".
@@ -564,7 +564,7 @@ Section Soundness.
             (Δ : PCtx) (δΔ : CStore Δ)
             (τ : Ty) (k : Stm (Γ ▻▻ Δ) τ)
             (P : iProp Σ) (R : Val τ -> CStore Γ -> iProp Σ) :
-            ⊢ (semTTriple (δ ►► δΔ) P k (fun v δ'' => R v (env.drop Δ δ'')) -∗
+            ⊢ (semTTriple (δ ►► δΔ) P k (fun v δ'' => R v (nenv.drop Δ δ'')) -∗
                     semTTriple δ P (stm_block δΔ k) R).
     Proof.
         iIntros "tripk P". iPoseProof ("tripk" with "P") as "wpk".
@@ -641,7 +641,7 @@ Section Soundness.
     Lemma iris_rule_tstm_assign {Γ} (δ : CStore Γ)
             (x : PVar) (σ : Ty) (xIn : x∷σ ∈ Γ) (s : Stm Γ σ)
             (P : iProp Σ) (R : Val σ -> CStore Γ -> iProp Σ) :
-            ⊢ (semTTriple δ P s (fun v δ' => R v (@env.update _ _ _ δ' (x∷_) _ v)) -∗
+            ⊢ (semTTriple δ P s (fun v δ' => R v (@nenv.update _ _ _ _ δ' (x∷_) _ v)) -∗
             semTTriple δ P (stm_assign x s) R).
     Proof.
         iIntros "trips P".
@@ -711,7 +711,7 @@ Section Soundness.
         ⊢ semTTriple δΓ P s Q -∗
         (∀ pc δpc δΓ1,
             semTTriple (δΓ1 ►► δpc) (Q (pattern_match_val_reverse pat pc δpc) δΓ1) (rhs pc)
-            (λ vτ (δ' : CStore (Γ ▻▻ PatternCaseCtx pc)), R vτ (env.drop (PatternCaseCtx pc) δ'))) -∗
+            (λ vτ (δ' : CStore (Γ ▻▻ PatternCaseCtx pc)), R vτ (nenv.drop (PatternCaseCtx pc) δ'))) -∗
         semTTriple δΓ P (stm_pattern_match s pat rhs) R.
     Proof.
         iIntros "WPs WPrhs P".
@@ -732,7 +732,7 @@ Section Soundness.
         | MkSepContract _ _ ctxΣ θΔ pre result post =>
         Sep.Logic.Forall (fun (ι : Valuation ctxΣ) =>
             semTTriple (inst θΔ ι) (asn.interpret pre ι) body
-                    (fun v δ' => asn.interpret post (env.snoc ι (result∷σ) v)))
+                    (fun v δ' => asn.interpret post (nenv.snoc ι (result∷σ) v)))
         end.
 
     (* Uses projections, see [ValidContractSem]. *)
@@ -741,7 +741,7 @@ Section Soundness.
             semTTriple (inst (sep_contract_localstore contract) ι)
                     (asn.interpret (sep_contract_precondition contract) ι) body
                     (fun v δ' => asn.interpret (sep_contract_postcondition contract)
-                                   (env.snoc ι (sep_contract_result contract∷σ) v)).
+                                   (nenv.snoc ι (sep_contract_result contract∷σ) v)).
 
     Lemma TValidContractSem_ValidContractSem {Δ σ} (body : Stm Δ σ) (contract : SepContract Δ σ) :
       TValidContractSem body contract ⊢
@@ -758,7 +758,7 @@ Section Soundness.
             forall (ι : Valuation Σ'),
             evals es δ = inst θΔ ι ->
             ⊢ semTTriple δ (asn.interpret req ι) (stm_foreign f es)
-            (fun v δ' => asn.interpret ens (env.snoc ι (result∷τ) v) ∗ bi_pure (δ' = δ))
+            (fun v δ' => asn.interpret ens (nenv.snoc ι (result∷τ) v) ∗ bi_pure (δ' = δ))
         end.
 
     Lemma TValidContractForeign_ValidContractForeign {Δ τ}

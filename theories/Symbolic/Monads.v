@@ -66,8 +66,8 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
     refine (@persistent_subst (fun Σ : LCtx => NamedEnv (Term Σ) Γ) _) : typeclass_instances.
 
   Definition seval_exps {Γ Σ N} (δ : SStore Γ Σ) {Δ} :
-    NamedEnv (X := N) (Exp Γ) Δ -> NamedEnv (Term Σ) Δ
-      := env.map (fun b (e : Exp Γ (type b)) => peval (seval_exp δ e)).
+    NamedEnv (N := N) (Exp Γ) Δ -> NamedEnv (Term Σ) Δ
+      := nenv.map (fun σ (e : Exp Γ σ) => peval (seval_exp δ e)).
 
   Section DebugInfo.
 
@@ -475,7 +475,7 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
       ⊢ ∀ Δ : NCtx N Ty, SPureSpec (fun w => NamedEnv (Term w) Δ) :=
       fix rec {w} Δ {struct Δ} :=
         match Δ with
-        | []%ctx => pure []%env
+        | []%ctx => pure []%nenv
         | Γ ▻ x∷σ => ⟨ ω1 ⟩ tΔ <- rec Γ;;
                      ⟨ ω2 ⟩ tσ <- angelic (Some (n x)) σ ;;
                      pure (tΔ⟨ω2⟩ ► (x∷σ ↦ tσ))
@@ -486,7 +486,7 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
       ⊢ ∀ Δ : NCtx N Ty, SPureSpec (fun w => NamedEnv (Term w) Δ) :=
       fix rec {w} Δ {struct Δ} :=
         match Δ with
-        | []%ctx  => pure []%env
+        | []%ctx  => pure []%nenv
         | Δ ▻ x∷σ => ⟨ ω1 ⟩ tΔ <- rec Δ;;
                      ⟨ ω2 ⟩ tσ <- demonic (Some (n x)) σ;;
                      pure (tΔ⟨ω2⟩ ► (x∷σ ↦ tσ))
@@ -914,8 +914,8 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
     Equations(noeqns) assert_eq_nenv {N} :
       let E Δ := fun w : World => NamedEnv (Term w) Δ in
       ⊢ ∀ Δ : NCtx N Ty, AMessage -> E Δ -> E Δ -> SPureSpec Unit :=
-    assert_eq_nenv msg env.nil          env.nil            := pure tt;
-    assert_eq_nenv msg (env.snoc δ _ t) (env.snoc δ' _ t') :=
+    assert_eq_nenv msg nenv.nil          nenv.nil            := pure tt;
+    assert_eq_nenv msg (nenv.snoc δ _ t) (nenv.snoc δ' _ t') :=
       ⟨ θ ⟩ _ <- assert_eq_nenv msg δ δ' ;;
       assert_formula (persist msg θ) (formula_relop bop.eq t t')⟨θ⟩.
 
@@ -963,21 +963,21 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
             replay k (persist δ θ)
         | SymProp.angelicv b k =>
             ⟨ θ ⟩ t <- angelic (Some (name b)) (type b) ;;
-            replay k (env.snoc (persist δ θ) b t)
+            replay k (nenv.snoc (persist δ θ) b t)
         | SymProp.demonicv b k =>
             ⟨ θ ⟩ t <- demonic (Some (name b)) (type b) ;;
-            replay k (env.snoc (persist δ θ) b t)
+            replay k (nenv.snoc (persist δ θ) b t)
         | SymProp.assert_vareq x t msg k =>
             let ζ    := sub_shift (b:=x∷_) _ in
             let msg  := subst msg ζ in
             let fml  := formula_relop bop.eq (subst t ζ) (term_var x) in
             ⟨ θ ⟩ _ <- assert_formula (subst msg δ) (subst fml δ) ;;
-            replay k (env.remove (x∷_) δ⟨θ⟩ _)
+            replay k (nenv.remove (x∷_) δ⟨θ⟩ _)
         | SymProp.assume_vareq x t k =>
             let ζ    := sub_shift (b:=x∷_) _ in
             let fml  := formula_relop bop.eq (subst t ζ) (term_var x) in
             ⟨ θ ⟩ _ <- assume_formula (subst fml δ) ;;
-            replay k (env.remove (x∷_) δ⟨θ⟩ _)
+            replay k (nenv.remove (x∷_) δ⟨θ⟩ _)
         | SymProp.pattern_match s pat rhs =>
             (* FIXME *)
             (* ⟨ θ ⟩ '(existT pc δpc) <- new_pattern_match id pat (subst s δ) ;; *)
@@ -990,7 +990,7 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
         | SymProp.pattern_match_var x pat rhs =>
             (* FIXME *)
             (* ⟨ θ ⟩ '(existT pc δpc) <- new_pattern_match id pat (subst (term_var x) δ) ;; *)
-            (* replay (rhs pc) (env.remove _ (δ⟨θ⟩ ►► δpc) _) *)
+            (* replay (rhs pc) (nenv.remove _ (δ⟨θ⟩ ►► δpc) _) *)
             error (amsg.mk
                      {| debug_string_pathcondition := wco w0;
                         debug_string_message       :=
@@ -1206,7 +1206,7 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
           demonic_binary (produce a1 ζ) (produce a2 ζ)
       | asn.exist ς τ a =>
           ⟨ θ ⟩ t <- demonic (Some ς) τ ;;
-          produce a (env.snoc (persist ζ θ) (ς∷τ) t)
+          produce a (nenv.snoc (persist ζ θ) (ς∷τ) t)
       | asn.debug =>
           debug
             (fun h1 =>
@@ -1253,7 +1253,7 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
           angelic_binary (consume a1 ζ) (consume a2 ζ)
       | asn.exist ς τ a =>
           ⟨ θ ⟩ t <- angelic (Some ς) τ ;;
-          consume a (env.snoc (persist ζ θ) (ς∷τ) t)
+          consume a (nenv.snoc (persist ζ θ) (ς∷τ) t)
       | asn.debug =>
           debug
             (fun h1 =>

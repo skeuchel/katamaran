@@ -183,7 +183,7 @@ Module Type IrisTotalWeakestPre
 
     Lemma semTWP_block {Γ τ Δ} (δΔ : CStore Δ) (s : Stm (Γ ▻▻ Δ) τ) :
       ⊢ ∀ (Q : Post Γ τ) (δ : CStore Γ),
-          semTWP (δ ►► δΔ) s (fun v δ1 => Q v (env.drop Δ δ1)) -∗
+          semTWP (δ ►► δΔ) s (fun v δ1 => Q v (nenv.drop Δ δ1)) -∗
           semTWP δ (stm_block δΔ s) Q.
     Proof.
       iIntros (Q δ) "H".
@@ -198,11 +198,11 @@ Module Type IrisTotalWeakestPre
       - rewrite !semTWP_val.
         iModIntro. iMod "Hclose" as "_". iMod "IH".
         iPoseProof ("HΦ" with "IH") as "IH". cbn.
-        rewrite env.drop_cat. by iFrame.
+        rewrite nenv.drop_cat. by iFrame.
       - rewrite !semTWP_fail.
         iModIntro. iMod "Hclose" as "_". iMod "IH".
         iPoseProof ("HΦ" with "IH") as "IH". cbn.
-        rewrite env.drop_cat. by iFrame.
+        rewrite nenv.drop_cat. by iFrame.
       - rewrite (stm_val_stuck H). cbn.
         iSpecialize ("IH" with "state_inv").
         iMod "Hclose" as "_". iMod ("IH" with "[]") as "IH"; first easy.
@@ -277,7 +277,7 @@ Module Type IrisTotalWeakestPre
     Lemma semTWP_let {Γ τ x σ} (s : Stm Γ σ) (k : Stm (Γ ▻ x∷σ) τ) :
       ⊢ ∀ (Q : Post Γ τ) (δ : CStore Γ),
           semTWP δ s (fun v1 δ1 => match v1 with
-                                | inl v1 => semTWP δ1.[x∷σ ↦ v1] k (fun v2 δ2 => Q v2 (env.tail δ2))
+                                | inl v1 => semTWP δ1.[x∷σ ↦ v1] k (fun v2 δ2 => Q v2 (nenv.tail δ2))
                                 | inr m1 => semTWP δ1 (of_ival (inr m1)) Q
                                 end) -∗
           semTWP δ (let: x ∷ σ := s in k) Q.
@@ -289,7 +289,7 @@ Module Type IrisTotalWeakestPre
       iModIntro. iMod "Hclose" as "_". iModIntro. iFrame "state_inv".
       iApply semTWP_bind. iApply (semTWP_mono with "WPs"). iIntros ([v|m] δ) "wpk".
       - iApply (semTWP_block [env].[_∷_ ↦ v]). iApply (semTWP_mono with "wpk").
-        clear. iIntros (? δ) "HQ". by destruct (env.view δ).
+        clear. iIntros (? δ) "HQ". by destruct (nenv.view δ).
       - now simpl.
     Qed.
 
@@ -395,8 +395,8 @@ Module Type IrisTotalWeakestPre
                semTWP (δ1 ►► δpc) (rhs pc)
                  (fun vτ δ2 =>
                     match vτ with
-                    | inl vτ => Q (inl vτ) (env.drop (PatternCaseCtx pc) δ2)
-                    | inr m  => Q (inr m) (env.drop (PatternCaseCtx pc) δ2)
+                    | inl vτ => Q (inl vτ) (nenv.drop (PatternCaseCtx pc) δ2)
+                    | inr m  => Q (inr m) (nenv.drop (PatternCaseCtx pc) δ2)
                     end)
            | inr m => |={⊤}=> Q (inr m) δ1
            end) -∗

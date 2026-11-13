@@ -332,7 +332,7 @@ Module BinaryBlockVerifier
         iSpecialize ("H2" with "[$Hpc2 $Hinstr2 $Hnpc2]").
         iApply (semWP2_tfocus with "H1 H2").
         iIntros ([v1|] δ1 [v2|] δ2) "(H1 & H2)"; auto.
-        destruct v1, v2, (env.view δ1), (env.view δ2).
+        destruct v1, v2, (nenv.view δ1), (nenv.view δ2).
         repeat iSplitR; auto.
         destruct instrs as [|instr' instrs].
         + cbn.
@@ -362,7 +362,7 @@ Module BinaryBlockVerifier
       iApply semWP2_call_inline_left.
       iSpecialize ("H" with "Hp").
       iApply (semWP2_mono with "H").
-      iIntros (? δ1 ? δ2) "($ & _ & $)". now destruct (env.view δ1), (env.view δ2).
+      iIntros (? δ1 ? δ2) "($ & _ & $)". now destruct (nenv.view δ1), (nenv.view δ2).
     Qed.
 
     Lemma WP2_loop_step_right {R : iProp Σ} :
@@ -380,7 +380,7 @@ Module BinaryBlockVerifier
       iApply semWP2_call_inline_right.
       iSpecialize ("H" with "Hp").
       iApply (semWP2_mono with "H").
-      iIntros (? δ1 ? δ2) "($ & _ & $)". now destruct (env.view δ1), (env.view δ2).
+      iIntros (? δ1 ? δ2) "($ & _ & $)". now destruct (nenv.view δ1), (nenv.view δ2).
     Qed.
 
     (* Like the unary epilogue of a single execution, but remembering that

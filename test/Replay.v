@@ -333,14 +333,14 @@ Module Import ReplaySig <: Signature DefaultBase.
       Some [formula_eq b (term_val ty.bool true)].
 
     Equations(noeqns) simplify_user [Σ] (p : 𝑷) : Env (Term Σ) (𝑷_Ty p) -> option (PathCondition Σ) :=
-    | Aₐ | [env b]  => simplify_Aₐ b
-    | Bₐ | [env x; b]  => simplify_Bₐ x b
-    | Aᵤ | [env b] => simplify_Aᵤ b
-    | Bᵤ | [env b] => simplify_Bᵤ b
-    | Cᵤ | [env]   => Some [formula_user Cᵤ []]
-    | Pₐ | [env x]  => simplify_Pₐ x
-    | Qₐ | [env x]  => Some [formula_user Qₐ [x]]
-    | Q | [env xs ] => simplify_Q xs.
+    | Aₐ | [env b]      => simplify_Aₐ b
+    | Bₐ | [env x; b]      => simplify_Bₐ x b
+    | Aᵤ | [env b]     => simplify_Aᵤ b
+    | Bᵤ | [env b]     => simplify_Bᵤ b
+    | Cᵤ | env.nil     => Some [formula_user Cᵤ []]
+    | Pₐ | [env x]      => simplify_Pₐ x
+    | Qₐ | [env x]      => Some [formula_user Qₐ [x]]
+    | Q | [env xs]      => simplify_Q xs.
 
     Local Ltac lsolve :=
       repeat

@@ -54,7 +54,7 @@ Module Type SmallStepOn (Import B : Base) (Import P : Program B).
   | st_let
       (x : PVar) (σ : Ty) (s : Stm Γ σ) (k : Stm (Γ ▻ x∷σ) τ) :
       ⟨ γ , μ , δ , stm_let x σ s k ⟩ --->
-      ⟨ γ, μ , δ , stm_bind s (fun v => stm_block (env.snoc env.nil (x∷σ) v) k) ⟩
+      ⟨ γ, μ , δ , stm_bind s (fun v => stm_block (nenv.snoc nenv.nil (x∷σ) v) k) ⟩
 
   | st_block_value
       (Δ : PCtx) (δΔ : CStore Δ) (v : Val τ) :
@@ -151,7 +151,7 @@ Module Type SmallStepOn (Import B : Base) (Import P : Program B).
       ⟩
 
   where "⟨ γ1 , μ1 , δ1 , s1 ⟩ ---> ⟨ γ2 , μ2 , δ2 , s2 ⟩" :=
-    (@Step _ _ γ1%env μ1%env δ1%env γ2%env μ2%env δ2%env s1%exp s2%exp).
+    (@Step _ _ γ1%env μ1%env δ1%nenv γ2%env μ2%env δ2%nenv s1%exp s2%exp).
 
   (* Implement small inversions for the operational semantics. This considers
      only the cases where the starting statement is constructed with exactly one
@@ -292,7 +292,7 @@ Module Type SmallStepOn (Import B : Base) (Import P : Program B).
       Step γ1 μ1 δ1 γ2 μ2 δ2 s1 s2 -> Steps γ2 μ2 δ2 s2 γ3 μ3 δ3 s3 -> Steps γ1 μ1 δ1 s1 γ3 μ3 δ3 s3.
 
   Module Import SmallStepNotations.
-    Notation "⟨ γ1 , μ1 , δ1 , s1 ⟩ ---> ⟨ γ2 , μ2 , δ2 , s2 ⟩" := (@Step _ _ γ1%env μ1%env δ1%env γ2%env μ2%env δ2%env s1%exp s2%exp).
+    Notation "⟨ γ1 , μ1 , δ1 , s1 ⟩ ---> ⟨ γ2 , μ2 , δ2 , s2 ⟩" := (@Step _ _ γ1%env μ1%env δ1%nenv γ2%env μ2%env δ2%nenv s1%exp s2%exp).
     Notation "⟨ γ1 , μ1 , δ1 , s1 ⟩ --->* ⟨ γ2 , μ2 , δ2 , s2 ⟩" := (@Steps _ _ γ1 μ1 δ1 s1 γ2 μ2 δ2 s2).
   End SmallStepNotations.
 
@@ -328,9 +328,9 @@ Module Type SmallStepOn (Import B : Base) (Import P : Program B).
     induction H;
       intros δ1' δΔ1 Eδ1' δ2' Eδ2'.
     - rewrite Eδ1' in Eδ2'.
-      destruct (proj1 (env.inversion_eq_cat _ _ _ _) Eδ2') as (-> & ->).
+      destruct (proj1 (nenv.inversion_eq_cat _ _ _ _) Eδ2') as (-> & ->).
       apply step_refl.
-    - destruct (env.catView δ2). rewrite Eδ1' in H.
+    - destruct (nenv.catView δ2). rewrite Eδ1' in H.
       eapply step_trans. apply st_block_step.
       apply H. apply IHSteps; auto.
   Qed.

@@ -87,7 +87,7 @@ Module Type ProgramLogic
       match c with
       | MkSepContract _ _ Σe θΔ req result ens =>
           pre ⊢ ∃ ι : Valuation Σe, ⌜δΔ = inst θΔ ι⌝ ∧ asn.interpret req ι ∗
-                ∀ v : Val σ, asn.interpret ens (env.snoc ι (result∷σ) v) -∗ post v
+                ∀ v : Val σ, asn.interpret ens (nenv.snoc ι (result∷σ) v) -∗ post v
       end.
 
     Inductive LTriple {Δ} (δΔ : CStore Δ) (pre post : L) :
@@ -131,13 +131,13 @@ Module Type ProgramLogic
         (R : Val τ -> CStore Γ -> L) :
         ⦃ P ⦄ s ; δ ⦃ Q ⦄ ->
         (forall (v : Val σ) (δ' : CStore Γ),
-            ⦃ Q v δ' ⦄ k ; env.snoc δ' (x∷σ) v ⦃ fun v δ'' => R v (env.tail δ'') ⦄ ) ->
+            ⦃ Q v δ' ⦄ k ; nenv.snoc δ' (x∷σ) v ⦃ fun v δ'' => R v (nenv.tail δ'') ⦄ ) ->
         ⦃ P ⦄ let: x := s in k ; δ ⦃ R ⦄
     | rule_stm_block
         (Δ : PCtx) (δΔ : CStore Δ)
         (k : Stm (Γ ▻▻ Δ) τ)
         (P : L) (R : Val τ -> CStore Γ -> L) :
-        ⦃ P ⦄ k ; δ ►► δΔ ⦃ fun v δ'' => R v (env.drop Δ δ'') ⦄ ->
+        ⦃ P ⦄ k ; δ ►► δΔ ⦃ fun v δ'' => R v (nenv.drop Δ δ'') ⦄ ->
         ⦃ P ⦄ stm_block δΔ k ; δ ⦃ R ⦄
     | rule_stm_seq
         (σ : Ty) (s1 : Stm Γ σ) (s2 : Stm Γ τ)
@@ -168,7 +168,7 @@ Module Type ProgramLogic
     | rule_stm_assign
         (x : PVar) (xIn : (x∷τ ∈ Γ)%katamaran) (s : Stm Γ τ)
         (P : L) (R : Val τ -> CStore Γ -> L) :
-        ⦃ P ⦄ s ; δ ⦃ fun v δ' => R v (δ' ⟪ x ↦ v ⟫)%env ⦄ ->
+        ⦃ P ⦄ s ; δ ⦃ fun v δ' => R v (δ' ⟪ x ↦ v ⟫)%nenv ⦄ ->
         ⦃ P ⦄ stm_assign x s ; δ ⦃ R ⦄
     | rule_stm_call
         {Δ} {f : 𝑭 Δ τ} {es : NamedEnv (Exp Γ) Δ} {c : SepContract Δ τ}
@@ -217,7 +217,7 @@ Module Type ProgramLogic
         ⦃ P ⦄ s ; δ ⦃ Q ⦄ ->
         (forall pc δpc δ',
            ⦃ Q (pattern_match_val_reverse pat pc δpc) δ' ⦄ rhs pc ; δ' ►► δpc
-           ⦃ fun v2 δ' => R v2 (env.drop (PatternCaseCtx pc) δ') ⦄) ->
+           ⦃ fun v2 δ' => R v2 (nenv.drop (PatternCaseCtx pc) δ') ⦄) ->
         ⦃ P ⦄ stm_pattern_match s pat rhs ; δ ⦃ R ⦄
 
     where "⦃ P ⦄ s ; δ ⦃ Q ⦄" := (@Triple _ δ _ P%I s Q%I).

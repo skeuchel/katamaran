@@ -80,13 +80,13 @@ Ltac destruct_syminstance ι :=
   cbn in ι;
   repeat
     match type of ι with
-    | Env _ (ctx.snoc _ (MkB ?s _)) =>
+    | NamedEnv _ (ctx.snoc _ (MkB ?s _)) =>
         string_to_ident_cps s
           ltac:(fun id =>
                   let fr := fresh id in
-                  destruct (env.view ι) as [ι fr];
+                  destruct (nenv.view ι) as [ι fr];
                   destruct_syminstance ι)
-    | Env _ ctx.nil => destruct (env.view ι)
+    | NamedEnv _ ctx.nil => destruct (nenv.view ι)
     | _ => idtac
     end.
 
@@ -279,7 +279,7 @@ Module Import MinCapsIrisInstance <: IrisInstance MinCapsBase MinCapsSignature M
     (* interp_loop is the weakest precondition of the loop of our machine
        with as postcondition True. *)
     Definition interp_loop `{sg : sailGS Σ} : iProp Σ :=
-      (WP (MkConf (FunDef loop) env.nil) {{_, True}})%I.
+      (WP (MkConf (FunDef loop) nenv.nil) {{_, True}})%I.
 
     (* interp_expr is the expression relation, stating that if we give
        the pointsto chunks for the pc and GPRs, then we still satisfy the
@@ -515,12 +515,12 @@ Module Import MinCapsIrisInstance <: IrisInstance MinCapsBase MinCapsSignature M
        case study. *)
     Equations(noeqns) luser_inst `{sailRegGS Σ, invGS Σ, mcMemGS Σ} {_ : trivGS Σ}
              (p : Predicate) (ts : Env Val (𝑯_Ty p)) : iProp Σ :=
-    | ptsto   | [a; v] => pointsto a (DfracOwn 1) v
-    | safe    | [c]    => interp c
-    | expr    | [c]    => interp_expression interp c
-    | gprs    | []     => interp_gprs interp
-    | ih      | []     => IH
-    | wp_loop | []     => interp_loop (sg := SailGS _ _ _).
+    | ptsto   | [env a; v] => pointsto a (DfracOwn 1) v
+    | safe    | [env c]    => interp c
+    | expr    | [env c]    => interp_expression interp c
+    | gprs    | env.nil => interp_gprs interp
+    | ih      | env.nil => IH
+    | wp_loop | env.nil => interp_loop (sg := SailGS _ _ _).
 
     Definition lduplicate_inst `{sailRegGS Σ} `{invGS Σ} {mG : mcMemGS Σ} {_ : trivGS Σ}:
       forall (p : Predicate) (ts : Env Val (𝑯_Ty p)),

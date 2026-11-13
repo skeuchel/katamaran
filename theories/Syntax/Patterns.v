@@ -76,10 +76,10 @@ Module Type PatternsOn (Import TY : Types).
         TuplePat σs Δ -> NamedEnv T Δ -> Env T σs :=
       fix pattern_match {σs} {Δ} p {struct p} :=
         match p with
-        | tuplepat_nil => fun _ => []
+        | tuplepat_nil => fun _ => env.nil
         | tuplepat_snoc p x =>
-          fun EΔ => let (E,v) := env.view EΔ in
-                    (pattern_match p E) ► (_ ↦ v)
+          fun EΔ => let (E,v) := nenv.view EΔ in
+                    env.snoc (pattern_match p E) _ v
         end.
 
     Definition tuple_pattern_match_val {σs : Ctx Ty} {Δ : NCtx N Ty}
@@ -92,20 +92,20 @@ Module Type PatternsOn (Import TY : Types).
       | recordpat_nil => fun _ => []
       | recordpat_snoc p rf x =>
         fun E =>
-          env.snoc
-            (record_pattern_match_env p (env.tail E)) (x∷_)
-            (env.lookup E ctx.in_zero)
+          nenv.snoc
+            (record_pattern_match_env p (nenv.tail E)) (x∷_)
+            (nenv.lookup E ctx.in_zero)
       end.
 
     Fixpoint record_pattern_match_env_reverse {V : Ty -> Set} {rfs : NCtx recordf Ty} {Δ : NCtx N Ty}
              (p : RecordPat rfs Δ) {struct p} :  NamedEnv V Δ -> NamedEnv V rfs :=
       match p with
-      | recordpat_nil => fun _ => env.nil
+      | recordpat_nil => fun _ => nenv.nil
       | recordpat_snoc p rf x =>
         fun E =>
-          env.snoc
-            (record_pattern_match_env_reverse p (env.tail E)) (rf∷_)
-            (env.lookup E ctx.in_zero)
+          nenv.snoc
+            (record_pattern_match_env_reverse p (nenv.tail E)) (rf∷_)
+            (nenv.lookup E ctx.in_zero)
       end.
 
     Lemma record_pattern_match_env_inverse_right {V : Ty -> Set} {rfs : NCtx recordf Ty} {Δ : NCtx N Ty}
@@ -291,27 +291,27 @@ Module Type PatternsOn (Import TY : Types).
     Fixpoint pattern_match_val_reverse {σ} (p : Pattern σ) :
       forall (c : PatternCase p), NamedEnv Val (PatternCaseCtx c) -> Val σ :=
       match p with
-      | pat_var x      => fun _ vs => env.head vs
+      | pat_var x      => fun _ vs => nenv.head vs
       | pat_bool       => fun b _ => b
       | pat_list σ x y =>
           fun b =>
             match b with
             | true  => fun _ => nil
             | false => fun Eht =>
-                         let (Eh,t) := env.view Eht in
-                         let (E,h)  := env.view Eh in
+                         let (Eh,t) := nenv.view Eht in
+                         let (E,h)  := nenv.view Eh in
                          cons h t
             end
       | pat_pair x y =>
           fun _ Exy =>
-            let (Ex,vy) := env.view Exy in
-            let (E,vx)  := env.view Ex in
+            let (Ex,vy) := nenv.view Exy in
+            let (E,vx)  := nenv.view Ex in
             (vx,vy)
       | pat_sum σ τ x y =>
           fun b =>
             match b with
-            | true  => fun vs => inl (env.head vs)
-            | false => fun vs => inr (env.head vs)
+            | true  => fun vs => inl (nenv.head vs)
+            | false => fun vs => inr (nenv.head vs)
             end
       | pat_unit =>
           fun _ _ => tt
@@ -319,8 +319,8 @@ Module Type PatternsOn (Import TY : Types).
           fun v _ => v
       | pat_bvec_split m n x y =>
           fun _ Exy =>
-            let (Ex,vy) := env.view Exy in
-            let (E,vx)  := env.view Ex in
+            let (Ex,vy) := nenv.view Exy in
+            let (E,vx)  := nenv.view Ex in
             bv.app vx vy
       | pat_bvec_exhaustive m =>
           fun v _ => v
@@ -514,15 +514,15 @@ Module Type PatternsOn (Import TY : Types).
         | [ctx] => fun _   => [env]
         | Γ ▻ b => fun EΓb : let Γ' := freshen_ctx Σ Γ in
                              NamedEnv D (Γ' ▻ fresh_lvar (Σ ▻▻ Γ') _∷_) =>
-                     let (EΓ,tb) := env.view EΓb in
-                     env.snoc (un Σ _ EΓ) b tb
+                     let (EΓ,tb) := nenv.view EΓb in
+                     nenv.snoc (un Σ _ EΓ) b tb
         end.
 
     Definition freshen_namedenv {D : Ty -> Set} :
       forall {Σ : LCtx} {Δ : NCtx N Ty},
         NamedEnv D Δ -> NamedEnv D (freshen_ctx Σ Δ) :=
       fix fr {Σ Δ} (E : NamedEnv D Δ) {struct E} :=
-        match E in Env _ Δ return NamedEnv D (freshen_ctx Σ Δ) with
+        match E in NamedEnv _ Δ return NamedEnv D (freshen_ctx Σ Δ) with
         | [env]       => [env]
         | E ► (b ↦ d) =>
             let E' := fr E in
@@ -682,32 +682,32 @@ Module Type PatternsOn (Import TY : Types).
         NamedEnv D (PatternCaseCtx pc) ->
         NamedEnv D (PatternCaseCtx (freshen_patterncase Σ p pc)) :=
       match p with
-      | pat_var _ => fun ps ts => let (_,t) := env.view ts in [nenv t]
+      | pat_var _ => fun ps ts => let (_,t) := nenv.view ts in [nenv t]
       | pat_bool => fun _ _   => [env]
       | pat_list σ x y =>
           fun pc => match pc with
                     | true  => fun _  => [env]
-                    | false => fun ts => let (ts1,t) := env.view ts in
-                                         let (_,h)   := env.view ts1 in
+                    | false => fun ts => let (ts1,t) := nenv.view ts in
+                                         let (_,h)   := nenv.view ts1 in
                                          [nenv h; t]
                     end
       | pat_pair x y =>
           fun _ ts =>
-            let (ts1,v) := env.view ts in
-            let (_,v0) := env.view ts1 in
+            let (ts1,v) := nenv.view ts in
+            let (_,v0) := nenv.view ts1 in
             [nenv v0; v]
       | pat_sum σ τ x y =>
           fun pc =>
             match pc with
-            | true  => fun ts => let (_,v) := env.view ts in [nenv v]
-            | false => fun ts => let (_,v) := env.view ts in [nenv v]
+            | true  => fun ts => let (_,v) := nenv.view ts in [nenv v]
+            | false => fun ts => let (_,v) := nenv.view ts in [nenv v]
             end
       | pat_unit   => fun _ _ => [env]
       | pat_enum E => fun _ _ => [env]
       | pat_bvec_split m n x y =>
           fun _ ts =>
-            let (ts1,vy) := env.view ts in
-            let (_,vx)   := env.view ts1 in
+            let (ts1,vy) := nenv.view ts in
+            let (_,vx)   := nenv.view ts1 in
             [env].[_∷ty.bvec m ↦ vx].[_∷ty.bvec n ↦ vy]
       | pat_bvec_exhaustive _ => fun _ _ => [env]
       | pat_tuple _ => fun _ => freshen_namedenv
@@ -720,32 +720,32 @@ Module Type PatternsOn (Import TY : Types).
         NamedEnv D (PatternCaseCtx pc) ->
         NamedEnv D (PatternCaseCtx (unfreshen_patterncase Σ p pc)) :=
       match p with
-      | pat_var _ => fun ps ts => let (_,t) := env.view ts in [nenv t]
+      | pat_var _ => fun ps ts => let (_,t) := nenv.view ts in [nenv t]
       | pat_bool => fun _ _   => [env]
       | pat_list σ x y =>
           fun pc => match pc with
                     | true  => fun _  => [env]
-                    | false => fun ts => let (ts1,t) := env.view ts in
-                                         let (_,h)   := env.view ts1 in
+                    | false => fun ts => let (ts1,t) := nenv.view ts in
+                                         let (_,h)   := nenv.view ts1 in
                                          [nenv h; t]
                     end
       | pat_pair x y =>
           fun _ ts =>
-            let (ts1,v) := env.view ts in
-            let (_,v0) := env.view ts1 in
+            let (ts1,v) := nenv.view ts in
+            let (_,v0) := nenv.view ts1 in
             [nenv v0; v]
       | pat_sum σ τ x y =>
           fun pc =>
             match pc with
-            | true  => fun ts => let (_,v) := env.view ts in [nenv v]
-            | false => fun ts => let (_,v) := env.view ts in [nenv v]
+            | true  => fun ts => let (_,v) := nenv.view ts in [nenv v]
+            | false => fun ts => let (_,v) := nenv.view ts in [nenv v]
             end
       | pat_unit   => fun _ _ => [env]
       | pat_enum E => fun _ _ => [env]
       | pat_bvec_split m n x y =>
           fun _ ts =>
-            let (ts1,vy) := env.view ts in
-            let (_,vx)   := env.view ts1 in
+            let (ts1,vy) := nenv.view ts in
+            let (_,vx)   := nenv.view ts1 in
             [env].[x∷ty.bvec m ↦ vx].[y∷ty.bvec n ↦ vy]
       | pat_bvec_exhaustive _ => fun _ _ => [env]
       | pat_tuple _ => fun _ => unfreshen_namedenv

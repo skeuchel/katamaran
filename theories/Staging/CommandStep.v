@@ -156,10 +156,10 @@ Module CInterpreter (Import B : Base)
 
   Definition pushpop {A Γ1 Γ2 x σ} (v : Val σ)
     (d : M (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) A) : M Γ1 Γ2 A :=
-    fun δ1 => cmd_map (fun '(δ2,a) => (env.tail δ2 , a)) (d (δ1 ► (x∷σ ↦ v))).
+    fun δ1 => cmd_map (fun '(δ2,a) => (nenv.tail δ2 , a)) (d (δ1 ► (x∷σ ↦ v))).
   Definition pushspops {A} {Γ1 Γ2 Δ} (δΔ : CStore Δ)
     (d : M (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) A) : M Γ1 Γ2 A :=
-    fun δ1 => cmd_map (fun '(δ2,a) => (env.drop Δ δ2 , a)) (d (δ1 ►► δΔ)).
+    fun δ1 => cmd_map (fun '(δ2,a) => (nenv.drop Δ δ2 , a)) (d (δ1 ►► δΔ)).
   Definition get_local {Γ} : M Γ Γ (CStore Γ) :=
     fun δ => cmd_return (δ,δ).
   Definition put_local {Γ1 Γ2} (δ : CStore Γ2) : M Γ1 Γ2 unit :=

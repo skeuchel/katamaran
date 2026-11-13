@@ -61,7 +61,7 @@ Module Type FormulasOn
   Inductive Formula (Σ : LCtx) : Type :=
   | formula_user (p : 𝑷) (ts : Env (Term Σ) (𝑷_Ty p))
   | formula_bool (t : Term Σ ty.bool)
-  | formula_prop {Σ'} (ζ : Sub Σ' Σ) (P : abstract_named Val Σ' Prop)
+  | formula_prop {Σ'} (ζ : Sub Σ' Σ) (P : nenv.abstract Val Σ' Prop)
   | formula_relop {σ} (rop : bop.RelOp σ) (t1 t2 : Term Σ σ)
   | formula_true
   | formula_false
@@ -144,7 +144,7 @@ Module Type FormulasOn
       match fml with
       | formula_user p ts      => env.uncurry (𝑷_inst p) (inst ts ι)
       | formula_bool t         => inst (A := Val ty.bool) t ι = true
-      | formula_prop ζ P       => uncurry_named P (inst ζ ι)
+      | formula_prop ζ P       => nenv.uncurry P (inst ζ ι)
       | formula_relop op t1 t2 => bop.eval_relop_prop op (inst t1 ι) (inst t2 ι)
       | formula_true           => True
       | formula_false          => False
@@ -304,8 +304,8 @@ Module Type FormulasOn
 
     Equations(noeqns) formula_eqs_nctx {N : Set} {Δ : NCtx N Ty} {Σ : LCtx}
       (δ δ' : NamedEnv (Term Σ) Δ) : PathCondition Σ :=
-    | env.nil,        env.nil          => ctx.nil
-    | env.snoc δ _ t, env.snoc δ' _ t' =>
+    | nenv.nil,        nenv.nil          => ctx.nil
+    | nenv.snoc δ _ t, nenv.snoc δ' _ t' =>
       ctx.snoc (formula_eqs_nctx δ δ') (formula_relop bop.eq t t').
 
     Lemma instprop_formula_eqs_ctx {Δ Σ} (xs ys : Env (Term Σ) Δ) ι :
@@ -319,7 +319,7 @@ Module Type FormulasOn
       instprop (formula_eqs_nctx xs ys) ι <-> inst xs ι = inst ys ι.
     Proof.
       induction xs; env.destroy ys; cbn; [easy|].
-      now rewrite IHxs, env.inversion_eq_snoc.
+      now rewrite IHxs, nenv.inversion_eq_snoc.
     Qed.
 
     #[export] Instance substSubstSULaws_ctx `{SubstUnivMeet Sb}
@@ -350,7 +350,7 @@ Module Type FormulasOn
     Inductive EFormula : Type :=
     | eformula_user (p : 𝑷) (ts : Env ETerm (𝑷_Ty p))
     | eformula_bool (t : ETerm ty.bool)
-    | eformula_prop {Σ' : LCtx} (ζ : Env (fun x => ETerm (type x)) Σ') (P : abstract_named Val Σ' Prop)
+    | eformula_prop {Σ' : LCtx} (ζ : NamedEnv ETerm Σ') (P : nenv.abstract Val Σ' Prop)
     | eformula_relop {σ} (op : RelOp σ) (t1 t2 : ETerm σ)
     | eformula_true
     | eformula_false
@@ -363,7 +363,7 @@ Module Type FormulasOn
         match f with
         | formula_user p ts      => eformula_user p (env.map (@erase_term Σ) ts)
         | formula_bool t         => eformula_bool (erase_term t)
-        | formula_prop ζ P       => eformula_prop (env.map (fun _ => erase_term) ζ) P
+        | formula_prop ζ P       => eformula_prop (nenv.map (fun _ => erase_term) ζ) P
         | formula_relop op t1 t2 => eformula_relop op (erase_term t1) (erase_term t2)
         | formula_true           => eformula_true
         | formula_false          => eformula_false

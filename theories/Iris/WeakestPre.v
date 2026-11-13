@@ -181,7 +181,7 @@ Module Type IrisWeakestPre
 
     Lemma semWP_block {Γ τ Δ} (δΔ : CStore Δ) (s : Stm (Γ ▻▻ Δ) τ) :
       ⊢ ∀ (Q : Post Γ τ) (δ : CStore Γ),
-          semWP (δ ►► δΔ) s (fun v δ1 => Q v (env.drop Δ δ1)) -∗
+          semWP (δ ►► δΔ) s (fun v δ1 => Q v (nenv.drop Δ δ1)) -∗
           semWP δ (stm_block δΔ s) Q.
     Proof.
       iIntros (Q). iRevert (δΔ s). iLöb as "IH". iIntros (δΔ k δΓ) "WPk".
@@ -189,8 +189,8 @@ Module Type IrisWeakestPre
       iIntros (γ1 μ1) "state_inv".
       iMod (fupd_mask_subseteq empty) as "Hclose"; first set_solver. iModIntro.
       iIntros (s2 δ2 γ2 μ2) "(%step & Hcred)". destruct (smallinvstep step); cbn.
-      - rewrite !semWP_val. rewrite env.drop_cat. by iFrame.
-      - rewrite !semWP_fail. rewrite env.drop_cat. by iFrame.
+      - rewrite !semWP_val. rewrite nenv.drop_cat. by iFrame.
+      - rewrite !semWP_fail. rewrite nenv.drop_cat. by iFrame.
       - rewrite (semWP_unfold _ k). rewrite (stm_val_stuck H).
         iSpecialize ("WPk" $! γ1 μ1 with "state_inv").
         iMod "Hclose". iMod "WPk" as "WPk".
@@ -263,7 +263,7 @@ Module Type IrisWeakestPre
     Lemma semWP_let {Γ τ x σ} (s : Stm Γ σ) (k : Stm (Γ ▻ x∷σ) τ) :
       ⊢ ∀ (Q : Post Γ τ) (δ : CStore Γ),
           semWP δ s (fun v1 δ1 => match v1 with
-                                | inl v1 => semWP δ1.[x∷σ ↦ v1] k (fun v2 δ2 => Q v2 (env.tail δ2))
+                                | inl v1 => semWP δ1.[x∷σ ↦ v1] k (fun v2 δ2 => Q v2 (nenv.tail δ2))
                                 | inr m1 => semWP δ1 (of_ival (inr m1)) Q
                                 end) -∗
           semWP δ (let: x ∷ σ := s in k) Q.
@@ -275,7 +275,7 @@ Module Type IrisWeakestPre
       do 3 iModIntro. iMod "Hclose" as "_". iModIntro. iFrame "state_inv".
       iApply semWP_bind. iApply (semWP_mono with "WPs"). iIntros ([v|m] δ) "wpk".
       - simpl. iApply (semWP_block [env].[_∷_ ↦ v]). iApply (semWP_mono with "wpk").
-        clear. iIntros (? δ) "HQ". by destruct (env.view δ).
+        clear. iIntros (? δ) "HQ". by destruct (nenv.view δ).
       - simpl. done.
     Qed.
 
@@ -371,7 +371,7 @@ Module Type IrisWeakestPre
            | inl vσ =>
                let (pc,δpc) := pattern_match_val pat vσ in
                semWP (δ1 ►► δpc) (rhs pc)
-                 (fun vτ δ2 => Q vτ (env.drop (PatternCaseCtx pc) δ2))
+                 (fun vτ δ2 => Q vτ (nenv.drop (PatternCaseCtx pc) δ2))
            | inr m => |={⊤}=> Q (inr m) δ1
            end) -∗
       semWP δ (stm_pattern_match s pat rhs) Q.

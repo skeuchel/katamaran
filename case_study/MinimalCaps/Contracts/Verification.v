@@ -77,8 +77,8 @@ Module MinCapsValidContracts.
          | |- _ /\ _ => constructor
          | |- VerificationCondition _ =>
              constructor;
-             cbv [SymProp.safe env.remove env.lookup bop.eval is_true
-                               inst inst_term instprop_formula env.Env_rect];
+             cbv [SymProp.safe nenv.remove nenv.lookup bop.eval is_true
+                               inst inst_term instprop_formula env.Env_rect nenv.NamedEnv_rect];
              cbn
          | |- Obligation _ _ _ => constructor; cbn
          | |- Debug _ _ => constructor

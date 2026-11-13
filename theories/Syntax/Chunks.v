@@ -326,7 +326,7 @@ Module Type ChunksOn
              forall ι : Valuation Σ,
              instprop eqs ι ->
              List.In
-               (inst (chunk_user p (eq_rect_r (fun c : Ctx Ty => Env (Term Σ) c) (tsI ►► tsO) prec)) ι, inst h' ι)
+               (inst (chunk_user p (eq_rect_r (fun c : Ctx Ty => Env (Term Σ) c) (tsI ►► tsO)%env prec)) ι, inst h' ι)
                (heap_extractions (inst h ι)))
           (try_consume_chunk_user_precise h).
       Proof.
@@ -350,7 +350,7 @@ Module Type ChunksOn
           + now destruct is_duplicable.
         - apply option.wlp_map. revert IHh. apply option.wlp_monotonic; auto.
           intros [h' eqs] HYP ι Heqs. specialize (HYP ι Heqs).
-          remember (inst (chunk_user p (eq_rect_r (fun c0 : Ctx Ty => Env (Term Σ) c0) (tsI ►► tsO) prec)) ι) as c'.
+          remember (inst (chunk_user p (eq_rect_r (fun c0 : Ctx Ty => Env (Term Σ) c0) (tsI ►► tsO)%env prec)) ι) as c'.
           change (inst (cons c h) ι) with (cons (inst c ι) (inst h ι)).
           cbn [fst heap_extractions]. right. apply List.in_map_iff.
           eexists (c', inst h' ι); auto.
