@@ -1007,15 +1007,26 @@ Module Type GenericSolverOn
     Definition simplify_le {Σ} (t1 t2 : Term Σ ty.int) : DList Σ :=
       singleton (peval_formula_le t1 t2).
 
+    Definition simplify_lt {Σ} (t1 t2 : Term Σ ty.int) : DList Σ :=
+      singleton (peval_formula_lt t1 t2).
+
+    Lemma simplify_le_spec [w : World] (s t : Term w ty.int) :
+      instpred (simplify_le s t) ⊣⊢ instpred (formula_relop bop.le s t).
+    Proof. unfold simplify_le. arw. now rewrite formula_relop_term'. Qed.
+
+    Lemma simplify_lt_spec [w : World] (s t : Term w ty.int) :
+      instpred (simplify_lt s t) ⊣⊢ instpred (formula_relop bop.lt s t).
+    Proof. unfold simplify_lt. arw. now rewrite formula_relop_term'. Qed.
+
     Definition simplify_bvule {Σ n} (t1 t2 : Term Σ (ty.bvec n)) : DList Σ :=
-      let default := fun _ : () => simplify_relopb bop.bvule (peval t1) (peval t2) in
+      let default := fun _ : () => simplify_le (term_unsigned t1) (term_unsigned t2) in
       match term_get_val t1 with
       | Some v => if bv.eqb v bv.zero then empty else default ()
       | _ => default ()
       end.
 
     Definition simplify_bvult {Σ n} (t1 t2 : Term Σ (ty.bvec n)) : DList Σ :=
-      let default := fun _ : () => simplify_relopb bop.bvult (peval t1) (peval t2) in
+      let default := fun _ : () => simplify_lt (term_unsigned t1) (term_unsigned t2) in
        match term_get_val t2 with
        | Some v => if bv.eqb v bv.zero then singleton formula_false else default ()
        | _ => default ()
@@ -1036,8 +1047,10 @@ Module Type GenericSolverOn
              apply True_bientails.
              constructor; intros; subst; cbn.
              now apply bv.zero_ule.
-           - now rewrite ?peval_sound formula_relop_term'.
-           - now rewrite ?peval_sound formula_relop_term'.
+           - rewrite simplify_le_spec; constructor; intros ι _; cbn.
+             now rewrite bv.ule_iff_unsigned_le.
+           - rewrite simplify_le_spec; constructor; intros ι _; cbn.
+             now rewrite bv.ule_iff_unsigned_le.
     Qed.
 
     Lemma simplify_bvult_spec [w : World] [n] (s t : Term w (ty.bvec n)) :
@@ -1048,22 +1061,13 @@ Module Type GenericSolverOn
            - apply False_bientails.
              constructor; intros; subst; cbn.
              now apply bv.ult_zero.
-           - now rewrite ?peval_sound formula_relop_term'.
-           - now rewrite ?peval_sound formula_relop_term'.
+           - rewrite simplify_lt_spec; constructor; intros ι _; cbn.
+             now rewrite bv.ult_iff_unsigned_lt.
+           - rewrite simplify_lt_spec; constructor; intros ι _; cbn.
+             now rewrite bv.ult_iff_unsigned_lt.
     Qed.
 
     #[export] Hint Resolve simplify_bvult_spec simplify_bvule_spec : core.
-
-    Definition simplify_lt {Σ} (t1 t2 : Term Σ ty.int) : DList Σ :=
-      singleton (peval_formula_lt t1 t2).
-
-    Lemma simplify_le_spec [w : World] (s t : Term w ty.int) :
-      instpred (simplify_le s t) ⊣⊢ instpred (formula_relop bop.le s t).
-    Proof. unfold simplify_le. arw. now rewrite formula_relop_term'. Qed.
-
-    Lemma simplify_lt_spec [w : World] (s t : Term w ty.int) :
-      instpred (simplify_lt s t) ⊣⊢ instpred (formula_relop bop.lt s t).
-    Proof. unfold simplify_lt. arw. now rewrite formula_relop_term'. Qed.
 
     #[export] Hint Resolve simplify_le_spec simplify_lt_spec : core.
 
