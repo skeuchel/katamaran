@@ -115,6 +115,7 @@ theories/SmallStep/Progress.v
 theories/SmallStep/Step.v
 theories/Symbolic/Instantiation.v
 theories/Symbolic/MonadClasses.v
+theories/Symbolic/LiaOracle.v
 theories/Symbolic/Monads.v
 theories/Symbolic/OccursCheck.v
 theories/Symbolic/GenOccursCheck.v
@@ -151,4 +152,3 @@ theories/Staging/NewShallow/Soundness.v
 theories/Staging/WorldInstance.v
 # theories/Staging/WorldIsomorphisms.v
 theories/Staging/LinearProgramming.v
-theories/Staging/LiaOracle.v
