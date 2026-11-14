@@ -70,12 +70,33 @@ Module Type GenericSolverOn
     Import option.notations.
     Import DList.
 
+    (* A boolean term as a formula, keeping its propositional structure. *)
+    Fixpoint formula_of_bool [Σ] (t : Term Σ ty.bool) : Formula Σ :=
+      Term_bool_case (fun _ => Formula Σ)
+        (fun (*var*) ς _        => formula_bool (term_var ς))
+        (fun (*val*) b          => if b then formula_true else formula_false)
+        (fun (*and*) t1 t2      => formula_and (formula_of_bool t1) (formula_of_bool t2))
+        (fun (*or*)  t1 t2      => formula_or (formula_of_bool t1) (formula_of_bool t2))
+        (fun (*rel*) σ op t1 t2 => formula_relop op t1 t2)
+        (fun (*not*) t1         => formula_of_bool_neg t1)
+        t
+    with
+    formula_of_bool_neg [Σ] (t : Term Σ ty.bool) : Formula Σ :=
+      Term_bool_case (fun _ => Formula Σ)
+        (fun (*var*) ς _        => formula_bool (term_unop uop.not (term_var ς)))
+        (fun (*val*) b          => if b then formula_false else formula_true)
+        (fun (*and*) t1 t2      => formula_or (formula_of_bool_neg t1) (formula_of_bool_neg t2))
+        (fun (*or*)  t1 t2      => formula_and (formula_of_bool_neg t1) (formula_of_bool_neg t2))
+        (fun (*rel*) σ op t1 t2 => formula_relop_neg op t1 t2)
+        (fun (*not*) t1         => formula_of_bool t1)
+        t.
+
     Fixpoint simplify_bool [Σ] (t : Term Σ ty.bool) : DList Σ :=
       Term_bool_case (fun _ => DList Σ)
         (fun (*var*) ς _        => singleton (formula_bool (term_var ς)))
         (fun (*val*) b          => if b then empty else error)
         (fun (*and*) t1 t2      => cat (simplify_bool t1) (simplify_bool t2))
-        (fun (*or*)  t1 t2      => singleton (formula_bool (term_binop bop.or t1 t2)))
+        (fun (*or*)  t1 t2      => singleton (formula_or (formula_of_bool t1) (formula_of_bool t2)))
         (fun (*rel*) σ op t1 t2 => singleton (formula_relop op t1 t2))
         (fun (*not*) t1         => simplify_bool_neg t1)
         t
@@ -84,11 +105,33 @@ Module Type GenericSolverOn
       Term_bool_case (fun _ => DList Σ)
         (fun (*var*) ς _        => singleton (formula_bool (term_unop uop.not (term_var ς))))
         (fun (*val*) b          => if b then error else empty)
-        (fun (*and*) t1 t2      => singleton (formula_bool (term_binop bop.or (term_unop uop.not t1) (term_unop uop.not t2))))
+        (fun (*and*) t1 t2      => singleton (formula_or (formula_of_bool_neg t1) (formula_of_bool_neg t2)))
         (fun (*or*)  t1 t2      => cat (simplify_bool_neg t1) (simplify_bool_neg t2))
         (fun (*rel*) σ op t1 t2 => singleton (formula_relop_neg op t1 t2))
         (fun (*not*) t1         => simplify_bool t1)
         t.
+
+    Lemma formula_of_bool_instprop {Σ} (ι : Valuation Σ) (t : Term Σ ty.bool) :
+      (instprop (formula_of_bool t) ι <-> inst (T := STerm ty.bool) t ι = true) /\
+      (instprop (formula_of_bool_neg t) ι <-> inst (T := STerm ty.bool) t ι = false).
+    Proof.
+      induction t using Term_bool_ind; cbn.
+      - destruct env.lookup; intuition.
+      - destruct b; cbn; intuition.
+      - destruct IHt1 as [-> ->], IHt2 as [-> ->].
+        destruct (inst t1 ι), (inst t2 ι); cbn; intuition.
+      - destruct IHt1 as [-> ->], IHt2 as [-> ->].
+        destruct (inst t1 ι), (inst t2 ι); cbn; intuition.
+      - split; [apply bop.eval_relop_equiv|apply instprop_formula_relop_neg].
+      - destruct IHt as [-> ->]. destruct (inst t ι); cbn; intuition.
+    Qed.
+
+    Lemma formula_of_bool_spec {w : World} (t : Term w ty.bool) :
+      (instpred (formula_of_bool t) ⊣⊢ repₚ (T := fun Σ => Term Σ ty.bool) true t) ∧
+      (instpred (formula_of_bool_neg t) ⊣⊢ repₚ (T := fun Σ => Term Σ ty.bool) false t).
+    Proof.
+      split; constructor; intros ι _; rewrite instpred_prop; apply formula_of_bool_instprop.
+    Qed.
 
     Lemma simplify_bool_spec_combined {w : World} (t : Term w ty.bool) :
       (instpred (simplify_bool t) ⊣⊢ repₚ (T := fun Σ => Term Σ ty.bool) true t) ∧
@@ -98,10 +141,10 @@ Module Type GenericSolverOn
       - destruct b; arw.
       - split.
         + now destruct IHt1 as [-> _], IHt2 as [-> _].
-        + (* need to find a confluent rewrite strategy... *)
-          now rewrite -(term_negb_involutive (term_binop bop.and _ _))
-                         repₚ_term_not' term_not_and.
-      - destruct IHt1 as [_ ->], IHt2 as [_ ->]; arw.
+        + exact (proj2 (formula_of_bool_spec (term_and t1 t2))).
+      - split.
+        + exact (proj1 (formula_of_bool_spec (term_or t1 t2))).
+        + destruct IHt1 as [_ ->], IHt2 as [_ ->]; arw.
     Qed.
 
     Lemma simplify_bool_spec [w : World] (t : Term w ty.bool) :
