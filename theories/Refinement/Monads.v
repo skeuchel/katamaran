@@ -245,7 +245,7 @@ Module Type RefinementMonadsOn
     Proof.
       unfold Related, SPureSpec.assert_pathcondition, CPureSpec.assert_pathcondition.
       iIntros (msg cC sC) "HC %cΦ %sΦ rΦ HΦ".
-      destruct (combined_solver_spec w sC) as [[w1 [ζ sc1]] Hsolver|Hsolver].
+      destruct (assert_solver_spec w sC) as [[w1 [ζ sc1]] Hsolver|Hsolver].
       - rewrite safe_assert_triangular.
         rewrite safe_assert_pathcondition_without_solver.
         iSplit.
@@ -275,7 +275,7 @@ Module Type RefinementMonadsOn
     Proof.
       unfold Related, SPureSpec.assume_pathcondition, CPureSpec.assume_pathcondition.
       iIntros "%C %Cs HC %Φ %Φs HΦ Hsp %HC".
-      destruct (combined_solver_spec _ Cs) as [[w1 [ζ sc1]] Hsolver|Hsolver].
+      destruct (assume_solver_spec _ Cs) as [[w1 [ζ sc1]] Hsolver|Hsolver].
       - rewrite safe_assume_triangular.
         rewrite safe_assume_pathcondition_without_solver.
         iDestruct "HC" as "[_ HC2]".
