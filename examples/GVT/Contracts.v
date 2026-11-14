@@ -1793,8 +1793,8 @@ Module RiscvPmpValidContracts.
   Lemma valid_contract_pmpMatchAddr : ValidContractDebug pmpMatchAddr.
   Proof.
     symbolic_simpl.
-    intros; split; intros; bv_comp; auto.
-    destruct (v + v0 <=ᵘ? v1)%bv eqn:?; bv_comp; auto.
+    intros; split; intros; bv_comp; intuition.
+    destruct (v + v0 <=ᵘ? v1)%bv eqn:?; bv_comp; intuition.
   Qed.
 
   Lemma valid_contract_pmpMatchEntry : ValidContract pmpMatchEntry.
