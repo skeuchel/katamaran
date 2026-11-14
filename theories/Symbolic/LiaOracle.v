@@ -420,6 +420,95 @@ Lemma ZTautoAuto_sound f :
   ZTautoAuto f = true -> forall env, eval_bf (Zeval_formula env) f.
 Proof. apply ZTautoChecker_sound. Qed.
 
+(** * Clauses
+
+    For procedures that keep their hypotheses in normal form, as a
+    conjunction of [NFormula]s. *)
+
+(** [l] is contradictory. *)
+Definition ZRefutes (l : list (NFormula Z)) : bool :=
+  ZChecker l (ZOracle default_fuel l).
+
+Lemma ZRefutes_sound l :
+  ZRefutes l = true -> forall env, Forall (eval_nformula env) l -> False.
+Proof.
+  intros H env. generalize (ZChecker_sound _ _ H env). clear H.
+  induction l; cbn; [easy|]. intros H Hl. inversion Hl; subst.
+  now apply IHl; [apply H|].
+Qed.
+
+(** [f] as a disjunction, of two cases for a disequality. *)
+Definition ZCases (f : Formula Z) : list (NFormula Z) :=
+  xnegate (xnnormalise f).
+
+Lemma ZCases_sound f env :
+  Zeval_formula env isProp f -> Exists (eval_nformula env) (ZCases f).
+Proof.
+  intros H%xnnormalise_correct. unfold ZCases.
+  destruct (xnnormalise f) as [p o].
+  change (Zeval_op1 o (eval_pol env p)) in H.
+  assert (Hge : forall q, eval_nformula env (q, NonStrict) <-> 0 <= eval_pol env q)
+    by reflexivity.
+  destruct o; cbn [xnegate Zeval_op1] in *.
+  - now constructor.
+  - destruct (Z.lt_trichotomy (eval_pol env p) 0) as [|[|]]; [|easy|].
+    + apply Exists_cons_tl, Exists_cons_hd, Hge.
+      rewrite eval_pol_sub, eval_pol_Pc. lia.
+    + apply Exists_cons_hd, Hge. rewrite eval_pol_sub, eval_pol_Pc. lia.
+  - apply Exists_cons_hd, Hge. rewrite eval_pol_sub, eval_pol_Pc. lia.
+  - now constructor.
+Qed.
+
+(** [f] contradicts [hyps]. *)
+Definition ZContradicts (hyps : list (NFormula Z)) (f : Formula Z) : bool :=
+  forallb (fun c => ZRefutes (c :: hyps)) (ZCases f).
+
+Lemma ZContradicts_sound hyps f :
+  ZContradicts hyps f = true ->
+  forall env, Forall (eval_nformula env) hyps ->
+              Zeval_formula env isProp f -> False.
+Proof.
+  unfold ZContradicts. rewrite forallb_forall. intros H env Hh Hf.
+  apply (ZCases_sound f env), Exists_exists in Hf. destruct Hf as (c & Hin & Hc).
+  now apply (ZRefutes_sound _ (H c Hin) env); constructor.
+Qed.
+
+(** The negation of [f]. *)
+Definition ZNeg (f : Formula Z) : Formula Z :=
+  {| Flhs := Flhs f;
+     Fop := match Fop f with
+            | OpEq => OpNEq
+            | OpNEq => OpEq
+            | OpLe => OpGt
+            | OpGe => OpLt
+            | OpLt => OpGe
+            | OpGt => OpLe
+            end;
+     Frhs := Frhs f |}.
+
+Lemma ZNeg_sound f env :
+  Zeval_formula env isProp (ZNeg f) -> ~ Zeval_formula env isProp f.
+Proof. destruct f as [l [] r]; cbn; lia. Qed.
+
+Lemma ZNeg_complete f env :
+  ~ Zeval_formula env isProp (ZNeg f) -> Zeval_formula env isProp f.
+Proof. destruct f as [l [] r]; cbn; lia. Qed.
+
+(** [f] as a hypothesis. A disequality is dropped. *)
+Definition ZHyp (f : Formula Z) : list (NFormula Z) :=
+  match ZCases f with
+  | [c] => [c]
+  | _ => []
+  end.
+
+Lemma ZHyp_sound f env :
+  Zeval_formula env isProp f -> Forall (eval_nformula env) (ZHyp f).
+Proof.
+  intros H%ZCases_sound. unfold ZHyp.
+  destruct (ZCases f) as [|c [|]]; [easy| |easy].
+  inversion H; subst; [now constructor|]. now inversion H1.
+Qed.
+
 (** * Tactics
 
     [xlia] is used for its reification, and also runs the oracle of [lia]: it

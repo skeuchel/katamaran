@@ -36,6 +36,13 @@ From Stdlib Require Import
      Relations.Relation_Definitions
      ZArith.BinInt.
 
+From Stdlib Require
+     Lists.List
+     micromega.EnvRing
+     micromega.RingMicromega
+     micromega.Tauto
+     micromega.ZMicromega.
+
 From Katamaran Require Import
      Base
      Bitvector
@@ -44,6 +51,8 @@ From Katamaran Require Import
      Symbolic.Propositions
      Symbolic.UnifLogic
      Symbolic.Worlds.
+From Katamaran Require
+     Symbolic.LiaOracle.
 
 From Equations Require Import
      Equations.
@@ -1673,6 +1682,455 @@ Module Type GenericSolverOn
       - now rewrite <-Hequiv.
     Qed.
 
+    (* Linear arithmetic: int relations and unsigned bitvector comparisons
+       are decided against those of the path condition by LiaOracle, i.e. by
+       refuting over the rationals. The terms that are not arithmetic are
+       its variables. *)
+    Section LinearArithmetic.
+      Context {Σ : LCtx}.
+
+      Definition Atoms : Type := list (Term Σ ty.int).
+
+      Definition atom_mem (t : Term Σ ty.int) : Atoms -> bool :=
+        List.existsb (Term_eqb t).
+
+      (* The variable of an atom is its position. *)
+      Fixpoint atom_find (t : Term Σ ty.int) (l : Atoms) : option positive :=
+        match l with
+        | nil => None
+        | cons t' l =>
+            if Term_eqb t t' then Some xH else option_map Pos.succ (atom_find t l)
+        end.
+
+      Fixpoint atom_env (ι : Valuation Σ) (l : Atoms) (x : positive) : Z :=
+        match l with
+        | nil => 0%Z
+        | cons t l =>
+            if Pos.eqb x 1 then inst (T := STerm ty.int) t ι
+            else atom_env ι l (Pos.pred x)
+        end.
+
+      Definition term_atoms : Term Σ ty.int -> Atoms -> Atoms :=
+        Term_int_rect (fun _ => Atoms -> Atoms)
+          (fun x xIn => cons (term_var_in xIn))
+          (fun _ acc => acc)
+          (fun _ _ r1 r2 acc => r1 (r2 acc))
+          (fun _ _ r1 r2 acc => r1 (r2 acc))
+          (fun _ _ r1 r2 acc => r1 (r2 acc))
+          (fun t1 t2 _ _ => cons (term_binop bop.land t1 t2))
+          (fun _ r => r)
+          (fun n t => cons (term_unop uop.signed t))
+          (fun n t => cons (term_unsigned t)).
+
+      Definition bv_atoms {n} (t : Term Σ (ty.bvec n)) (acc : Atoms) : Atoms :=
+        match term_get_val t with
+        | Some _ => acc
+        | None => cons (term_unsigned t) acc
+        end.
+
+      Definition ty_atoms {σ} : option (Term Σ σ -> Atoms -> Atoms) :=
+        match σ with
+        | ty.int => Some term_atoms
+        | ty.bvec n => Some bv_atoms
+        | _ => None
+        end.
+
+      (* The atoms of a relation, if it is an arithmetic one. *)
+      Definition relop_atoms {σ} (op : RelOp σ) (t1 t2 : Term Σ σ) : option Atoms :=
+        match op with
+        | bop.bvsle | bop.bvslt => None
+        | _ => option_map (fun f => f t1 (f t2 nil)) ty_atoms
+        end.
+
+      Definition formula_atoms (F : Formula Σ) : option Atoms :=
+        match F with
+        | formula_relop op t1 t2 => relop_atoms op t1 t2
+        | _ => None
+        end.
+
+      Definition reify_atom (ats : Atoms) (t : Term Σ ty.int) :
+        option (EnvRing.PExpr Z) :=
+        option_map (@EnvRing.PEX Z) (atom_find t ats).
+
+      Definition reify_int (ats : Atoms) : Term Σ ty.int -> option (EnvRing.PExpr Z) :=
+        Term_int_rect (fun _ => option (EnvRing.PExpr Z))
+          (fun x xIn => reify_atom ats (term_var_in xIn))
+          (fun i => Some (EnvRing.PEc i))
+          (fun _ _ r1 r2 => e1 <- r1 ;; e2 <- r2 ;; Some (EnvRing.PEadd e1 e2))
+          (fun _ _ r1 r2 => e1 <- r1 ;; e2 <- r2 ;; Some (EnvRing.PEsub e1 e2))
+          (fun _ _ r1 r2 => e1 <- r1 ;; e2 <- r2 ;; Some (EnvRing.PEmul e1 e2))
+          (fun t1 t2 _ _ => reify_atom ats (term_binop bop.land t1 t2))
+          (fun _ r => option_map (@EnvRing.PEopp Z) r)
+          (fun n t => reify_atom ats (term_unop uop.signed t))
+          (fun n t => reify_atom ats (term_unsigned t)).
+
+      (* A bitvector stands for its unsigned value. *)
+      Definition reify_bv {n} (ats : Atoms) (t : Term Σ (ty.bvec n)) :
+        option (EnvRing.PExpr Z) :=
+        match term_get_val t with
+        | Some v => Some (EnvRing.PEc (bv.unsigned v))
+        | None => reify_atom ats (term_unsigned t)
+        end.
+
+      Definition reify_term {σ} (ats : Atoms) : Term Σ σ -> option (EnvRing.PExpr Z) :=
+        match σ with
+        | ty.int => reify_int ats
+        | ty.bvec n => reify_bv ats
+        | _ => fun _ => None
+        end.
+
+      Definition reify_relop {σ} (ats : Atoms) (op : RelOp σ) (t1 t2 : Term Σ σ) :
+        option (RingMicromega.Formula Z) :=
+        match
+          match op with
+          | bop.eq => Some RingMicromega.OpEq
+          | bop.neq => Some RingMicromega.OpNEq
+          | bop.le | bop.bvule => Some RingMicromega.OpLe
+          | bop.lt | bop.bvult => Some RingMicromega.OpLt
+          | _ => None
+          end
+        with
+        | Some o =>
+            e1 <- reify_term ats t1 ;;
+            e2 <- reify_term ats t2 ;;
+            Some (RingMicromega.Build_Formula e1 o e2)
+        | None => None
+        end.
+
+      Definition reify_formula (ats : Atoms) (F : Formula Σ) :
+        option (RingMicromega.Formula Z) :=
+        match F with
+        | formula_relop op t1 t2 => reify_relop ats op t1 t2
+        | _ => None
+        end.
+
+      (* Arithmetic formulas that hold, with their atoms. *)
+      Definition Hyps : Type := list (Atoms * Formula Σ).
+
+      Definition pathcondition_hyps (C : PathCondition Σ) : Hyps :=
+        ctx.Ctx_rect (fun _ => Hyps) nil
+          (fun _ hs F => match formula_atoms F with
+                         | Some ats => cons (ats, F) hs
+                         | None => hs
+                         end) C.
+
+      Definition atoms_meet (l1 l2 : Atoms) : bool :=
+        List.existsb (fun t => atom_mem t l2) l1.
+
+      (* sel and the hypotheses of cands that share atoms with seed, directly
+         or through other hypotheses. *)
+      Fixpoint relevant (fuel : nat) (seed : Atoms) (cands sel : Hyps) : Hyps :=
+        match fuel with
+        | O => sel
+        | S fuel =>
+            match List.partition (fun h => atoms_meet (fst h) seed) cands with
+            | (nil, _) => sel
+            | (hit, miss) =>
+                relevant fuel (List.concat (List.map fst hit)) miss (hit ++ sel)
+            end
+        end.
+
+      Definition atoms_dedup : Atoms -> Atoms :=
+        fold_right (fun t acc => if atom_mem t acc then acc else cons t acc) nil.
+
+      Definition term_is_unsigned (t : Term Σ ty.int) : bool :=
+        Term_int_case (fun _ => bool)
+          (fun _ _ => false) (fun _ => false) (fun _ _ => false) (fun _ _ => false)
+          (fun _ _ => false) (fun _ _ => false) (fun _ => false) (fun _ _ => false)
+          (fun _ _ => true) t.
+
+      (* Unsigned values are nonnegative. No upper bound: the width may be
+         symbolic. *)
+      Definition unsigned_facts (ats : Atoms) : list (Formula Σ) :=
+        List.map (formula_relop bop.le (term_val ty.int 0%Z))
+          (List.filter term_is_unsigned ats).
+
+      Definition hyps_nf (ats : Atoms) (Fs : list (Formula Σ)) :
+        list (RingMicromega.NFormula Z) :=
+        List.flat_map
+          (fun F => match reify_formula ats F with
+                    | Some f => LiaOracle.ZHyp f
+                    | None => nil
+                    end) Fs.
+
+      Variant Verdict : Set := entailed | contradicted | unknown.
+
+      (* Entailment is only looked for if drop is set. *)
+      Definition lia_decide (drop : bool) (hyps : Hyps) {σ} (op : RelOp σ)
+        (t1 t2 : Term Σ σ) (ats : Atoms) : Verdict :=
+        let sel := relevant (length hyps) ats hyps nil in
+        let all := atoms_dedup (ats ++ List.concat (List.map fst sel)) in
+        match reify_relop all op t1 t2 with
+        | Some f =>
+            let nfs := hyps_nf all (unsigned_facts all ++ List.map snd sel) in
+            if (if drop then LiaOracle.ZContradicts nfs (LiaOracle.ZNeg f) else false)
+            then entailed
+            else if LiaOracle.ZContradicts nfs f then contradicted
+            else unknown
+        | None => unknown
+        end.
+
+      Fixpoint lia_pathcondition (drop : bool) (hyps : Hyps) (C : PathCondition Σ) :
+        option (Hyps * PathCondition Σ) :=
+        match C with
+        | [ctx] => Some (hyps, [ctx])
+        | C ▻ F =>
+            '(hyps', C') <- lia_pathcondition drop hyps C ;;
+            match F with
+            | formula_relop op t1 t2 =>
+                match relop_atoms op t1 t2 with
+                | Some ats =>
+                    match lia_decide drop hyps' op t1 t2 ats with
+                    | entailed => Some (hyps', C')
+                    | contradicted => None
+                    | unknown => Some (cons (ats, F) hyps', C' ▻ F)
+                    end
+                | None => Some (hyps', C' ▻ F)
+                end
+            | _ => Some (hyps', C' ▻ F)
+            end
+        end.
+
+      Section Sound.
+        Variable (ι : Valuation Σ).
+
+        Lemma atom_find_spec (t : Term Σ ty.int) (l : Atoms) x :
+          atom_find t l = Some x -> atom_env ι l x = inst (T := STerm ty.int) t ι.
+        Proof.
+          revert x. induction l as [|t' l IH]; intros x; cbn [atom_find atom_env];
+            [discriminate|].
+          destruct (Term_eqb_spec t t') as [->|_].
+          - now intros [= <-].
+          - destruct atom_find as [y|]; cbn [option_map]; [|discriminate].
+            intros [= <-].
+            destruct (Pos.eqb_spec (Pos.succ y) 1) as [E|_].
+            + now apply Pos.succ_not_1 in E.
+            + rewrite Pos.pred_succ. now apply IH.
+        Qed.
+
+        Lemma reify_atom_spec ats (t : Term Σ ty.int) e :
+          reify_atom ats t = Some e ->
+          ZMicromega.Zeval_expr (atom_env ι ats) e = inst (T := STerm ty.int) t ι.
+        Proof.
+          unfold reify_atom. destruct atom_find eqn:E; cbn; [|discriminate].
+          intros [= <-]. now apply atom_find_spec.
+        Qed.
+
+        Lemma reify_int_spec ats (t : Term Σ ty.int) : forall e,
+          reify_int ats t = Some e ->
+          ZMicromega.Zeval_expr (atom_env ι ats) e = inst (T := STerm ty.int) t ι.
+        Proof.
+          induction t using Term_int_rect; cbn; intros e.
+          - apply reify_atom_spec.
+          - now intros [= <-].
+          - destruct (reify_int ats t1) as [e1|], (reify_int ats t2) as [e2|]; cbn;
+              try discriminate; intros [= <-]; cbn.
+            now rewrite (IHt1 _ eq_refl) (IHt2 _ eq_refl).
+          - destruct (reify_int ats t1) as [e1|], (reify_int ats t2) as [e2|]; cbn;
+              try discriminate; intros [= <-]; cbn.
+            now rewrite (IHt1 _ eq_refl) (IHt2 _ eq_refl).
+          - destruct (reify_int ats t1) as [e1|], (reify_int ats t2) as [e2|]; cbn;
+              try discriminate; intros [= <-]; cbn.
+            now rewrite (IHt1 _ eq_refl) (IHt2 _ eq_refl).
+          - apply reify_atom_spec.
+          - destruct (reify_int ats t) as [e1|]; cbn; try discriminate;
+              intros [= <-]; cbn.
+            now rewrite (IHt _ eq_refl).
+          - apply reify_atom_spec.
+          - apply reify_atom_spec.
+        Qed.
+
+        Lemma reify_bv_spec {n} ats (t : Term Σ (ty.bvec n)) e :
+          reify_bv ats t = Some e ->
+          ZMicromega.Zeval_expr (atom_env ι ats) e =
+            @bv.unsigned n (inst (T := STerm (ty.bvec n)) t ι).
+        Proof.
+          unfold reify_bv. destruct (term_get_val_spec t) as [v|]; subst.
+          - now intros [= <-].
+          - apply reify_atom_spec.
+        Qed.
+
+        Lemma reify_relop_spec {σ} ats (op : RelOp σ) (t1 t2 : Term Σ σ) f :
+          reify_relop ats op t1 t2 = Some f ->
+          instprop (formula_relop op t1 t2) ι <->
+          ZMicromega.Zeval_formula (atom_env ι ats) Tauto.isProp f.
+        Proof.
+          unfold reify_relop.
+          destruct op; try discriminate.
+          all: try (destruct σ; cbn [reify_term]; try discriminate).
+          all: cbn [reify_term].
+          all: repeat match goal with
+                 | |- context[reify_int ?l ?a] => destruct (reify_int l a) eqn:?
+                 | |- context[reify_bv ?l ?a] => destruct (reify_bv l a) eqn:?
+                 end; cbn; try discriminate; intros [= <-]; cbn.
+          all: repeat match goal with
+                 | E : reify_int _ _ = Some _ |- _ =>
+                     rewrite (reify_int_spec _ _ E); clear E
+                 | E : reify_bv _ _ = Some _ |- _ =>
+                     rewrite (reify_bv_spec _ _ E); clear E
+                 end.
+          all: try reflexivity.
+          - split; [now intros ->|apply bv.unsigned_inj].
+          - split; intros H1 H2; apply H1; [now apply bv.unsigned_inj|now rewrite H2].
+          - apply bv.ule_iff_unsigned_le.
+          - apply bv.ult_iff_unsigned_lt.
+        Qed.
+
+        Lemma reify_formula_spec ats (F : Formula Σ) f :
+          reify_formula ats F = Some f ->
+          instprop F ι <-> ZMicromega.Zeval_formula (atom_env ι ats) Tauto.isProp f.
+        Proof. destruct F; try discriminate. apply reify_relop_spec. Qed.
+
+        Lemma term_is_unsigned_spec (t : Term Σ ty.int) :
+          term_is_unsigned t = true -> (0 <= inst (T := STerm ty.int) t ι)%Z.
+        Proof.
+          destruct t using Term_int_case; cbn; try discriminate.
+          intros _. apply bv.unsigned_bounds.
+        Qed.
+
+        Lemma unsigned_facts_spec ats :
+          List.Forall (fun F : Formula Σ => instprop F ι) (unsigned_facts ats).
+        Proof.
+          unfold unsigned_facts. apply List.Forall_map, List.Forall_forall.
+          intros t [_ Ht]%List.filter_In. now apply term_is_unsigned_spec.
+        Qed.
+
+        Lemma hyps_nf_spec ats (Fs : list (Formula Σ)) :
+          List.Forall (fun F : Formula Σ => instprop F ι) Fs ->
+          List.Forall (ZMicromega.eval_nformula (atom_env ι ats)) (hyps_nf ats Fs).
+        Proof.
+          unfold hyps_nf. induction 1 as [|F Fs HF _ IH]; cbn; [constructor|].
+          apply List.Forall_app. split; [|assumption].
+          destruct reify_formula eqn:E; [|constructor].
+          now apply LiaOracle.ZHyp_sound, (reify_formula_spec _ _ E).
+        Qed.
+
+        Lemma relevant_spec (P : Atoms * Formula Σ -> Prop) fuel :
+          forall seed cands sel,
+            List.Forall P cands -> List.Forall P sel ->
+            List.Forall P (relevant fuel seed cands sel).
+        Proof.
+          induction fuel as [|fuel IH]; cbn; intros seed cands sel Hc Hs;
+            [assumption|].
+          destruct List.partition as [hit miss] eqn:E.
+          pose proof (List.elements_in_partition _ _ E) as Hin.
+          destruct hit as [|h hit]; [assumption|].
+          apply IH.
+          - apply List.Forall_forall. intros x Hx.
+            eapply List.Forall_forall; [exact Hc|]. apply Hin. now right.
+          - apply List.Forall_app. split; [|assumption].
+            apply List.Forall_forall. intros x Hx.
+            eapply List.Forall_forall; [exact Hc|]. apply Hin. now left.
+        Qed.
+
+        Definition hyp_holds (h : Atoms * Formula Σ) : Prop := instprop (snd h) ι.
+
+        Lemma lia_decide_spec drop hyps {σ} (op : RelOp σ) (t1 t2 : Term Σ σ) ats :
+          List.Forall hyp_holds hyps ->
+          match lia_decide drop hyps op t1 t2 ats with
+          | entailed => instprop (formula_relop op t1 t2) ι
+          | contradicted => ~ instprop (formula_relop op t1 t2) ι
+          | unknown => True
+          end.
+        Proof.
+          intros Hh. unfold lia_decide.
+          set (sel := relevant _ _ _ _). set (all := atoms_dedup _).
+          destruct reify_relop as [f|] eqn:Ef; [|exact I].
+          assert (Hn : List.Forall (ZMicromega.eval_nformula (atom_env ι all))
+                         (hyps_nf all (unsigned_facts all ++ List.map snd sel))).
+          { apply hyps_nf_spec, List.Forall_app. split; [apply unsigned_facts_spec|].
+            apply List.Forall_map. apply relevant_spec; [assumption|constructor]. }
+          pose proof (reify_relop_spec _ _ _ _ Ef) as HF.
+          destruct (if drop then _ else false) eqn:E1.
+          - destruct drop; [|discriminate].
+            apply HF, LiaOracle.ZNeg_complete. intros Hneg.
+            exact (LiaOracle.ZContradicts_sound _ _ E1 _ Hn Hneg).
+          - destruct (LiaOracle.ZContradicts _ f) eqn:E2; [|exact I].
+            intros HFt%HF. exact (LiaOracle.ZContradicts_sound _ _ E2 _ Hn HFt).
+        Qed.
+
+        Lemma lia_pathcondition_spec drop hyps (C : PathCondition Σ) :
+          List.Forall hyp_holds hyps ->
+          match lia_pathcondition drop hyps C with
+          | Some (hyps', C') =>
+              (instprop C ι <-> instprop C' ι) /\
+              (instprop C' ι -> List.Forall hyp_holds hyps')
+          | None => ~ instprop C ι
+          end.
+        Proof.
+          intros Hh. induction C as [|C IH F]; cbn; [tauto|].
+          destruct lia_pathcondition as [[hyps' C']|]; cbn; [|intuition].
+          destruct IH as [IHiff IHh].
+          assert (Hkeep : (instprop C ι /\ instprop F ι <->
+                           instprop C' ι /\ instprop F ι) /\
+                          (instprop C' ι /\ instprop F ι ->
+                           List.Forall hyp_holds hyps'))
+            by intuition.
+          destruct F; try exact Hkeep.
+          destruct relop_atoms as [ats|]; [|exact Hkeep].
+          assert (Hd : instprop C' ι ->
+                       match lia_decide drop hyps' rop t1 t2 ats with
+                       | entailed => instprop (formula_relop rop t1 t2) ι
+                       | contradicted => ~ instprop (formula_relop rop t1 t2) ι
+                       | unknown => True
+                       end).
+          { intros HC'. apply lia_decide_spec, IHh, HC'. }
+          destruct lia_decide; cbn.
+          - split; [|assumption]. split; [intuition|].
+            intros HC'. split; [now apply IHiff|]. exact (Hd HC').
+          - intros [HC HFt]. exact (Hd (proj1 IHiff HC) HFt).
+          - split; [intuition|]. intros [HC' HFt].
+            constructor; [exact HFt|now apply IHh].
+        Qed.
+
+        Lemma pathcondition_hyps_spec (C : PathCondition Σ) :
+          instprop C ι -> List.Forall hyp_holds (pathcondition_hyps C).
+        Proof.
+          induction C as [|C IH F]; cbn; [constructor|].
+          intros [HC HF]. destruct formula_atoms; [|now apply IH].
+          constructor; [exact HF|now apply IH].
+        Qed.
+
+      End Sound.
+
+    End LinearArithmetic.
+
+    (* With drop, the entailed formulas of C are dropped. Otherwise only
+       contradictions are looked for: hypotheses are kept as they are, for
+       the assumption step to find them. *)
+    Definition lia_check {Σ} (drop : bool) (hyps C : PathCondition Σ) :
+      option (PathCondition Σ) :=
+      match pathcondition_hyps C with
+      | nil => Some C
+      | _ => option_map snd (lia_pathcondition drop (pathcondition_hyps hyps) C)
+      end.
+
+    Lemma lia_check_spec {w : World} drop (C : PathCondition w) :
+      option.spec
+        (fun C' => instpred C' ⊣⊢ instpred C)
+        (instpred C ⊢ False)
+        (lia_check drop (wco w) C).
+    Proof.
+      unfold lia_check. destruct (pathcondition_hyps C); [now constructor|].
+      pose proof (fun ι (Hpc : instprop (wco w) ι) =>
+                    @lia_pathcondition_spec _ ι drop _ C
+                      (@pathcondition_hyps_spec _ ι (wco w) Hpc)) as H.
+      destruct lia_pathcondition as [[hyps' C']|]; constructor.
+      - constructor. intros ι Hpc. rewrite !instpred_prop. symmetry. apply (H ι Hpc).
+      - constructor. intros ι Hpc HC. rewrite instpred_prop in HC. now apply (H ι Hpc).
+    Qed.
+
+    Definition solver_lia (drop : bool) : Solver :=
+      fun w C =>
+        option_map (fun C' => existT w (tri_id, C')) (lia_check drop (wco w) C).
+
+    Lemma solver_lia_spec drop : SolverSpec (solver_lia drop).
+    Proof.
+      intros w C. unfold solver_lia. apply option.spec_map.
+      generalize (lia_check_spec drop C). apply option.spec_monotonic; [|done].
+      intros C' H. now rewrite knowing_id.
+    Qed.
+
   End GenericSolver.
 
   Lemma solver_compose_spec {s1 s2} (spec1 : SolverSpec s1) (spec2 : SolverSpec s2) : SolverSpec (solver_compose s1 s2).
@@ -1705,6 +2163,18 @@ Module Type GenericSolverOn
     unfold combined_solver.
     auto using solver_compose_spec, solver_generic_spec, solver_spec.
   Qed.
+
+  (* The solvers for asserted and for assumed formulas. *)
+  Definition assert_solver : Solver :=
+    solver_compose combined_solver (solver_lia true).
+  Definition assume_solver : Solver :=
+    solver_compose combined_solver (solver_lia false).
+
+  Lemma assert_solver_spec : SolverSpec assert_solver.
+  Proof. apply solver_compose_spec; [apply combined_solver_spec|apply solver_lia_spec]. Qed.
+
+  Lemma assume_solver_spec : SolverSpec assume_solver.
+  Proof. apply solver_compose_spec; [apply combined_solver_spec|apply solver_lia_spec]. Qed.
 
 End GenericSolverOn.
 

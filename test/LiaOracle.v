@@ -1,8 +1,8 @@
-(* Tests for the oracle of Staging/LiaOracle.v. *)
+(* Tests for the oracle of Symbolic/LiaOracle.v. *)
 
 From Stdlib Require Import List ZArith QArith FMapPositive Lia.
 From Stdlib.micromega Require Import EnvRing RingMicromega Tauto ZMicromega.
-From Katamaran Require Import Staging.LiaOracle.
+From Katamaran Require Import Symbolic.LiaOracle.
 
 Import ListNotations.
 #[local] Open Scope Z_scope.

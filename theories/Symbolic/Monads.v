@@ -496,7 +496,7 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
     Definition assert_pathcondition :
       ⊢ AMessage -> PathCondition -> SPureSpec Unit :=
       fun w msg C POST =>
-        match combined_solver w C with
+        match assert_solver w C with
         | Some (existT w1 (ν, C1)) =>
             (* Assert variable equalities and the residual constraints *)
             SymProp.assert_triangular msg ν
@@ -519,7 +519,7 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
     Definition assume_pathcondition :
       ⊢ PathCondition -> SPureSpec Unit :=
       fun w C POST =>
-        match combined_solver w C with
+        match assume_solver w C with
         | Some (existT w1 (ν, C1)) =>
             (* Assume variable equalities and the residual constraints *)
             SymProp.assume_triangular ν
