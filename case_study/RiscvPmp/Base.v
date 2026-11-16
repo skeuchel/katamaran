@@ -121,7 +121,12 @@ Qed.
 (* We place the MMIO memory after the RAM memory, and have the PMP entry for the adversary in the FemtoKernel provide access up to but not including the MMIO memory. The lack of an entry for the MMIO memory will ensure that this memory is addressable by the kernel. *)
 Definition mmioStartAddr := maxAddr.
 Definition mmioLenAddr := (maxAddr + lenAddr)%N.
-Definition mmioAddrs : list Addr := bv.seq (@bv.of_N xlenbits mmioStartAddr) (Z.of_N mmioLenAddr).
+(* Sealed like liveAddrs: vm_compute evaluates a constant when it links code
+   that mentions it, and this list has 2^15 elements. *)
+Definition mmioAddrs_def : list Addr := bv.seq (@bv.of_N xlenbits mmioStartAddr) (Z.of_N mmioLenAddr).
+Definition mmioAddrs_aux : seal (@mmioAddrs_def). Proof. by eexists. Qed.
+Definition mmioAddrs : list Addr := mmioAddrs_aux.(unseal).
+Lemma mmioAddrs_eq : mmioAddrs = mmioAddrs_def. Proof. rewrite -mmioAddrs_aux.(seal_eq) //. Qed.
 Definition isMMIO a : Prop := a ∈ mmioAddrs.
 Lemma mmioAddrs_rep :
   (Z.of_N (mmioStartAddr + mmioLenAddr) < 2 ^ Z.of_nat xlenbits)%Z.
@@ -172,7 +177,7 @@ Section WithBvNotations.
     (bv.unsigned addr + Z.of_nat size <= Z.of_N (mmioStartAddr + mmioLenAddr))%Z ->
     withinMMIO addr size.
   Proof.
-    intros Hs Hlo Hhi. split; first done. intros i Hi. apply bv.elem_of_seq.
+    intros Hs Hlo Hhi. split; first done. intros i Hi. rewrite mmioAddrs_eq. apply bv.elem_of_seq.
     exists (bv.unsigned addr + Z.of_nat i - Z.of_N mmioStartAddr)%Z. split; last lia.
     rewrite -bv.of_Z_N -{1}(bv.of_Z_unsigned addr) -bv.of_Z_nat !bv.of_Z_add.
     f_equal. lia.
@@ -277,7 +282,7 @@ Parameter mmioenv : MMIOEnv.
 (* Addresses cannot both be MMIO and RAM. We need to know this when trying to inject pointsto-chunks for RAM back into maps of pointsto chunks. *)
 
 Lemma mmio_ram_False a : a ∈ liveAddrs → a ∈ mmioAddrs -> False.
-Proof. rewrite liveAddrs_eq; unfold liveAddrs_def, mmioAddrs, mmioStartAddr, mmioLenAddr, maxAddr, minAddr, lenAddr.
+Proof. rewrite liveAddrs_eq mmioAddrs_eq; unfold liveAddrs_def, mmioAddrs_def, mmioStartAddr, mmioLenAddr, maxAddr, minAddr, lenAddr.
        apply bv.seq_no_overlap; now compute.
 Qed.
 
