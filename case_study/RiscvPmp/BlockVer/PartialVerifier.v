@@ -249,7 +249,7 @@ Module RiscvPmpBlockVerifPartialVerifier
 
       #[export] Instance mon_cexec_block_addr {instrs ainstr apc} :
         Proper (MHeapSpec eq) (cexec_block_addr instrs ainstr apc).
-      Proof. revert ainstr apc. induction instrs; cbn; solve_monotonic. Qed.
+      Proof. revert ainstr apc. induction instrs; cbn [cexec_block_addr]; solve_monotonic. Qed.
 
     End Shallow.
 
@@ -620,7 +620,7 @@ Module RiscvPmpBlockVerifPartialVerifier
         Proper (MHeapSpec eq) (cexec_annotated_block_addr instrs ainstr apc).
       Proof.
         revert ainstr apc.
-        induction instrs; cbn; try solve_monotonic.
+        induction instrs; cbn [cexec_annotated_block_addr]; try solve_monotonic.
         destruct a; solve_monotonic.
       Qed.
 

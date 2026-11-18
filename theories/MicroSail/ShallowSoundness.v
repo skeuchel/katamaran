@@ -121,13 +121,13 @@ Module Type Soundness
 
     Definition SoundExecFail (exec_fail : ExecFail) : Prop :=
       forall Γ τ (s : Val ty.string)
-        (Φ : Val τ → CStore Γ → SCHeap → Prop)
+        (Φ : Val τ * CStore Γ → SCHeap → Prop)
         (δ1 : CStore Γ) (h1 : SCHeap),
-        exec_fail _ _ s Φ δ1 h1 →
+        exec_fail _ _ s δ1 Φ h1 →
         ⦃ interpret_scheap h1 ⦄
           stm_fail _ s; δ1
         ⦃ fun (v : Val τ) (δ' : CStore Γ) =>
-            ∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ v δ' h'⌝ ⦄.
+            ∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ (v,δ') h'⌝ ⦄.
 
     Definition SoundExecCallForeign (exec_call_foreign : ExecCallForeign) : Prop :=
       forall Γ τ Δ (f : 𝑭𝑿 Δ τ) (es : NamedEnv (Exp Γ) Δ)
@@ -148,13 +148,13 @@ Module Type Soundness
 
     Definition SoundExec (exec : Exec) :=
       forall
-        Γ σ (s : Stm Γ σ) (Φ : Val σ → CStore Γ → SCHeap → Prop)
+        Γ σ (s : Stm Γ σ) (Φ : Val σ * CStore Γ → SCHeap → Prop)
         (δ1 : CStore Γ) (h1 : SCHeap),
-        exec _ _ s Φ δ1 h1 ->
+        exec _ _ s δ1 Φ h1 ->
         ⦃ interpret_scheap h1 ⦄
           s ; δ1
         ⦃ fun v δ' =>
-            ∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ v δ' h'⌝
+            ∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ (v,δ') h'⌝
         ⦄.
 
     Section ExecAux.
@@ -163,11 +163,6 @@ Module Type Soundness
       Variable exec_lemma : ExecLemma.
       Variable exec_call : ExecCall.
       Variable exec_fail : ExecFail.
-
-      Variable mexec_call_foreign : MonotonicExecCallForeign exec_call_foreign.
-      Variable mexec_lemma : MonotonicExecLemma exec_lemma.
-      Variable mexec_call : MonotonicExecCall exec_call.
-      Variable mexec_fail : MonotonicExecFail exec_fail.
 
       Variable sound_exec_call_foreign : SoundExecCallForeign exec_call_foreign.
       Variable sound_exec_lemma : SoundExecLemma exec_lemma.
@@ -179,7 +174,14 @@ Module Type Soundness
       Proof.
         unfold SoundExec. intros ? ? s.
         induction s; intros ? ? ?; cbn;
-          cbv [pure pushspops pushpop eval_exp get_local put_local bind];
+          cbv [CStoreT.pure CStoreT.pushspops CStoreT.pushpop CStoreT.eval_exp
+               CStoreT.eval_exps CStoreT.get_local CStoreT.put_local CStoreT.bind
+               CStoreT.lift_heapspec CStoreT.assign CStoreT.demonic_pattern_match
+               CHeapSpecM.pure CHeapSpecM.bind CHeapSpecM.assert_formula
+               CHeapSpecM.assume_formula CHeapSpecM.demonic_pattern_match
+               CHeapSpecM.read_register CHeapSpecM.write_register
+               CHeapSpec.cheapspecm_cheapspec CHeapSpec.pure CHeapSpec.bind
+               CHeapSpec.lift_purespec CPureSpec.pure];
           cbn; intros HYP.
 
         - (* stm_val *)
@@ -203,14 +205,17 @@ Module Type Soundness
           apply IHs1, HYP. clear IHs1 HYP.
           intros v1 δ2.
           apply rule_exist. intros h.
-          apply rule_pull. intros HYP.
-          now apply IHs2.
+          apply rule_pull. intros HYP. cbn in HYP.
+          apply IHs2 in HYP. apply (rule_consequence_right _ HYP).
+          intros; cbn; reflexivity.
 
         - (* stm_block *)
-          now apply rule_stm_block, IHs.
+          apply rule_stm_block. apply IHs in HYP.
+          apply (rule_consequence_right _ HYP). intros; cbn; reflexivity.
 
         - (* stm_assign *)
-          now apply rule_stm_assign, IHs.
+          apply rule_stm_assign. apply IHs in HYP.
+          apply (rule_consequence_right _ HYP). intros; cbn; reflexivity.
 
         - (* stm_call *)
           eapply sound_exec_call in HYP.
@@ -221,7 +226,8 @@ Module Type Soundness
           apply bi.pure_mono; intros []; now subst.
 
         - (* stm_call_frame *)
-          now apply rule_stm_call_frame, IHs.
+          apply rule_stm_call_frame. apply IHs in HYP.
+          apply (rule_consequence_right _ HYP). intros; cbn; reflexivity.
 
         - (* stm_foreign *)
           eapply sound_exec_call_foreign in HYP.
@@ -243,10 +249,14 @@ Module Type Soundness
           apply IHs1, HYP. clear IHs1 HYP.
           intros v1 δ2.
           apply rule_exist. intros h.
-          apply rule_pull. intros HYP.
+          apply rule_pull. intros HYP. cbn in HYP.
           now apply IHs2.
 
         - (* stm_assert *)
+          cbv [CHeapSpec.assert_formula CHeapSpec.assume_formula
+               CHeapSpec.lift_purespec CPureSpec.assert_formula
+               CPureSpec.assume_formula CPureSpec.assert_pathcondition
+               CPureSpec.assume_pathcondition] in HYP.
           destruct HYP as [Hf HYP].
           apply rule_stm_assert; auto.
 
@@ -258,12 +268,15 @@ Module Type Soundness
           apply IHs, HYP. clear IHs HYP.
           intros pc δpc δΓ'. cbn.
           apply rule_exist. intros h.
-          apply rule_pull. intros HYP.
-          apply wp_demonic_pattern_match in HYP.
-          rewrite pattern_match_val_inverse_right in HYP.
-          now apply H.
+          apply rule_pull. intros HYP. cbn in HYP.
+          rewrite CPureSpec.wp_demonic_pattern_match in HYP.
+          rewrite pattern_match_val_inverse_right in HYP. cbn in HYP.
+          apply H in HYP. apply (rule_consequence_right _ HYP).
+          intros; cbn; reflexivity.
 
         - (* stm_read_register *)
+          cbv [CHeapSpec.read_register CPureSpec.read_register CPureSpec.bind
+               CPureSpec.angelic CPureSpec.pure] in HYP.
           destruct HYP as [v HYP].
           eapply rule_consequence_left.
           apply (rule_stm_read_register_backwards (v := v)).
@@ -275,6 +288,8 @@ Module Type Soundness
           now intros ->%CPureSpec.wp_produce_chunk.
 
         - (* stm_write_register *)
+          cbv [CHeapSpec.write_register CPureSpec.write_register CPureSpec.bind
+               CPureSpec.angelic CPureSpec.pure] in HYP.
           destruct HYP as [v HYP].
           eapply rule_consequence_left.
           apply (rule_stm_write_register_backwards (v := v)).
@@ -290,7 +305,7 @@ Module Type Soundness
           apply IHs, HYP. clear IHs HYP.
           intros v1 δ2. cbn.
           apply rule_exist. intros h.
-          apply rule_pull. intros HYP.
+          apply rule_pull. intros HYP. cbn in HYP.
           now apply H.
 
         - (* stm_debug *)
@@ -301,7 +316,7 @@ Module Type Soundness
 
     Section WithExec.
 
-      Context (exec : Exec) (mexec : MonotonicExec exec) (sound_exec : SoundExec exec).
+      Context (exec : Exec) (sound_exec : SoundExec exec).
 
       Lemma exec_contract_sound [Δ τ] (c : SepContract Δ τ) (body : Stm Δ τ) Φ h :
         exec_contract exec c body Φ h →
@@ -316,7 +331,9 @@ Module Type Soundness
             ∃ h', ⌜ Φ tt h' ⌝ ⦄.
       Proof.
         destruct c as [Σ δΣ req result ens]; cbn.
-        cbv [CHeapSpec.bind CHeapSpec.lift_purespec evalStoreT].
+        cbv [CHeapSpecM.bind CHeapSpecM.pure CHeapSpec.cheapspecm_cheapspec
+               CHeapSpec.bind CHeapSpec.pure CHeapSpec.lift_purespec CPureSpec.pure
+               evalStoreT].
         intros HYP ι.
         rewrite CHeapSpec.wp_demonic_ctx in HYP.
         specialize (HYP ι). remember (inst δΣ ι) as δ.

@@ -411,8 +411,9 @@ Module Type SymbolicExecOn
 
   End Configuration.
 
+  (* The symbolic store transformer. *)
   Definition SStoreT (Γ1 Γ2 : PCtx) (A : TYPE) : TYPE :=
-    □(A -> SStore Γ2 -> SHeap -> 𝕊) -> SStore Γ1 -> SHeap -> 𝕊.
+    SStore Γ1 -> SHeapSpec (WProd A (SStore Γ2)).
 
   (* The paper discusses the case that a function call is replaced by
      interpreting the contract instead. However, this is not always
@@ -432,32 +433,34 @@ Module Type SymbolicExecOn
 
     Section Basic.
 
-      Definition lift_heapspec {Γ} {A : TYPE} :
-        ⊢ SHeapSpec A -> SStoreT Γ Γ A :=
-        fun w0 m Φ δ0 =>
-          m (fun w1 θ1 a1 => Φ w1 θ1 a1 (persist δ0 θ1)).
+      Definition lift_heapspec {Γ A} : ⊢ SHeapSpec A -> SStoreT Γ Γ A :=
+        fun w m δ =>
+          SHeapSpecM.bind m
+            (fun w1 θ1 a =>
+               SHeapSpecM.pure (A := WProd A (SStore Γ)) (a, persist δ θ1)).
 
-      Definition evalStoreT {Γ1 Γ2 A} :
-        ⊢ SStoreT Γ1 Γ2 A -> SStore Γ1 -> SHeapSpec A :=
-        fun w m δ Φ => m (fun w1 θ1 a1 _ => Φ w1 θ1 a1) δ.
+      Definition evalStoreT {Γ1 Γ2 A} : ⊢ SStoreT Γ1 Γ2 A -> SStore Γ1 -> SHeapSpec A :=
+        fun w m δ =>
+          SHeapSpecM.bind (m δ) (fun w1 θ1 '(a,_) => SHeapSpecM.pure a).
 
-      Definition pure {Γ} {A : TYPE} :
-        ⊢ A -> SStoreT Γ Γ A := fun _ a k => T k a.
+      Definition pure {Γ A} : ⊢ A -> SStoreT Γ Γ A :=
+        fun w a δ => SHeapSpecM.pure (A := WProd A (SStore Γ)) (a, δ).
 
       Definition bind {Γ1 Γ2 Γ3 A B} :
         ⊢ SStoreT Γ1 Γ2 A -> □(A -> SStoreT Γ2 Γ3 B) -> SStoreT Γ1 Γ3 B :=
-        fun w0 ma f k => ma (fun w1 ω01 a1 => f w1 ω01 a1 (four k ω01)).
+        fun w m f δ =>
+          SHeapSpecM.bind (m δ) (fun w1 θ1 '(a,δ2) => f w1 θ1 a δ2).
 
       Definition error {Γ1 Γ2 A} :
         ⊢ (SStore Γ1 -> SHeap -> AMessage) -> SStoreT Γ1 Γ2 A :=
-        fun w msg _ δ h => SymProp.error (msg δ h).
+        fun w msg δ => SHeapSpecM.error (msg δ).
 
-      Definition block {Γ1 Γ2 A} :
-        ⊢ SStoreT Γ1 Γ2 A := fun _ POST δ h => block.
+      Definition block {Γ1 Γ2 A} : ⊢ SStoreT Γ1 Γ2 A :=
+        fun w δ => SHeapSpecM.block.
 
       Definition debug {AT} {Γ1 Γ2} :
         ⊢ (SStore Γ1 -> SHeap -> AMessage) -> (SStoreT Γ1 Γ2 AT) -> (SStoreT Γ1 Γ2 AT) :=
-        fun _ d m POST δ h => SymProp.debug (d δ h) (m POST δ h).
+        fun w msg m δ => SHeapSpecM.debug (msg δ) (m δ).
 
     End Basic.
 
@@ -487,9 +490,7 @@ Module Type SymbolicExecOn
 
       Definition demonic_pattern_match {N : Set} (n : N -> LVar) {Γ σ} (pat : Pattern (N:=N) σ) :
         ⊢ STerm σ -> SStoreT Γ Γ (SMatchResult pat) :=
-        fun w0 t Φ δ h =>
-          SPureSpec.demonic_pattern_match n pat t
-            (fun w1 θ1 mr => Φ w1 θ1 mr δ⟨θ1⟩ h⟨θ1⟩).
+        fun w t => lift_heapspec (SHeapSpecM.demonic_pattern_match n pat t).
       #[global] Arguments demonic_pattern_match {N} n {Γ σ} pat [w].
 
     End PatternMatching.
@@ -498,30 +499,35 @@ Module Type SymbolicExecOn
 
       Definition pushpop {AT Γ1 Γ2 x σ} :
         ⊢ STerm σ -> SStoreT (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) AT -> SStoreT Γ1 Γ2 AT :=
-        fun w0 t m POST δ h =>
-          m (fun w1 ω01 a1 δ1 => POST w1 ω01 a1 (env.tail δ1)) δ.[x∷σ↦t] h.
+        fun w t m δ =>
+          SHeapSpecM.bind (m δ.[x∷σ↦t])
+            (fun w1 θ1 '(a,δ1) =>
+               SHeapSpecM.pure (A := WProd AT (SStore Γ2)) (a, env.tail δ1)).
 
       Definition pushspops {AT Γ1 Γ2 Δ} :
         ⊢ SStore Δ -> SStoreT (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) AT -> SStoreT Γ1 Γ2 AT :=
-        fun w0 δΔ m POST δ h =>
-          m (fun w1 ω01 a1 δ1 => POST w1 ω01 a1 (env.drop Δ δ1)) (δ ►► δΔ) h.
+        fun w δΔ m δ =>
+          SHeapSpecM.bind (m (δ ►► δΔ))
+            (fun w1 θ1 '(a,δ1) =>
+               SHeapSpecM.pure (A := WProd AT (SStore Γ2)) (a, env.drop Δ δ1)).
 
       Definition get_local {Γ} : ⊢ SStoreT Γ Γ (SStore Γ) :=
-        fun w0 POST δ => T POST δ δ.
+        fun w δ => SHeapSpecM.pure (A := WProd (SStore Γ) (SStore Γ)) (δ, δ).
       Definition put_local {Γ1 Γ2} : ⊢ SStore Γ2 -> SStoreT Γ1 Γ2 Unit :=
-        fun w0 δ POST _ => T POST tt δ.
+        fun w δ' _ => SHeapSpecM.pure (A := WProd Unit (SStore Γ2)) (tt, δ').
 
       Definition eval_exp {Γ σ} (e : Exp Γ σ) :
         ⊢ SStoreT Γ Γ (STerm σ) :=
-        fun w POST δ => T POST (peval (seval_exp δ e)) δ.
+        fun w δ =>
+          SHeapSpecM.pure (A := WProd (STerm σ) (SStore Γ)) (peval (seval_exp δ e), δ).
 
       Definition eval_exps {Γ} {σs : PCtx} (es : NamedEnv (Exp Γ) σs) :
         ⊢ SStoreT Γ Γ (SStore σs) :=
-        fun w POST δ =>
-          T POST (seval_exps δ es) δ.
+        fun w δ =>
+          SHeapSpecM.pure (A := WProd (SStore σs) (SStore Γ)) (seval_exps δ es, δ).
 
       Definition assign {Γ} x {σ} {xIn : x∷σ ∈ Γ} : ⊢ STerm σ -> SStoreT Γ Γ Unit :=
-        fun w0 t POST δ => T POST tt (δ ⟪ x ↦ t ⟫).
+        fun w t δ => SHeapSpecM.pure (A := WProd Unit (SStore Γ)) (tt, δ ⟪ x ↦ t ⟫).
       Global Arguments assign {Γ} x {σ xIn} [w] v.
 
     End State.

@@ -80,17 +80,14 @@ Module RefineExecOn
     Import PureSpec.
     Import HeapSpec.
 
-    (* Instance search does not unfold the concrete operations, so their
-       instances are indexed, and tried, by their head. *)
-    #[export] Typeclasses Opaque CStoreT.assign CStoreT.bind
-      CStoreT.block CStoreT.eval_exp CStoreT.eval_exps
-      CStoreT.evalStoreT CStoreT.get_local CStoreT.lift_heapspec
-      CStoreT.lift_purespec CStoreT.pure CStoreT.pushpop
-      CStoreT.pushspops CStoreT.put_local.
+    (* Instance search does not solve [?AT w ≡ SStore Γ (wctx w)] for
+       [refine_pair], but [exact] does. *)
+    #[export] Hint Extern 1 (Related _ pair _ (@pair _ _)) =>
+      exact refine_pair : typeclass_instances.
 
     Definition RStoreT Γ1 Γ2 `(R : Rel AT A) :
       Rel (SStoreT Γ1 Γ2 AT) (CStoreT Γ1 Γ2 A) :=
-      □ᵣ (R -> RStore Γ2 -> RHeap -> ℙ) -> RStore Γ1 -> RHeap -> ℙ.
+      RStore Γ1 -> RHeapSpec (RProd R (RStore Γ2)).
 
     (* Abbreviations, so that hypotheses are local [Related] instances. *)
     Abbreviation RefineExecCall cexec_call sexec_call :=
@@ -119,14 +116,13 @@ Module RefineExecOn
       Related (RStoreT Γ1 Γ2 RA -> RStore Γ1 -> RHeapSpec RA)
         CStoreT.evalStoreT w (SStoreT.evalStoreT (w := w)).
     Proof.
-      unfold SStoreT.evalStoreT, CStoreT.evalStoreT.
-      iIntros (ss tss) "Hss %s %ts Hs %k %ks Hk %h %hs Hh Hsym".
-      iApply ("Hss" with "[Hk] Hs Hh Hsym").
-      iIntros (w' ω).
-      iSpecialize ("Hk" $! _ ω).
-      iModIntro.
-      iIntros (a ta) "Ha %s2 %ts2 Hs2 %h2 %th2 Hh2".
-      now iApply ("Hk" with "Ha Hh2").
+      iIntros (m sm) "Hm %δ %sδ Hδ".
+      unfold CStoreT.evalStoreT, SStoreT.evalStoreT.
+      iApply (RHeapSpecM.refine_bind with "[Hm Hδ]").
+      - now iApply "Hm".
+      - iIntros (w1 θ1) "!> %p %sp Hp".
+        destruct p as [a δ1], sp as [sa sδ1].
+        iDestruct "Hp" as "[Ha _]". solve_related.
     Qed.
 
     #[export] Instance refine_lift_heapspec {Γ} `(R : Rel AT A) {w : World}:
@@ -141,23 +137,30 @@ Module RefineExecOn
     Lemma refine_bind `{RA : Rel AT A, RB : Rel BT B} {Γ1 Γ2 Γ3} {w : World} :
       ⊢ ℛ⟦RStoreT Γ1 Γ2 RA -> □ᵣ(RA -> RStoreT Γ2 Γ3 RB) -> RStoreT Γ1 Γ3 RB⟧
         CStoreT.bind (SStoreT.bind (w := w)).
-    Proof. unfold CStoreT.bind, SStoreT.bind, RStoreT; solve_related. Qed.
+    Proof.
+      iIntros (m sm) "Hm %f %sf Hf %δ %sδ Hδ".
+      unfold CStoreT.bind, SStoreT.bind.
+      iApply (RHeapSpecM.refine_bind with "[Hm Hδ]").
+      - now iApply "Hm".
+      - iIntros (w1 θ1) "!> %p %sp Hp".
+        destruct p as [a δ1], sp as [sa sδ1].
+        iDestruct "Hp" as "[Ha Hδ1]".
+        iApply ("Hf" with "Ha Hδ1").
+    Qed.
 
     #[export] Instance refine_compat_bind {Γ1 Γ2 Γ3 : PCtx} `{RA : Rel AT A} `{RB : Rel BT B} {w} : Related (RStoreT Γ1 Γ2 RA -> (□ᵣ (RA -> RStoreT Γ2 Γ3 RB)) -> RStoreT Γ1 Γ3 RB) CStoreT.bind w (SStoreT.bind (w := w)) | (Related _ _ _ SStoreT.bind) :=
       refine_bind.
 
     #[export] Instance refine_block {Γ1 Γ2} `{R : Rel AT A} {w : World} :
       Related (RStoreT Γ1 Γ2 R) CStoreT.block w (SStoreT.block (w := w)).
-    Proof.
-      iIntros (k ks) "Hk %s %ss Hs %h %hs Hh _".
-      now iPureIntro.
-    Qed.
+    Proof. unfold CStoreT.block, SStoreT.block, RStoreT; solve_related. Qed.
 
-    #[export] Instance refine_error `{Subst M, OccursCheck M, R : Rel AT A} {Γ1 Γ2} {w : World}
+    #[export] Instance refine_error `{R : Rel AT A} {Γ1 Γ2} {w : World}
       (cm : CStoreT Γ1 Γ2 A) :
       Related (RMsg _ (RStoreT Γ1 Γ2 R)) cm w (SStoreT.error (w := w)).
     Proof.
-      iIntros (msg k ks) "Hk %s %ss Hs %h %hs Hh []".
+      iIntros (msg δ sδ) "Hδ".
+      unfold SStoreT.error. iApply RHeapSpecM.refine_error.
     Qed.
 
     Lemma refine_debug `{R : Rel AT A}
@@ -165,9 +168,9 @@ Module RefineExecOn
       ℛ⟦RStoreT Γ1 Γ2 R⟧ mc ms ⊢
                    ℛ⟦RStoreT Γ1 Γ2 R⟧ mc (@SStoreT.debug AT Γ1 Γ2 w0 f ms).
     Proof.
-      iIntros "Hm %K %Ks HK %s %ss Hs %h %hs Hh HSP".
-      iApply ("Hm" with "HK Hs Hh [HSP]").
-      now iApply elim_debugPred.
+      iIntros "Hm %δ %sδ Hδ".
+      unfold SStoreT.debug. iApply related_from_lemma.
+      now iApply "Hm".
     Qed.
 
     #[export] Instance refine_compat_debug `{R : Rel AT A} {Γ1 Γ2} {w0 : World} {f} {mc ms} :
@@ -178,12 +181,8 @@ Module RefineExecOn
       Related (RVal σ -> RStoreT Γ Γ (RMatchResult pat))
         (CStoreT.demonic_pattern_match pat) w (SStoreT.demonic_pattern_match (w := w) n pat).
     Proof.
-      iIntros (v sv) "rv %Φ %sΦ rΦ %δ %sδ rδ %h %sh rh".
-      unfold SStoreT.demonic_pattern_match, CStoreT.demonic_pattern_match,
-               CStoreT.lift_purespec.
-      iApply (PureSpec.refine_demonic_pattern_match with "rv").
-      iIntros (w1 θ1) "!> %mr %smr rmr".
-      iApply ("rΦ" with "rmr [rδ] [rh]"); solve_related.
+      unfold CStoreT.demonic_pattern_match, SStoreT.demonic_pattern_match, RStoreT;
+        solve_related.
     Qed.
 
     #[export] Instance refine_compat_store_tail {Γ b} {w : World} :
@@ -207,14 +206,26 @@ Module RefineExecOn
       Related (RVal σ -> RStoreT (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) R -> RStoreT Γ1 Γ2 R)
         CStoreT.pushpop w (SStoreT.pushpop (w := w)).
     Proof.
-      unfold SStoreT.pushpop, CStoreT.pushpop, RStoreT. solve_related.
+      iIntros (v sv) "Hv %m %sm Hm %δ %sδ Hδ".
+      unfold CStoreT.pushpop, SStoreT.pushpop.
+      iApply (RHeapSpecM.refine_bind with "[Hm Hδ Hv]").
+      - iApply "Hm". solve_related.
+      - iIntros (w1 θ1) "!> %p %sp Hp".
+        destruct p as [a δ1], sp as [sa sδ1].
+        iDestruct "Hp" as "[Ha Hδ1]". solve_related.
     Qed.
 
     #[export] Instance refine_pushspops `{R : Rel AT A} {Γ1 Γ2 Δ} {w} :
       Related (RStore Δ -> RStoreT (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) R -> RStoreT Γ1 Γ2 R)
         CStoreT.pushspops w (SStoreT.pushspops (w := w)).
     Proof.
-      unfold SStoreT.pushspops, CStoreT.pushspops, RStoreT. solve_related.
+      iIntros (c sc) "Hc %m %sm Hm %δ %sδ Hδ".
+      unfold CStoreT.pushspops, SStoreT.pushspops.
+      iApply (RHeapSpecM.refine_bind with "[Hm Hδ Hc]").
+      - iApply "Hm". solve_related.
+      - iIntros (w1 θ1) "!> %p %sp Hp".
+        destruct p as [a δ1], sp as [sa sδ1].
+        iDestruct "Hp" as "[Ha Hδ1]". solve_related.
     Qed.
 
     #[export] Instance refine_get_local {Γ} {w} :
@@ -264,23 +275,12 @@ Module RefineExecOn
     #[export] Instance refine_eval_exp {Γ σ} (e : Exp Γ σ) {w} :
       Related (RStoreT Γ Γ (RVal σ))
         (CStoreT.eval_exp e) w (SStoreT.eval_exp (w := w) e).
-    Proof.
-      iIntros (K sK) "HK %δ0 %sδ0 #Hδ0 %h0 %sh0 Hh0".
-      unfold SStoreT.eval_exp, CStoreT.eval_exp.
-      iApply (refine_T with "HK [Hδ0] Hδ0 Hh0").
-      iApply refine_peval.
-      now iApply refine_seval_exp.
-    Qed.
+    Proof. unfold CStoreT.eval_exp, SStoreT.eval_exp, RStoreT; solve_related. Qed.
 
     #[export] Instance refine_eval_exps {Γ Δ} (es : NamedEnv (Exp Γ) Δ) {w} :
       Related (RStoreT Γ Γ (RStore Δ))
         (CStoreT.eval_exps es) w (SStoreT.eval_exps (w := w) es).
-    Proof.
-      iIntros (K sK) "HK %δ0 %sδ0 #Hδ0 %h0 %sh0 Hh0".
-      unfold SStoreT.eval_exps, CStoreT.eval_exps.
-      iApply (refine_T with "HK [Hδ0] Hδ0 Hh0").
-      now iApply refine_seval_exps.
-    Qed.
+    Proof. unfold CStoreT.eval_exps, SStoreT.eval_exps, RStoreT; solve_related. Qed.
 
     Lemma refine_env_update {Γ x σ} (xIn : (x∷σ ∈ Γ)%katamaran) (w : World)
       (t : Term w σ) (v : Val σ) (δs : SStore Γ w) (δc : CStore Γ) :
@@ -300,12 +300,7 @@ Module RefineExecOn
     #[export] Instance refine_assign {Γ x σ} {xIn : (x∷σ ∈ Γ)%katamaran} {w} :
       Related (RVal σ -> RStoreT Γ Γ RUnit)
         (CStoreT.assign x) w (SStoreT.assign (w := w) x).
-    Proof.
-      iIntros (v sv) "Hv %K %sK HK %δ %sδ Hδ %h %sh Hh".
-      unfold SStoreT.assign, CStoreT.assign.
-      iApply (refine_T with "HK [//] [Hv Hδ] Hh").
-      now iApply (refine_env_update with "[$Hv $Hδ]").
-    Qed.
+    Proof. unfold CStoreT.assign, SStoreT.assign, RStoreT; solve_related. Qed.
 
     Section ExecAux.
 
@@ -331,7 +326,8 @@ Module RefineExecOn
           (SYMB.exec_contract s_exec c s (w := w)).
     Proof.
       unfold Related.
-      destruct c as [lvars pats req result ens]; cbn. solve_related.
+      destruct c as [lvars pats req result ens];
+        cbn [SHAL.exec_contract SYMB.exec_contract]. solve_related.
     Qed.
 
     #[export] Instance refine_exec_call_error_no_fuel :
@@ -384,7 +380,7 @@ Module RefineExecOn
     #[export] Instance refine_exec_call (fuel : nat) :
       RefineExecCall (cexec_call fuel) (sexec_call cfg fuel).
     Proof.
-      induction fuel; intros; cbn; solve_related.
+      induction fuel; intros; cbn [cexec_call sexec_call]; solve_related.
     Qed.
 
     #[export] Instance refine_exec (fuel : nat) :
