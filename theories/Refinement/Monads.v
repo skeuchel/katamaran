@@ -1216,14 +1216,11 @@ Module Type RefinementMonadsOn
     (* Instance search does not unfold the concrete operations, so their
        instances are indexed, and tried, by their head. *)
     #[export] Typeclasses Opaque CHeapSpec.angelic CHeapSpec.angelic_binary
-      CHeapSpec.angelic_ctx CHeapSpec.angelic_pattern_match
-      CHeapSpec.assert_formula CHeapSpec.assume_formula CHeapSpec.bind
-      CHeapSpec.call_contract CHeapSpec.call_lemma
-      CHeapSpec.consume CHeapSpec.consume_chunk CHeapSpec.debug
-      CHeapSpec.demonic CHeapSpec.demonic_binary CHeapSpec.demonic_ctx
-      CHeapSpec.lift_purespec CHeapSpec.produce CHeapSpec.produce_chunk
-      CHeapSpec.pure CHeapSpec.read_register CHeapSpec.run
-      CHeapSpec.write_register.
+      CHeapSpec.angelic_pattern_match CHeapSpec.assert_formula
+      CHeapSpec.assume_formula CHeapSpec.bind CHeapSpec.consume_chunk
+      CHeapSpec.debug CHeapSpec.demonic CHeapSpec.demonic_binary
+      CHeapSpec.lift_purespec CHeapSpec.produce_chunk CHeapSpec.pure
+      CHeapSpec.read_register CHeapSpec.run CHeapSpec.write_register.
 
     #[export] Instance refine_run {w} :
       Related (RHeapSpec RUnit -> ℙ) CHeapSpec.run w (SHeapSpec.run (w := w)).
@@ -1377,41 +1374,6 @@ Module Type RefinementMonadsOn
       iDestruct "Hvh" as "[Hv2 Hh2]".
       now iApply ("rΦ" with "Hv2").
     Qed.
-
-    #[export] Instance refine_angelic_ctx {N : Set} {n : N -> LVar} Δ {w} :
-      Related (RHeapSpec (RNEnv N Δ))
-        (CHeapSpec.angelic_ctx Δ) w (SHeapSpec.angelic_ctx (w := w) n Δ).
-    Proof. unfold CHeapSpec.angelic_ctx, SHeapSpec.angelic_ctx; solve_related. Qed.
-
-    #[export] Instance refine_demonic_ctx {N : Set} {n : N -> LVar} Δ {w} :
-      Related (RHeapSpec (RNEnv N Δ))
-        (CHeapSpec.demonic_ctx Δ) w (SHeapSpec.demonic_ctx (w := w) n Δ).
-    Proof. unfold CHeapSpec.demonic_ctx, SHeapSpec.demonic_ctx; solve_related. Qed.
-
-    #[export] Instance refine_produce {Σ} (asn : Assertion Σ) :
-      ∀ w, Related (RInst (Sub Σ) (Valuation Σ) -> RHeapSpec RUnit)
-             (CHeapSpec.produce asn) w (SHeapSpec.produce (w := w) asn).
-    Proof.
-      induction asn; cbn - [RSat]; intros w; solve_related.
-    Qed.
-
-    #[export] Instance refine_consume {Σ} (asn : Assertion Σ) :
-      ∀ w, Related (RInst (Sub Σ) (Valuation Σ) -> RHeapSpec RUnit)
-             (CHeapSpec.consume asn) w (SHeapSpec.consume asn (w := w)).
-    Proof.
-      induction asn; cbn - [RSat]; intros w; solve_related.
-    Qed.
-
-    Import PureSpec.
-    #[export] Instance refine_call_contract {Δ τ} (c : SepContract Δ τ) {w} :
-      Related (RInst (SStore Δ) (CStore Δ) -> RHeapSpec (RVal τ))
-        (CHeapSpec.call_contract c) w (SHeapSpec.call_contract c (w := w)).
-    Proof. unfold CHeapSpec.call_contract, SHeapSpec.call_contract; solve_related. Qed.
-
-    #[export] Instance refine_call_lemma {Δ} (lem : Lemma Δ) w :
-      Related (RInst (SStore Δ) (CStore Δ) -> RHeapSpec RUnit)
-        (CHeapSpec.call_lemma lem) w (SHeapSpec.call_lemma lem (w := w)).
-    Proof. unfold CHeapSpec.call_lemma, SHeapSpec.call_lemma; solve_related. Qed.
 
   End HeapSpec.
 

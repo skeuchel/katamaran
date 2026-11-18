@@ -104,7 +104,7 @@ Section BlockVerificationDerived.
 
     Import ModalNotations.
     Import SStoreT (evalStoreT).
-    Import SHeapSpec SHeapSpec.notations.
+    Import SHeapSpecM SHeapSpecM.notations.
     Import asn.notations.
 
     Definition exec_instruction_prologue (i : AST) :
@@ -178,7 +178,7 @@ Section BlockVerificationDerived.
   Section Shallow.
 
     Import CStoreT (evalStoreT).
-    Import CHeapSpec CHeapSpec.notations.
+    Import CHeapSpecM CHeapSpecM.notations.
 
     Definition cexec_instruction (i : AST) :
       Val ty_xlenbits -> CHeapSpec (Val ty_xlenbits) :=
@@ -255,7 +255,7 @@ Section BlockVerificationDerived.
           (cexec_block_addr b) w
           (sexec_block_addr b (w := w)).
     Proof.
-      revert w; induction b; intros w; cbn; solve_related.
+      revert w; induction b; intros w; cbn [cexec_block_addr sexec_block_addr]; solve_related.
     Qed.
 
     #[export] Instance rexec_triple_addr {Σ : LCtx}
@@ -373,10 +373,15 @@ Section BlockVerificationDerived.
       ⊢ semTripleOneInstrStep (λ a, interpret_scheap h) instr
         (λ a an, ∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ an h'⌝) a.
     Proof.
-      cbv [cexec_instruction exec_instruction_prologue bind produce demonic
-             produce_chunk lift_purespec CPureSpec.produce_chunk CPureSpec.pure
-             CPureSpec.demonic CStoreT.evalStoreT].
-      cbn - [consume].
+      cbv [cexec_instruction exec_instruction_prologue CHeapSpecM.produce
+           CStoreT.evalStoreT CHeapSpecM.bind CHeapSpecM.pure CHeapSpecM.demonic CHeapSpecM.angelic
+           CHeapSpecM.assert_formula CHeapSpecM.produce_chunk CHeapSpecM.error
+           CHeapSpec.cheapspecm_cheapspec CHeapSpec.bind CHeapSpec.pure CHeapSpec.demonic
+           CHeapSpec.angelic CHeapSpec.assert_formula CHeapSpec.produce_chunk
+           CHeapSpec.error CHeapSpec.lift_purespec CPureSpec.produce_chunk CPureSpec.pure
+           CPureSpec.demonic CPureSpec.angelic CPureSpec.assert_formula
+           CPureSpec.assert_pathcondition].
+      cbn - [CHeapSpecM.consume].
       iIntros (Hverif) "Hheap". iSplitR; first auto.
       iIntros "(Hpc & Hinstr & [%npc Hnpc])". cbn.
       specialize (Hverif npc). apply sound_cexec in Hverif.
@@ -387,7 +392,7 @@ Section BlockVerificationDerived.
         apply (Transitive_Closure.Acc_inv_trans _ _ _ _ R).
         apply accessible_loop_body.
       - iIntros ([v|m] _); last done; iIntros "(%h1 & Hh1 & %Htrip)". clear Hverif.
-        destruct Htrip as [an Htrip].
+        cbn - [CHeapSpecM.consume] in Htrip. destruct Htrip as [an Htrip].
         iPoseProof (consume_sound _ _ Htrip with "Hh1")
           as "[(Hpc & Hinstr & Han) (%h2 & Hh2 & %HΦ)]".
         iExists an. iFrame "Hpc Hinstr Han".
@@ -400,9 +405,14 @@ Section BlockVerificationDerived.
            (λ a an, ∃ h', interpret_scheap h' ∧ ⌜Φ an h'⌝))%I.
     Proof.
       revert ainstr apc Φ h.
-      iInduction instrs as [|instr instrs]; cbn; iIntros (ainstr apc Φ h);
-        cbv [bind assert_formula lift_purespec CPureSpec.assert_formula
-               CPureSpec.assert_pathcondition pure CPureSpec.pure].
+      iInduction instrs as [|instr instrs]; cbn [cexec_block_addr]; iIntros (ainstr apc Φ h);
+        cbv [CHeapSpecM.bind CHeapSpecM.pure CHeapSpecM.demonic CHeapSpecM.angelic
+           CHeapSpecM.assert_formula CHeapSpecM.produce_chunk CHeapSpecM.error
+           CHeapSpec.cheapspecm_cheapspec CHeapSpec.bind CHeapSpec.pure CHeapSpec.demonic
+           CHeapSpec.angelic CHeapSpec.assert_formula CHeapSpec.produce_chunk
+           CHeapSpec.error CHeapSpec.lift_purespec CPureSpec.produce_chunk CPureSpec.pure
+           CPureSpec.demonic CPureSpec.angelic CPureSpec.assert_formula
+           CPureSpec.assert_pathcondition].
       - iIntros (HΦ) "Hh". iFrame "Hh". done.
       - iIntros ([-> Hverif%sound_exec_instruction]).
         unfold semTripleOneInstrStep, semTTriple in Hverif.
@@ -417,9 +427,14 @@ Section BlockVerificationDerived.
         destruct instrs. cbn.
         + iExists h'. now iFrame "Hh'".
         + remember Hexec as Hexec'.
-          cbn in Hexec'.
-          cbv [bind assert_formula lift_purespec CPureSpec.assert_formula
-                 CPureSpec.assert_pathcondition pure CPureSpec.pure] in Hexec'.
+          cbn [cexec_block_addr] in Hexec'.
+          cbv [CHeapSpecM.bind CHeapSpecM.pure CHeapSpecM.demonic CHeapSpecM.angelic
+           CHeapSpecM.assert_formula CHeapSpecM.produce_chunk CHeapSpecM.error
+           CHeapSpec.cheapspecm_cheapspec CHeapSpec.bind CHeapSpec.pure CHeapSpec.demonic
+           CHeapSpec.angelic CHeapSpec.assert_formula CHeapSpec.produce_chunk
+           CHeapSpec.error CHeapSpec.lift_purespec CPureSpec.produce_chunk CPureSpec.pure
+           CPureSpec.demonic CPureSpec.angelic CPureSpec.assert_formula
+           CPureSpec.assert_pathcondition] in Hexec'.
           destruct Hexec' as [<- Hexec']. clear HeqHexec' Hexec'.
           iSpecialize ("IHinstrs" $! _ _ _ _ Hexec with "[$]").
           iApply (step_n_mono with "IHinstrs"). auto.
@@ -430,9 +445,12 @@ Section BlockVerificationDerived.
       ⊢ semTripleBlock (λ a : Val ty_xlenbits, asn.interpret pre (ι.[("a"::ty_xlenbits) ↦ a])) a instrs
           (λ a na : Val ty_xlenbits, asn.interpret post (ι.[("a"::ty_xlenbits) ↦ a].[("an"::ty_xlenbits) ↦ na])).
     Proof.
-      cbv [cexec_triple_addr bind demonic_ctx demonic CPureSpec.demonic lift_purespec].
+      cbv [cexec_triple_addr].
+      cbn [CHeapSpecM.bind CHeapSpecM.demonic CHeapSpec.cheapspecm_cheapspec
+           CHeapSpec.bind CHeapSpec.demonic CHeapSpec.lift_purespec CPureSpec.demonic].
+      cbv [CHeapSpec.bind CHeapSpec.demonic CHeapSpec.lift_purespec CPureSpec.demonic].
       iIntros (Htrip). unfold semTripleBlock, stepTriple.
-      rewrite CPureSpec.wp_demonic_ctx in Htrip.
+      rewrite CHeapSpec.wp_demonic_ctx in Htrip.
       specialize (Htrip ι a). apply produce_sound in Htrip.
       destruct instrs as [|instr instrs].
       - iIntros "Hpre".
@@ -617,8 +635,8 @@ Section AnnotatedBlockVerification.
   Section Symbolic.
 
     Import ModalNotations.
-    Import SHeapSpec.
-    Import SHeapSpec.notations.
+    Import SHeapSpecM.
+    Import SHeapSpecM.notations.
     Import asn.notations.
 
     Fixpoint sexec_annotated_block_addr (b : list AnnotInstr) :
@@ -681,7 +699,7 @@ Section AnnotatedBlockVerification.
 
   Section Shallow.
 
-    Import CHeapSpec CHeapSpec.notations.
+    Import CHeapSpecM CHeapSpecM.notations.
 
     Fixpoint cexec_annotated_block_addr (b : list AnnotInstr) :
       Val ty_xlenbits -> Val ty_xlenbits -> CHeapSpec (Val ty_xlenbits) :=
@@ -743,7 +761,8 @@ Section AnnotatedBlockVerification.
           (cexec_annotated_block_addr b) w
           (sexec_annotated_block_addr b (w := w)).
     Proof.
-      revert w; induction b as [|instr b]; intros w; cbn; solve_related.
+      revert w; induction b as [|instr b]; intros w;
+        cbn [cexec_annotated_block_addr sexec_annotated_block_addr]; solve_related.
     Qed.
 
     Lemma rexec_annotated_block_triple_addr {Σ}
@@ -786,9 +805,15 @@ Section AnnotatedBlockVerification.
     Proof.
       intros lemSem.
       revert ainstr apc h POST.
-      induction instrs as [|instr instrs]; cbn; intros ainstr apc h POST;
-        cbv [bind assert_formula lift_purespec CPureSpec.assert_formula
-               CPureSpec.assert_pathcondition pure CPureSpec.pure]; auto.
+      induction instrs as [|instr instrs]; cbn [cexec_annotated_block_addr filter_AST];
+        intros ainstr apc h POST;
+        cbv [CHeapSpecM.bind CHeapSpecM.pure CHeapSpecM.demonic CHeapSpecM.angelic
+           CHeapSpecM.assert_formula CHeapSpecM.produce_chunk CHeapSpecM.error
+           CHeapSpec.cheapspecm_cheapspec CHeapSpec.bind CHeapSpec.pure CHeapSpec.demonic
+           CHeapSpec.angelic CHeapSpec.assert_formula CHeapSpec.produce_chunk
+           CHeapSpec.error CHeapSpec.lift_purespec CPureSpec.produce_chunk CPureSpec.pure
+           CPureSpec.demonic CPureSpec.angelic CPureSpec.assert_formula
+           CPureSpec.assert_pathcondition]; auto.
       - iIntros (H) "Hh". iApply (H with "Hh").
       - destruct instr as [instr | | Δ lem es].
         + intros [-> Hverif%sound_exec_instruction].
@@ -833,9 +858,13 @@ Section AnnotatedBlockVerification.
     Proof.
       intros lemSem Hexec ι.
       hnf in Hexec.
-      rewrite CPureSpec.wp_demonic_ctx in Hexec.
+      cbn [CHeapSpecM.bind CHeapSpecM.demonic CHeapSpec.cheapspecm_cheapspec
+           CHeapSpec.bind CHeapSpec.demonic CHeapSpec.lift_purespec
+           CPureSpec.demonic] in Hexec.
+      cbv [CHeapSpec.bind CHeapSpec.demonic CHeapSpec.lift_purespec
+           CPureSpec.demonic] in Hexec.
+      rewrite CHeapSpec.wp_demonic_ctx in Hexec.
       specialize (Hexec ι a).
-      unfold bind in Hexec.
       destruct (filter_AST instrs) as [|ainstr ainstrs] eqn:Einstrs.
       - cbn. iIntros "Hpre".
         iPoseProof (produce_sound _ _ Hexec with "[//] [$Hpre]") as "(%h2 & Hh2 & %Hexec')".

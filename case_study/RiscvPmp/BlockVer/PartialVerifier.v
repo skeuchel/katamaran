@@ -106,7 +106,7 @@ Module RiscvPmpBlockVerifPartialVerifier
 
       Import ModalNotations.
       Import SStoreT (evalStoreT).
-      Import SHeapSpec SHeapSpec.notations.
+      Import SHeapSpecM SHeapSpecM.notations.
       Import asn.notations.
 
       Definition exec_instruction_prologue (i : AST) :
@@ -198,7 +198,7 @@ Module RiscvPmpBlockVerifPartialVerifier
     Section Shallow.
 
       Import CStoreT (evalStoreT).
-      Import CHeapSpec CHeapSpec.notations.
+      Import CHeapSpecM CHeapSpecM.notations.
 
       Definition cexec_instruction (i : AST) :
         Val ty_xlenbits -> CHeapSpec (Val ty_xlenbits) :=
@@ -273,7 +273,7 @@ Module RiscvPmpBlockVerifPartialVerifier
             (cexec_block_addr b) w
             (sexec_block_addr b (w := w)).
       Proof.
-        revert w; induction b; intros w; cbn; solve_related.
+        revert w; induction b; intros w; cbn [cexec_block_addr sexec_block_addr]; solve_related.
       Qed.
 
       #[export] Instance rexec_triple_addr {Σ : LCtx}
@@ -340,17 +340,21 @@ Module RiscvPmpBlockVerifPartialVerifier
         ⊢ semTripleOneInstrStep (interpret_scheap h) instr
             (fun an => ∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ an h'⌝) a.
       Proof.
-        cbv [cexec_instruction exec_instruction_prologue bind produce demonic
-               produce_chunk lift_purespec CPureSpec.produce_chunk CPureSpec.pure
-               CPureSpec.demonic CStoreT.evalStoreT].
-        cbn - [consume].
+        cbv [cexec_instruction exec_instruction_prologue CHeapSpecM.produce
+             CStoreT.evalStoreT CHeapSpecM.bind CHeapSpecM.pure CHeapSpecM.demonic CHeapSpecM.angelic
+             CHeapSpecM.assert_formula CHeapSpecM.produce_chunk CHeapSpec.cheapspecm_cheapspec
+             CHeapSpec.bind CHeapSpec.pure CHeapSpec.demonic CHeapSpec.angelic
+             CHeapSpec.assert_formula CHeapSpec.produce_chunk CHeapSpec.lift_purespec
+             CPureSpec.produce_chunk CPureSpec.pure CPureSpec.demonic CPureSpec.angelic
+             CPureSpec.assert_formula CPureSpec.assert_pathcondition].
+        cbn - [CHeapSpecM.consume].
         iIntros (Hverif) "(Hheap & [%npc Hnpc] & Hpc & Hinstrs)".
         specialize (Hverif npc). apply sound_cexec in Hverif.
         iApply (semWP_mono with "[-]").
         iApply (sound_stm foreignSemBlockVerif lemSemBlockVerif Hverif with "[] [$]").
         iApply contractsSound.
         iIntros ([v|m] _); last done; iIntros "(%h1 & Hh1 & %Htrip)". clear Hverif.
-        destruct Htrip as [an Htrip].
+        cbn - [CHeapSpecM.consume] in Htrip. destruct Htrip as [an Htrip].
         iPoseProof (consume_sound _ _ Htrip with "Hh1")
           as "[(Hpc & $ & Han) (%h2 & Hh2 & %HΦ)]".
         iExists an. cbn. by iFrame.
@@ -363,9 +367,13 @@ Module RiscvPmpBlockVerifPartialVerifier
                (∃ h', interpret_scheap h' ∧ ⌜Φ an h'⌝) -∗ WP_loop) -∗ WP_loop.
       Proof.
         revert ainstr apc Φ h.
-        induction instrs as [|instr instrs]; cbn; intros ainstr apc Φ h;
-          cbv [bind assert_formula lift_purespec CPureSpec.assert_formula
-                 CPureSpec.assert_pathcondition pure CPureSpec.pure].
+        induction instrs as [|instr instrs]; cbn [cexec_block_addr]; intros ainstr apc Φ h;
+          cbv [CHeapSpecM.bind CHeapSpecM.pure CHeapSpecM.demonic CHeapSpecM.angelic
+             CHeapSpecM.assert_formula CHeapSpecM.produce_chunk CHeapSpec.cheapspecm_cheapspec
+             CHeapSpec.bind CHeapSpec.pure CHeapSpec.demonic CHeapSpec.angelic
+             CHeapSpec.assert_formula CHeapSpec.produce_chunk CHeapSpec.lift_purespec
+             CPureSpec.produce_chunk CPureSpec.pure CPureSpec.demonic CPureSpec.angelic
+             CPureSpec.assert_formula CPureSpec.assert_pathcondition].
         - intros HΦ. iIntros "(Hpre & Hpc & Hnpc & _) Hk".
           iApply "Hk"; iFrame; auto.
         - intros [-> Hverif%sound_exec_instruction].
@@ -393,9 +401,12 @@ Module RiscvPmpBlockVerifPartialVerifier
         ⊢ semTripleBlock (λ a : Val ty_word, asn.interpret pre (ι.[("a"::ty_xlenbits) ↦ a])) instrs
             (λ a na : Val ty_word, asn.interpret post (ι.[("a"::ty_xlenbits) ↦ a].[("an"::ty_xlenbits) ↦ na])).
       Proof.
-        cbv [cexec_triple_addr bind demonic_ctx demonic CPureSpec.demonic lift_purespec].
+        cbv [cexec_triple_addr].
+        cbn [CHeapSpecM.bind CHeapSpecM.demonic CHeapSpec.cheapspecm_cheapspec
+             CHeapSpec.bind CHeapSpec.demonic CHeapSpec.lift_purespec CPureSpec.demonic].
+        cbv [CHeapSpec.bind CHeapSpec.demonic CHeapSpec.lift_purespec CPureSpec.demonic].
         iIntros (Htrip a) "(Hpre & Hpc & Hnpc & Hinstrs) Hk".
-        rewrite CPureSpec.wp_demonic_ctx in Htrip.
+        rewrite CHeapSpec.wp_demonic_ctx in Htrip.
         specialize (Htrip ι a). apply produce_sound in Htrip.
         iPoseProof (Htrip with "[$] Hpre") as "(%h2 & [Hh2 %Hexec])". clear Htrip.
         apply sound_exec_block_addr in Hexec.
@@ -505,8 +516,8 @@ Module RiscvPmpBlockVerifPartialVerifier
     Section Symbolic.
 
       Import ModalNotations.
-      Import SHeapSpec.
-      Import SHeapSpec.notations.
+      Import SHeapSpecM.
+      Import SHeapSpecM.notations.
 
       Fixpoint sexec_annotated_block_addr (b : list AnnotInstr) :
         ⊢ STerm ty_xlenbits -> STerm ty_xlenbits -> SHeapSpec (STerm ty_xlenbits) :=
@@ -568,7 +579,7 @@ Module RiscvPmpBlockVerifPartialVerifier
 
     Section Shallow.
 
-      Import CHeapSpec CHeapSpec.notations.
+      Import CHeapSpecM CHeapSpecM.notations.
 
       Fixpoint cexec_annotated_block_addr (b : list AnnotInstr) :
         Val ty_xlenbits -> Val ty_xlenbits -> CHeapSpec (Val ty_xlenbits) :=
@@ -631,7 +642,8 @@ Module RiscvPmpBlockVerifPartialVerifier
             (cexec_annotated_block_addr b) w
             (sexec_annotated_block_addr b (w := w)).
       Proof.
-        revert w; induction b as [|instr b]; intros w; cbn; solve_related.
+        revert w; induction b as [|instr b]; intros w;
+        cbn [cexec_annotated_block_addr sexec_annotated_block_addr]; solve_related.
       Qed.
 
       Lemma rexec_annotated_block_triple_addr {Σ}
@@ -679,8 +691,12 @@ Module RiscvPmpBlockVerifPartialVerifier
         induction instrs as [|instr instrs]; cbn; intros ainstr apc h POST.
         - iIntros (->) "(Hpre & Hpc & Hnpc & _) Hk".
           iApply "Hk"; iFrame.
-        - cbv [bind assert_formula lift_purespec CPureSpec.assert_formula
-                 CPureSpec.assert_pathcondition].
+        - cbv [CHeapSpecM.bind CHeapSpecM.pure CHeapSpecM.demonic CHeapSpecM.angelic
+             CHeapSpecM.assert_formula CHeapSpecM.produce_chunk CHeapSpec.cheapspecm_cheapspec
+             CHeapSpec.bind CHeapSpec.pure CHeapSpec.demonic CHeapSpec.angelic
+             CHeapSpec.assert_formula CHeapSpec.produce_chunk CHeapSpec.lift_purespec
+             CPureSpec.produce_chunk CPureSpec.pure CPureSpec.demonic CPureSpec.angelic
+             CPureSpec.assert_formula CPureSpec.assert_pathcondition].
           destruct instr as [instr| |Δ lem es].
           + intros [-> Hverif]. cbn [extract_AST ptsto_instrs].
             iIntros "(Hh & Hpc & Hnpc & Hinstr & Hinstrs) Hk".
@@ -698,8 +714,7 @@ Module RiscvPmpBlockVerifPartialVerifier
             by iExists _.
             iIntros (an2) "(Hpc & Hnpc & Hinstrs & HPOST)".
             iApply ("Hk" with "[$]").
-          + cbv [debug pure lift_purespec CPureSpec.pure].
-            iIntros (->) "(Hh & Hpc & Hnpc & Hinstrs) Hk".
+          + iIntros (->) "(Hh & Hpc & Hnpc & Hinstrs) Hk".
             now iApply ("Hk" with "[$Hpc $Hnpc $Hinstrs Hh]").
           + iIntros (Hlemcall) "(Hh & Hpc & Hnpc & Hinstrs) Hk".
             pose proof (Hlem := lemSem _ lem). cbn in Hlem.
@@ -729,9 +744,13 @@ Module RiscvPmpBlockVerifPartialVerifier
         intros lemSem Hexec ι.
         iIntros (a) "(Hpre & Hpc & Hnpc & Hinstrs) Hk".
         hnf in Hexec.
-        rewrite CPureSpec.wp_demonic_ctx in Hexec.
+        cbn [CHeapSpecM.bind CHeapSpecM.demonic CHeapSpec.cheapspecm_cheapspec
+             CHeapSpec.bind CHeapSpec.demonic CHeapSpec.lift_purespec
+             CPureSpec.demonic] in Hexec.
+        cbv [CHeapSpec.bind CHeapSpec.demonic CHeapSpec.lift_purespec
+             CPureSpec.demonic] in Hexec.
+        rewrite CHeapSpec.wp_demonic_ctx in Hexec.
         specialize (Hexec ι a).
-        unfold bind in Hexec.
         iPoseProof (produce_sound _ _ Hexec with "[//] [$Hpre]") as "(%h2 & Hh2 & %Hexec')".
         clear Hexec.
         iApply (sound_exec_annotated_block_addr (apc := a) h2 with "[$Hh2 $Hpc $Hnpc $Hinstrs]"); auto.

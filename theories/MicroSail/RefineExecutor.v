@@ -347,9 +347,7 @@ Module RefineExecOn
     #[export] Instance refine_exec_call_foreign :
       RefineExecCallForeign cexec_call_foreign sexec_call_foreign.
     Proof.
-      iIntros (? ? ? ? cδ sδ) "#rδ".
-      unfold cexec_call_foreign, sexec_call_foreign.
-      now iApply refine_call_contract.
+      unfold cexec_call_foreign, sexec_call_foreign; intros. solve_related.
     Qed.
 
     Variable cfg : Config.

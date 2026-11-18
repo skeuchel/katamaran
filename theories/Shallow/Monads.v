@@ -882,87 +882,6 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
       Proper (MHeapSpec eq) (angelic_pattern_match pat v).
     Proof. unfold angelic_pattern_match. solve_monotonic. Qed.
 
-    Definition angelic_ctx {N} (Δ : NCtx N Ty) : CHeapSpec (NamedEnv Val Δ) :=
-      lift_purespec (CPureSpec.angelic_ctx Δ).
-    #[global] Arguments angelic_ctx {N} Δ.
-    Definition demonic_ctx {N} (Δ : NCtx N Ty) : CHeapSpec (NamedEnv Val Δ) :=
-      lift_purespec (CPureSpec.demonic_ctx Δ).
-    #[global] Arguments demonic_ctx {N} Δ.
-
-    #[export] Instance mon_angelic_ctx {N} Δ :
-      Proper (MHeapSpec eq) (@angelic_ctx N Δ).
-    Proof. unfold angelic_ctx. solve_monotonic. Qed.
-    #[export] Instance mon_demonic_ctx {N} Δ :
-      Proper (MHeapSpec eq) (@demonic_ctx N Δ).
-    Proof. unfold demonic_ctx. solve_monotonic. Qed.
-
-    Fixpoint produce {Σ} (asn : Assertion Σ) (ι : Valuation Σ) : CHeapSpec unit :=
-      match asn with
-      | asn.formula fml =>
-          assume_formula (instprop fml ι)
-      | asn.chunk c =>
-          produce_chunk (inst c ι)
-      | asn.chunk_angelic c =>
-          produce_chunk (inst c ι)
-      | asn.pattern_match s pat rhs =>
-          '(existT pc δpc) <-
-            lift_purespec (CPureSpec.demonic_pattern_match pat (inst s ι)) ;;
-          produce (rhs pc) (ι ►► δpc)
-      | asn.sep a1 a2 =>
-          _ <- produce a1 ι ;;
-          produce a2 ι
-      | asn.or a1 a2 =>
-          demonic_binary (produce a1 ι) (produce a2 ι)
-      | asn.exist ς τ a =>
-          t <- demonic τ ;;
-          produce a (env.snoc ι (ς∷τ) t)
-      | asn.debug =>
-          debug (pure tt)
-      end.
-
-    Fixpoint consume {Σ} (asn : Assertion Σ) (ι : Valuation Σ) : CHeapSpec unit :=
-      match asn with
-      | asn.formula fml =>
-          assert_formula (instprop fml ι)
-      | asn.chunk c =>
-          consume_chunk (inst c ι)
-      | asn.chunk_angelic c =>
-          consume_chunk (inst c ι)
-      | asn.pattern_match s pat rhs =>
-          '(existT pc δpc) <- angelic_pattern_match pat (inst s ι) ;;
-          consume (rhs pc) (ι ►► δpc)
-      | asn.sep a1 a2 =>
-          _ <- consume a1 ι ;;
-          consume a2 ι
-      | asn.or a1 a2 =>
-          angelic_binary (consume a1 ι) (consume a2 ι)
-      | asn.exist ς τ a =>
-          t <- angelic τ ;;
-          consume a (env.snoc ι (ς∷τ) t)
-      | asn.debug =>
-          debug (pure tt)
-      end.
-
-    Definition call_contract [Δ τ] (c : SepContract Δ τ) (args : CStore Δ) : CHeapSpec (Val τ) :=
-      match c with
-      | MkSepContract _ _ Σe δ req result ens =>
-          ι <- lift_purespec (CPureSpec.angelic_ctx Σe) ;;
-          lift_purespec (CPureSpec.assert_eq_nenv (inst δ ι) args) ;;
-          consume req ι ;;
-          v <- demonic τ ;;
-          produce ens (env.snoc ι (result∷τ) v) ;;
-          pure v
-      end.
-
-    Definition call_lemma [Δ] (lem : Lemma Δ) (vs : CStore Δ) : CHeapSpec unit :=
-      match lem with
-      | MkLemma _ Σe δ req ens =>
-          ι <- lift_purespec (CPureSpec.angelic_ctx Σe) ;;
-          lift_purespec (CPureSpec.assert_eq_nenv (inst δ ι) vs) ;;
-          consume req ι ;;
-          produce ens ι
-      end.
-
     #[export] Instance mon_produce_chunk c : Proper (MHeapSpec eq) (produce_chunk c).
     Proof.
       intros Φ1 Φ2 mΦ h.
@@ -993,29 +912,9 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
       intros ? [] ->. now apply mΦ.
     Qed.
 
-    #[global] Typeclasses Opaque angelic demonic angelic_ctx demonic_ctx
-      assert_formula assume_formula angelic_pattern_match produce_chunk
-      consume_chunk read_register write_register.
-
-    #[export] Instance mon_produce {Σ} (asn : Assertion Σ) ι :
-      Proper (MHeapSpec eq) (produce asn ι).
-    Proof. induction asn; cbn [produce]; solve_monotonic. Qed.
-
-    #[export] Instance mon_consume {Σ} (asn : Assertion Σ) ι :
-      Proper (MHeapSpec eq) (consume asn ι).
-    Proof. induction asn; cbn [consume]; solve_monotonic. Qed.
-
-    #[export] Instance mon_call_contract
-      [Δ τ] (c : SepContract Δ τ) (args : CStore Δ) :
-      Proper (MHeapSpec eq) (call_contract c args).
-    Proof. destruct c; cbn [call_contract]; solve_monotonic. Qed.
-
-    #[export] Instance mon_call_lemma
-      [Δ] (lem : Lemma Δ) (vs : CStore Δ) :
-      Proper (MHeapSpec eq) (call_lemma lem vs).
-    Proof. destruct lem; cbn [call_lemma]; solve_monotonic. Qed.
-
-    #[global] Typeclasses Opaque produce consume call_contract call_lemma.
+    #[global] Typeclasses Opaque angelic demonic assert_formula assume_formula
+      angelic_pattern_match produce_chunk consume_chunk read_register
+      write_register.
 
     #[export] Instance cheapspecm_cheapspec : CHeapSpecM CHeapSpec :=
       {| CHeapSpecM.pure A := CHeapSpec.pure;
@@ -1095,7 +994,7 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
 
       Lemma consume_sound {Σ} {ι : Valuation Σ} {asn : Assertion Σ} :
         forall (Φ : unit -> SCHeap -> Prop) h,
-          consume asn ι Φ h ->
+          CHeapSpecM.consume (M := CHeapSpec) asn ι Φ h ->
           (interpret_scheap h ⊢ asn.interpret asn ι ∗ ∃ h', interpret_scheap h' ∧ ⌜ Φ tt h' ⌝)%I.
       Proof.
         induction asn; cbn - [inst inst_term]; intros Φ h1.
@@ -1117,7 +1016,7 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
 
       Lemma produce_sound {Σ} {ι : Valuation Σ} {asn : Assertion Σ} :
         forall (Φ : unit -> SCHeap -> Prop) h,
-          produce asn ι Φ h ->
+          CHeapSpecM.produce (M := CHeapSpec) asn ι Φ h ->
           (interpret_scheap h ⊢
              asn.interpret asn ι -∗ ∃ h', interpret_scheap h' ∧ ⌜Φ tt h'⌝).
       Proof.

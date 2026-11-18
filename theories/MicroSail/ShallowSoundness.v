@@ -66,16 +66,17 @@ Module Type Soundness
 
     Lemma call_contract_sound {Δ τ} (c : SepContract Δ τ) (args : CStore Δ)
       (Φ : Val τ → SCHeap → Prop) (h1 : SCHeap) :
-      CHeapSpec.call_contract c args Φ h1 →
+      CHeapSpecM.call_contract (M := CHeapSpec) c args Φ h1 →
       CTriple (interpret_scheap h1) c args
         (fun v => ∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ v h'⌝)%I.
     Proof.
       destruct c as [Σe δe req result ens]. cbn.
-      cbv [CHeapSpec.call_contract CHeapSpec.bind CHeapSpec.lift_purespec
-           CHeapSpec.demonic CPureSpec.demonic].
-      rewrite CPureSpec.wp_angelic_ctx.
+      cbv [CHeapSpecM.call_contract CHeapSpecM.bind CHeapSpecM.demonic
+           CHeapSpecM.pure CHeapSpec.cheapspecm_cheapspec CHeapSpec.bind
+           CHeapSpec.lift_purespec CHeapSpec.demonic CPureSpec.demonic].
+      rewrite CHeapSpec.wp_angelic_ctx.
       intros [ι Hwp]; revert Hwp.
-      rewrite CPureSpec.wp_assert_eq_nenv.
+      rewrite CHeapSpec.wp_assert_eq_nenv.
       intros [Hfmls ->%CHeapSpec.consume_sound].
       apply bi.exist_intro' with ι.
       apply bi.and_intro; auto.
@@ -88,15 +89,15 @@ Module Type Soundness
 
     Lemma call_lemma_sound [Δ] (l : Lemma Δ) (δ : CStore Δ)
       (Φ : () → SCHeap → Prop) (h : SCHeap)   :
-      CHeapSpec.call_lemma l δ Φ h →
+      CHeapSpecM.call_lemma (M := CHeapSpec) l δ Φ h →
       LTriple δ (interpret_scheap h) (∃ h', interpret_scheap h' ∧ ⌜Φ tt h'⌝) l.
     Proof.
       destruct l as [Σe δe req ens].
-      unfold CHeapSpec.call_lemma.
-      unfold CHeapSpec.bind, CHeapSpec.lift_purespec.
-      rewrite CPureSpec.wp_angelic_ctx.
+      cbv [CHeapSpecM.call_lemma CHeapSpecM.bind CHeapSpec.cheapspecm_cheapspec
+           CHeapSpec.bind].
+      rewrite CHeapSpec.wp_angelic_ctx.
       intros [ι Hwp]; revert Hwp.
-      rewrite CPureSpec.wp_assert_eq_nenv.
+      rewrite CHeapSpec.wp_assert_eq_nenv.
       intros [Hfmls Hwp%CHeapSpec.consume_sound].
       constructor.
       apply bi.exist_intro' with ι.
@@ -315,10 +316,9 @@ Module Type Soundness
             ∃ h', ⌜ Φ tt h' ⌝ ⦄.
       Proof.
         destruct c as [Σ δΣ req result ens]; cbn.
-        cbv [CHeapSpec.bind CHeapSpec.demonic_ctx
-               CHeapSpec.lift_purespec evalStoreT].
+        cbv [CHeapSpec.bind CHeapSpec.lift_purespec evalStoreT].
         intros HYP ι.
-        rewrite CPureSpec.wp_demonic_ctx in HYP.
+        rewrite CHeapSpec.wp_demonic_ctx in HYP.
         specialize (HYP ι). remember (inst δΣ ι) as δ.
         apply CHeapSpec.produce_sound, bi.wand_elim_l' in HYP.
         refine (rule_consequence_left _ _ HYP). clear HYP.

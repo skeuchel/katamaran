@@ -627,12 +627,12 @@ Module Type SymbolicExecOn
       fun w =>
         match c with
         | MkSepContract _ _ lvars pats req result ens =>
-            ⟨ θ1 ⟩ lenv  <- SHeapSpec.demonic_ctx id lvars ;;
-            ⟨ θ2 ⟩ _     <- SHeapSpec.produce req lenv ;;
+            ⟨ θ1 ⟩ lenv  <- SHeapSpecM.demonic_ctx id lvars ;;
+            ⟨ θ2 ⟩ _     <- SHeapSpecM.produce req lenv ;;
             let lenv2 := persist (A := Sub _) lenv θ2 in
             ⟨ θ3 ⟩ res   <- SStoreT.evalStoreT (exec _ _ s _) (subst pats lenv2) ;;
             let lenv3 := persist (A := Sub _) lenv2 θ3 in
-            SHeapSpec.consume ens (sub_snoc lenv3 (result∷τ) res)
+            SHeapSpecM.consume ens (sub_snoc lenv3 (result∷τ) res)
         end.
 
     Definition exec_call_error_no_fuel : ExecCall :=
@@ -646,7 +646,7 @@ Module Type SymbolicExecOn
 
     Definition sexec_call_foreign {SPEC : Specification} : ExecCallForeign :=
       fun Δ τ f w args =>
-        SHeapSpec.call_contract (CEnvEx f) args.
+        SHeapSpecM.call_contract (CEnvEx f) args.
 
     Variable cfg : Config.
 
@@ -668,7 +668,7 @@ Module Type SymbolicExecOn
     Definition sexec_lemma {SPEC : Specification} : ExecLemma :=
       fun Δ l w args =>
         ⟨ θ ⟩ _ <- debug_lemma l args ;;
-        SHeapSpec.call_lemma (LEnv l) (persist args θ).
+        SHeapSpecM.call_lemma (LEnv l) (persist args θ).
 
     Definition debug_call {SPEC : Specification} [Δ τ] (f : 𝑭 Δ τ) :
       ⊢ SStore Δ -> SHeapSpec Unit :=
@@ -714,7 +714,7 @@ Module Type SymbolicExecOn
         match CEnv f , inline_fuel with
         | Some c , _ =>
             (* YES: Execute the call by interpreting the contract. *)
-            SHeapSpec.call_contract c (persist args0 θ1)
+            SHeapSpecM.call_contract c (persist args0 θ1)
         | None   , 0 =>
             (* Out of fuel *)
             exec_call_error_no_fuel f (persist args0 θ1)

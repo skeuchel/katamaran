@@ -339,10 +339,10 @@ Module Type ShallowExecOn
     Definition exec_contract (exec : Exec) {Δ τ} (c : SepContract Δ τ) (s : Stm Δ τ) : CHeapSpec unit :=
       match c with
       | MkSepContract _ _ lvars pats req result ens =>
-          lenv <- CHeapSpec.demonic_ctx lvars ;;
-          _    <- CHeapSpec.produce req lenv ;;
+          lenv <- CHeapSpecM.demonic_ctx lvars ;;
+          _    <- CHeapSpecM.produce req lenv ;;
           v    <- CStoreT.evalStoreT (exec _ _ s) (inst pats lenv) ;;
-          CHeapSpec.consume ens (env.snoc lenv (result∷τ) v)
+          CHeapSpecM.consume ens (env.snoc lenv (result∷τ) v)
       end.
 
     Definition exec_call_error_no_fuel : ExecCall :=
@@ -350,7 +350,7 @@ Module Type ShallowExecOn
 
     Definition cexec_call_foreign {SPEC : Specification} : ExecCallForeign :=
       fun Δ τ f args =>
-        CHeapSpec.call_contract (CEnvEx f) args.
+        CHeapSpecM.call_contract (CEnvEx f) args.
 
     Definition debug_lemma [Δ] (f : 𝑳 Δ) (args : CStore Δ) : CHeapSpec unit :=
       CHeapSpec.pure tt.
@@ -358,7 +358,7 @@ Module Type ShallowExecOn
     Definition cexec_lemma {SPEC : Specification} : ExecLemma :=
       fun Δ l args =>
         _ <- debug_lemma l args ;;
-        CHeapSpec.call_lemma (LEnv l) args.
+        CHeapSpecM.call_lemma (LEnv l) args.
 
     Definition debug_call [Δ τ] (f : 𝑭 Δ τ) (args : CStore Δ) : CHeapSpec unit :=
       CHeapSpec.pure tt.
@@ -377,7 +377,7 @@ Module Type ShallowExecOn
         match CEnv f , inline_fuel with
         | Some c , _ =>
             (* YES: Execute the call by interpreting the contract. *)
-            CHeapSpec.call_contract c args
+            CHeapSpecM.call_contract c args
         | None   , 0 =>
             (* Out of fuel *)
             exec_call_error_no_fuel f args
