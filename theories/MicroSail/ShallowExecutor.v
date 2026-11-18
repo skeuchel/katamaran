@@ -63,43 +63,43 @@ Module Type ShallowExecOn
   (* The store transformer. It is indexed by two program variable contexts Γ1
      Γ2 that encode the shape of the program variable store before and after
      execution. *)
-  Definition CStoreT (Γ1 Γ2 : PCtx) (A : Type) : Type :=
-    CStore Γ1 -> CHeapSpec (A * CStore Γ2).
+  Definition CStoreT (M : Type -> Type) (Γ1 Γ2 : PCtx) (A : Type) : Type :=
+    CStore Γ1 -> M (A * CStore Γ2)%type.
 
   Definition MProd {A B} (MA : relation A) (MB : relation B) : relation (A * B) :=
     fun '(a1,b1) '(a2,b2) => MA a1 a2 /\ MB b1 b2.
 
-  Definition MStoreT (Γ1 Γ2 : PCtx) [A] (MA : relation A) :
-    relation (CStoreT Γ1 Γ2 A) :=
-    CStore Γ1 ::> MHeapSpec (MProd MA eq).
-  #[global] Arguments MStoreT Γ1 Γ2 [A] MA.
+  Definition MStoreT {M} (RM : forall {A}, relation A -> relation (M A))
+    (Γ1 Γ2 : PCtx) [A] (MA : relation A) : relation (CStoreT M Γ1 Γ2 A) :=
+    CStore Γ1 ::> RM (MProd MA eq).
+  #[global] Arguments MStoreT {M} RM Γ1 Γ2 [A] MA.
 
   (* The paper discusses the case that a function call is replaced by
      interpreting the contract instead. However, this is not always
      convenient. We therefore parameterize the executor by other functions
      that interpret function calls and lemma applications. The following
      types describe the executor and the parameters. *)
-  Definition ExecCall := forall Δ τ, 𝑭 Δ τ -> CStore Δ -> CHeapSpec (Val τ).
-  Definition ExecCallForeign := forall Δ τ, 𝑭𝑿 Δ τ -> CStore Δ -> CHeapSpec (Val τ).
-  Definition ExecLemma := forall Δ, 𝑳 Δ -> CStore Δ -> CHeapSpec unit.
-  Definition ExecFail := forall Γ τ (s : Val ty.string), CStoreT Γ Γ (Val τ).
-  Definition Exec := forall Γ τ (s : Stm Γ τ), CStoreT Γ Γ (Val τ).
+  Definition ExecCall M := forall Δ τ, 𝑭 Δ τ -> CStore Δ -> M (Val τ).
+  Definition ExecCallForeign M := forall Δ τ, 𝑭𝑿 Δ τ -> CStore Δ -> M (Val τ).
+  Definition ExecLemma M := forall Δ, 𝑳 Δ -> CStore Δ -> M unit.
+  Definition ExecFail M := forall Γ τ (s : Val ty.string), CStoreT M Γ Γ (Val τ).
+  Definition Exec M := forall Γ τ (s : Stm Γ τ), CStoreT M Γ Γ (Val τ).
 
-  Abbreviation MonotonicExecCall exec_call :=
+  Abbreviation MonotonicExecCall RM exec_call :=
     (forall Δ τ (f : 𝑭 Δ τ) (δ : CStore Δ),
-       Proper (MHeapSpec eq) (exec_call Δ τ f δ)).
-  Abbreviation MonotonicExecCallForeign exec_call_foreign :=
+       Proper (RM _ eq) (exec_call Δ τ f δ)).
+  Abbreviation MonotonicExecCallForeign RM exec_call_foreign :=
     (forall Δ τ (f : 𝑭𝑿 Δ τ) (δ : CStore Δ),
-       Proper (MHeapSpec eq) (exec_call_foreign Δ τ f δ)).
-  Abbreviation MonotonicExecLemma exec_lemma :=
+       Proper (RM _ eq) (exec_call_foreign Δ τ f δ)).
+  Abbreviation MonotonicExecLemma RM exec_lemma :=
     (forall Δ (l : 𝑳 Δ) (δ : CStore Δ),
-       Proper (MHeapSpec eq) (exec_lemma Δ l δ)).
-  Abbreviation MonotonicExecFail exec_fail :=
+       Proper (RM _ eq) (exec_lemma Δ l δ)).
+  Abbreviation MonotonicExecFail RM exec_fail :=
     (forall Γ τ (s : Val ty.string),
-       Proper (MStoreT Γ Γ eq) (exec_fail Γ τ s)).
-  Abbreviation MonotonicExec exec :=
+       Proper (MStoreT RM Γ Γ eq) (exec_fail Γ τ s)).
+  Abbreviation MonotonicExec RM exec :=
     (forall Γ τ (s : Stm Γ τ),
-       Proper (MStoreT Γ Γ eq) (exec Γ τ s)).
+       Proper (MStoreT RM Γ Γ eq) (exec Γ τ s)).
 
   Module CStoreT.
 
@@ -107,48 +107,50 @@ Module Type ShallowExecOn
 
     Section Basic.
 
-      Definition lift_heapspec {Γ A} (m : CHeapSpec A) : CStoreT Γ Γ A :=
+      Context {M} {cm : CHeapSpecM M}.
+
+      Definition lift_heapspec {Γ A} (m : M A) : CStoreT M Γ Γ A :=
         fun δ => CHeapSpecM.bind m (fun a => CHeapSpecM.pure (a, δ)).
-      Definition evalStoreT {Γ1 Γ2 A} (m : CStoreT Γ1 Γ2 A) (δ : CStore Γ1) : CHeapSpec A :=
+      Definition evalStoreT {Γ1 Γ2 A} (m : CStoreT M Γ1 Γ2 A) (δ : CStore Γ1) : M A :=
         CHeapSpecM.bind (m δ) (fun '(a,_) => CHeapSpecM.pure a).
 
-      Definition pure {Γ A} (a : A) : CStoreT Γ Γ A :=
+      Definition pure {Γ A} (a : A) : CStoreT M Γ Γ A :=
         fun δ => CHeapSpecM.pure (a, δ).
-      Definition bind {Γ1 Γ2 Γ3 A B} (m : CStoreT Γ1 Γ2 A) (f : A -> CStoreT Γ2 Γ3 B) :
-        CStoreT Γ1 Γ3 B :=
+      Definition bind {Γ1 Γ2 Γ3 A B} (m : CStoreT M Γ1 Γ2 A) (f : A -> CStoreT M Γ2 Γ3 B) :
+        CStoreT M Γ1 Γ3 B :=
         fun δ1 => CHeapSpecM.bind (m δ1) (fun '(a,δ2) => f a δ2).
 
-      Definition error {Γ1 Γ2 A} : CStoreT Γ1 Γ2 A :=
+      Definition error {Γ1 Γ2 A} : CStoreT M Γ1 Γ2 A :=
         fun _ => CHeapSpecM.error.
-      Definition block {Γ1 Γ2 A} : CStoreT Γ1 Γ2 A :=
+      Definition block {Γ1 Γ2 A} : CStoreT M Γ1 Γ2 A :=
         fun _ => CHeapSpecM.block.
 
       Definition demonic_pattern_match {N : Set} {Γ σ} (pat : Pattern (N:=N) σ) (v : Val σ) :
-        CStoreT Γ Γ (MatchResult pat) :=
+        CStoreT M Γ Γ (MatchResult pat) :=
         lift_heapspec (CHeapSpecM.demonic_pattern_match pat v).
       #[global] Arguments demonic_pattern_match {N Γ σ} pat v.
 
       Definition pushpop {A Γ1 Γ2 x σ} (v : Val σ)
-        (m : CStoreT (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) A) : CStoreT Γ1 Γ2 A :=
+        (m : CStoreT M (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) A) : CStoreT M Γ1 Γ2 A :=
         fun δ1 =>
           CHeapSpecM.bind (m (δ1 ► (x∷σ ↦ v)))
             (fun '(a,δ2) => CHeapSpecM.pure (a, env.tail δ2)).
       Definition pushspops {A Γ1 Γ2 Δ} (δΔ : CStore Δ)
-        (m : CStoreT (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) A) : CStoreT Γ1 Γ2 A :=
+        (m : CStoreT M (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) A) : CStoreT M Γ1 Γ2 A :=
         fun δ1 =>
           CHeapSpecM.bind (m (δ1 ►► δΔ))
             (fun '(a,δ2) => CHeapSpecM.pure (a, env.drop Δ δ2)).
-      Definition get_local {Γ} : CStoreT Γ Γ (CStore Γ) :=
+      Definition get_local {Γ} : CStoreT M Γ Γ (CStore Γ) :=
         fun δ => CHeapSpecM.pure (δ, δ).
-      Definition put_local {Γ1 Γ2} (δ : CStore Γ2) : CStoreT Γ1 Γ2 unit :=
+      Definition put_local {Γ1 Γ2} (δ : CStore Γ2) : CStoreT M Γ1 Γ2 unit :=
         fun _ => CHeapSpecM.pure (tt, δ).
 
-      Definition eval_exp {Γ σ} (e : Exp Γ σ) : CStoreT Γ Γ (Val σ) :=
+      Definition eval_exp {Γ σ} (e : Exp Γ σ) : CStoreT M Γ Γ (Val σ) :=
         fun δ => CHeapSpecM.pure (eval e δ, δ).
       Definition eval_exps {Γ} {σs : PCtx} (es : NamedEnv (Exp Γ) σs) :
-        CStoreT Γ Γ (CStore σs) :=
+        CStoreT M Γ Γ (CStore σs) :=
         fun δ => CHeapSpecM.pure (evals es δ, δ).
-      Definition assign {Γ} x {σ} {xIn : x∷σ ∈ Γ} (v : Val σ) : CStoreT Γ Γ unit :=
+      Definition assign {Γ} x {σ} {xIn : x∷σ ∈ Γ} (v : Val σ) : CStoreT M Γ Γ unit :=
         fun δ => CHeapSpecM.pure (tt, δ ⟪ x ↦ v ⟫).
       Global Arguments assign {Γ} x {σ xIn} v.
 
@@ -171,15 +173,16 @@ Module Type ShallowExecOn
 
     Section ExecAux.
 
+      Context {M} {cm : CHeapSpecM M}.
       Context {SPEC : Specification}.
-      Variable exec_call_foreign : ExecCallForeign.
-      Variable exec_lemma : ExecLemma.
-      Variable exec_call : ExecCall.
-      Variable exec_fail : ExecFail.
+      Variable exec_call_foreign : ExecCallForeign M.
+      Variable exec_lemma : ExecLemma M.
+      Variable exec_call : ExecCall M.
+      Variable exec_fail : ExecFail M.
 
       (* The openly-recursive executor. *)
-      Definition exec_aux : Exec :=
-        fix exec_aux {Γ τ} (s : Stm Γ τ) : CStoreT Γ Γ (Val τ) :=
+      Definition exec_aux : Exec M :=
+        fix exec_aux {Γ τ} (s : Stm Γ τ) : CStoreT M Γ Γ (Val τ) :=
           match s with
           | stm_val _ l => pure l
           | stm_exp e => eval_exp e
@@ -211,8 +214,8 @@ Module Type ShallowExecOn
           | stm_seq e k => _ <- exec_aux e ;; exec_aux k
           | stm_assertk e1 _ k =>
               v <- eval_exp e1 ;;
-              _ <- lift_heapspec (CHeapSpec.assert_formula (if fail_rule_pre then True else v <> false)) ;;
-              _ <- lift_heapspec (CHeapSpec.assume_formula (v = true)) ;;
+              _ <- lift_heapspec (CHeapSpecM.assert_formula (if fail_rule_pre then True else v <> false)) ;;
+              _ <- lift_heapspec (CHeapSpecM.assume_formula (v = true)) ;;
               exec_aux k
           | stm_fail _ s =>
               exec_fail _ s
@@ -221,10 +224,10 @@ Module Type ShallowExecOn
               '(existT pc δpc) <- demonic_pattern_match pat v ;;
               pushspops δpc (exec_aux (rhs pc))
           | stm_read_register reg =>
-              lift_heapspec (CHeapSpec.read_register reg)
+              lift_heapspec (CHeapSpecM.read_register reg)
           | stm_write_register reg e =>
               v__new <- eval_exp e ;;
-              lift_heapspec (CHeapSpec.write_register reg v__new)
+              lift_heapspec (CHeapSpecM.write_register reg v__new)
           | stm_bind s k =>
               v <- exec_aux s ;;
               exec_aux (k v)
@@ -233,51 +236,54 @@ Module Type ShallowExecOn
           end.
 
     End ExecAux.
-    #[global] Arguments exec_aux {_} _ _ _ _ [Γ τ] !s.
+    #[global] Arguments exec_aux {M _ SPEC} _ _ _ _ [Γ τ] !s.
 
     Section Monotonicity.
 
+      Context {M} {cm : CHeapSpecM M} {RM : forall {A}, relation A -> relation (M A)}
+        {mm : MHeapSpecM M (@RM)}.
+
       #[export] Instance mon_lift_heapspec {Γ} `{MA : relation A} :
-        Proper (MHeapSpec MA ==> MStoreT Γ Γ MA) lift_heapspec.
+        Proper (RM MA ==> MStoreT (@RM) Γ Γ MA) lift_heapspec.
       Proof.
         intros m1 m2 rm δ. unfold lift_heapspec. eapply MHeapSpecM.mon_bind; [exact rm|].
         intros a1 a2 ra. apply MHeapSpecM.mon_pure. now split.
       Qed.
 
       #[export] Instance mon_evalStoreT {Γ1 Γ2} `{MA : relation A} :
-        Proper (MStoreT Γ1 Γ2 MA ==> CStore Γ1 ::> MHeapSpec MA) evalStoreT.
+        Proper (MStoreT (@RM) Γ1 Γ2 MA ==> CStore Γ1 ::> RM MA) evalStoreT.
       Proof.
         intros m1 m2 rm δ. unfold evalStoreT. eapply MHeapSpecM.mon_bind; [apply rm|].
         intros [a1 δ1] [a2 δ2] [ra _]. now apply MHeapSpecM.mon_pure.
       Qed.
 
       #[export] Instance mon_pure {Γ} `{MA : relation A} :
-        Proper (MA ==> MStoreT Γ Γ MA) pure.
+        Proper (MA ==> MStoreT (@RM) Γ Γ MA) pure.
       Proof. intros a1 a2 ra δ. apply MHeapSpecM.mon_pure. now split. Qed.
 
       #[export] Instance mon_bind {Γ1 Γ2 Γ3} `{MA : relation A, MB : relation B} :
-        Proper (MStoreT Γ1 Γ2 MA ==> (MA ==> MStoreT Γ2 Γ3 MB) ==>
-                MStoreT Γ1 Γ3 MB) bind.
+        Proper (MStoreT (@RM) Γ1 Γ2 MA ==> (MA ==> MStoreT (@RM) Γ2 Γ3 MB) ==>
+                MStoreT (@RM) Γ1 Γ3 MB) bind.
       Proof.
         intros m1 m2 rm f1 f2 rf δ. unfold bind. eapply MHeapSpecM.mon_bind; [apply rm|].
         intros [a1 δ1] [a2 δ2] [ra <-]. now apply rf.
       Qed.
 
       #[export] Instance mon_error {Γ1 Γ2} `{MA : relation A} :
-        Proper (MStoreT Γ1 Γ2 MA) error.
+        Proper (MStoreT (@RM) Γ1 Γ2 MA) error.
       Proof. intros δ. apply MHeapSpecM.mon_error. Qed.
 
       #[export] Instance mon_block {Γ1 Γ2} `{MA : relation A} :
-        Proper (MStoreT Γ1 Γ2 MA) block.
+        Proper (MStoreT (@RM) Γ1 Γ2 MA) block.
       Proof. intros δ. apply MHeapSpecM.mon_block. Qed.
 
       #[export] Instance mon_demonic_pattern_match {N : Set} {Γ σ}
         (pat : Pattern (N:=N) σ) (v : Val σ) :
-        Proper (MStoreT Γ Γ eq) (demonic_pattern_match pat v).
+        Proper (MStoreT (@RM) Γ Γ eq) (demonic_pattern_match pat v).
       Proof. unfold demonic_pattern_match. solve_monotonic. Qed.
 
       #[export] Instance mon_pushpop `{MA : relation A} {Γ1 Γ2 x σ} (v : Val σ) :
-        Proper (MStoreT (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) MA ==> MStoreT Γ1 Γ2 MA)
+        Proper (MStoreT (@RM) (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) MA ==> MStoreT (@RM) Γ1 Γ2 MA)
           (pushpop v).
       Proof.
         intros m1 m2 rm δ. unfold pushpop. eapply MHeapSpecM.mon_bind; [apply rm|].
@@ -285,7 +291,7 @@ Module Type ShallowExecOn
       Qed.
 
       #[export] Instance mon_pushspops `{MA : relation A} {Γ1 Γ2 Δ} (δΔ : CStore Δ) :
-        Proper (MStoreT (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) MA ==> MStoreT Γ1 Γ2 MA)
+        Proper (MStoreT (@RM) (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) MA ==> MStoreT (@RM) Γ1 Γ2 MA)
           (pushspops δΔ).
       Proof.
         intros m1 m2 rm δ. unfold pushspops. eapply MHeapSpecM.mon_bind; [apply rm|].
@@ -293,23 +299,23 @@ Module Type ShallowExecOn
       Qed.
 
       #[export] Instance mon_get_local {Γ} :
-        Proper (MStoreT Γ Γ eq) get_local.
+        Proper (MStoreT (@RM) Γ Γ eq) get_local.
       Proof. intros δ. apply MHeapSpecM.mon_pure. now split. Qed.
 
       #[export] Instance mon_put_local {Γ1 Γ2} (δ : CStore Γ2) :
-        Proper (MStoreT Γ1 Γ2 eq) (put_local δ).
+        Proper (MStoreT (@RM) Γ1 Γ2 eq) (put_local δ).
       Proof. intros δ'. apply MHeapSpecM.mon_pure. now split. Qed.
 
       #[export] Instance mon_eval_exp {Γ σ} (e : Exp Γ σ) :
-        Proper (MStoreT Γ Γ eq) (eval_exp e).
+        Proper (MStoreT (@RM) Γ Γ eq) (eval_exp e).
       Proof. intros δ. apply MHeapSpecM.mon_pure. now split. Qed.
 
       #[export] Instance mon_eval_exps {Γ} {σs : PCtx} (es : NamedEnv (Exp Γ) σs) :
-        Proper (MStoreT Γ Γ eq) (eval_exps es).
+        Proper (MStoreT (@RM) Γ Γ eq) (eval_exps es).
       Proof. intros δ. apply MHeapSpecM.mon_pure. now split. Qed.
 
       #[export] Instance mon_assign {Γ} x {σ} {xIn : x∷σ ∈ Γ} (v : Val σ) :
-        Proper (MStoreT Γ Γ eq) (assign x v).
+        Proper (MStoreT (@RM) Γ Γ eq) (assign x v).
       Proof. intros δ. apply MHeapSpecM.mon_pure. now split. Qed.
 
       #[global] Typeclasses Opaque lift_heapspec evalStoreT pure bind error block
@@ -319,19 +325,19 @@ Module Type ShallowExecOn
     Section ExecAux.
 
       Context {SPEC : Specification}.
-      Variable exec_call_foreign : ExecCallForeign.
-      Variable exec_lemma : ExecLemma.
-      Variable exec_call : ExecCall.
-      Variable exec_fail : ExecFail.
+      Variable exec_call_foreign : ExecCallForeign M.
+      Variable exec_lemma : ExecLemma M.
+      Variable exec_call : ExecCall M.
+      Variable exec_fail : ExecFail M.
 
       Context
-        (mexec_call_foreign : MonotonicExecCallForeign exec_call_foreign)
-        (mexec_lemma : MonotonicExecLemma exec_lemma)
-        (mexec_call : MonotonicExecCall exec_call)
-        (mexec_fail : MonotonicExecFail exec_fail).
+        (mexec_call_foreign : MonotonicExecCallForeign (@RM) exec_call_foreign)
+        (mexec_lemma : MonotonicExecLemma (@RM) exec_lemma)
+        (mexec_call : MonotonicExecCall (@RM) exec_call)
+        (mexec_fail : MonotonicExecFail (@RM) exec_fail).
 
       #[export] Instance mon_exec_aux :
-        MonotonicExec (exec_aux exec_call_foreign exec_lemma exec_call exec_fail).
+        MonotonicExec (@RM) (exec_aux exec_call_foreign exec_lemma exec_call exec_fail).
       Proof. induction s; cbn [exec_aux]; solve_monotonic. Qed.
 
     End ExecAux.
@@ -342,9 +348,11 @@ Module Type ShallowExecOn
 
   Section WithSpec.
 
-    Import CHeapSpec.notations.
+    Import CHeapSpecM.notations.
 
-    Definition exec_contract (exec : Exec) {Δ τ} (c : SepContract Δ τ) (s : Stm Δ τ) : CHeapSpec unit :=
+    Context {M} {cm : CHeapSpecM M}.
+
+    Definition exec_contract (exec : Exec M) {Δ τ} (c : SepContract Δ τ) (s : Stm Δ τ) : M unit :=
       match c with
       | MkSepContract _ _ lvars pats req result ens =>
           lenv <- CHeapSpecM.demonic_ctx lvars ;;
@@ -353,31 +361,31 @@ Module Type ShallowExecOn
           CHeapSpecM.consume ens (env.snoc lenv (result∷τ) v)
       end.
 
-    Definition exec_call_error_no_fuel : ExecCall :=
-      fun Δ τ f args => CHeapSpec.error.
+    Definition exec_call_error_no_fuel : ExecCall M :=
+      fun Δ τ f args => CHeapSpecM.error.
 
-    Definition cexec_call_foreign {SPEC : Specification} : ExecCallForeign :=
+    Definition cexec_call_foreign {SPEC : Specification} : ExecCallForeign M :=
       fun Δ τ f args =>
         CHeapSpecM.call_contract (CEnvEx f) args.
 
-    Definition debug_lemma [Δ] (f : 𝑳 Δ) (args : CStore Δ) : CHeapSpec unit :=
-      CHeapSpec.pure tt.
+    Definition debug_lemma [Δ] (f : 𝑳 Δ) (args : CStore Δ) : M unit :=
+      CHeapSpecM.pure tt.
 
-    Definition cexec_lemma {SPEC : Specification} : ExecLemma :=
+    Definition cexec_lemma {SPEC : Specification} : ExecLemma M :=
       fun Δ l args =>
         _ <- debug_lemma l args ;;
         CHeapSpecM.call_lemma (LEnv l) args.
 
-    Definition debug_call [Δ τ] (f : 𝑭 Δ τ) (args : CStore Δ) : CHeapSpec unit :=
-      CHeapSpec.pure tt.
+    Definition debug_call [Δ τ] (f : 𝑭 Δ τ) (args : CStore Δ) : M unit :=
+      CHeapSpecM.pure tt.
 
-    Definition cexec_fail {SPEC : Specification} : ExecFail :=
+    Definition cexec_fail {SPEC : Specification} : ExecFail M :=
       fun Γ τ s => if fail_rule_pre then CStoreT.block else CStoreT.error.
 
     (* If a function does not have a contract, we continue executing the body of
        the called function. A parameter [inline_fuel] bounds the number of
        allowed levels before failing execution. *)
-    Fixpoint cexec_call {SPEC : Specification} (inline_fuel : nat) : ExecCall :=
+    Fixpoint cexec_call {SPEC : Specification} (inline_fuel : nat) : ExecCall M :=
       fun Δ τ f args =>
         _ <- debug_call f args ;;
         (* Let's first see if we have a contract defined for function [f]
@@ -395,51 +403,57 @@ Module Type ShallowExecOn
               args
         end.
 
-    Definition cexec {SPEC : Specification} (inline_fuel : nat) : Exec :=
-      @CStoreT.exec_aux SPEC cexec_call_foreign cexec_lemma
+    Definition cexec {SPEC : Specification} (inline_fuel : nat) : Exec M :=
+      @CStoreT.exec_aux M _ SPEC cexec_call_foreign cexec_lemma
         (cexec_call inline_fuel) cexec_fail.
-    #[global] Arguments cexec {_} _ [_ _] s _ _ _ : simpl never.
 
   End WithSpec.
+  #[global] Arguments exec_call_error_no_fuel {M _}.
+  #[global] Arguments cexec {M _ SPEC} _ [_ _] s _ : simpl never.
 
   Section Monotonicity.
 
     Import (hints) CStoreT.
 
-    #[export] Instance mon_exec_contract (exec : Exec) (mexec : MonotonicExec exec)
+    Context {M} {cm : CHeapSpecM M} {RM : forall {A}, relation A -> relation (M A)}
+      {mm : MHeapSpecM M (@RM)}.
+
+    #[export] Instance mon_exec_contract (exec : Exec M) (mexec : MonotonicExec (@RM) exec)
       {Δ τ} (c : SepContract Δ τ) (s : Stm Δ τ) :
-      Proper (MHeapSpec eq) (exec_contract exec c s).
+      Proper (RM eq) (exec_contract exec c s).
     Proof. destruct c; cbn [exec_contract]. solve_monotonic. Qed.
 
-    #[export] Instance mon_exec_call_error_no_fuel : MonotonicExecCall exec_call_error_no_fuel.
+    #[export] Instance mon_exec_call_error_no_fuel :
+      MonotonicExecCall (@RM) (exec_call_error_no_fuel (M := M)).
     Proof. solve_monotonic. Qed.
 
     #[export] Instance mon_cexec_call_foreign {SPEC : Specification} :
-      MonotonicExecCallForeign cexec_call_foreign.
+      MonotonicExecCallForeign (@RM) (cexec_call_foreign (M := M)).
     Proof. solve_monotonic. Qed.
 
     #[export] Instance mon_cexec_lemma {SPEC : Specification} :
-      MonotonicExecLemma cexec_lemma.
+      MonotonicExecLemma (@RM) (cexec_lemma (M := M)).
     Proof. unfold cexec_lemma, debug_lemma. solve_monotonic. Qed.
 
-    #[export] Instance mon_cexec_fail {SPEC : Specification} : MonotonicExecFail cexec_fail.
+    #[export] Instance mon_cexec_fail {SPEC : Specification} :
+      MonotonicExecFail (@RM) (cexec_fail (M := M)).
     Proof. unfold cexec_fail; destruct fail_rule_pre; solve_monotonic. Qed.
 
     #[export] Instance mon_cexec_call {SPEC : Specification} (fuel : nat) :
-      MonotonicExecCall (cexec_call fuel).
+      MonotonicExecCall (@RM) (cexec_call (M := M) fuel).
     Proof.
       induction fuel; intros; cbn [cexec_call]; unfold debug_call; destruct CEnv;
         solve_monotonic.
     Qed.
 
     #[export] Instance mon_cexec {SPEC : Specification} (fuel : nat) :
-      MonotonicExec (cexec fuel).
+      MonotonicExec (@RM) (cexec (M := M) fuel).
     Proof. unfold cexec. solve_monotonic. Qed.
 
   End Monotonicity.
 
   Definition vcgen {SPEC : Specification} (inline_fuel : nat) {Δ τ} (c : SepContract Δ τ) (body : Stm Δ τ) : Prop :=
-    CHeapSpec.run (exec_contract (cexec inline_fuel) c body).
+    CHeapSpec.run (exec_contract (M := CHeapSpec) (cexec inline_fuel) c body).
 
   Module Shallow.
 

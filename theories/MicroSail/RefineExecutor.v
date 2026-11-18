@@ -85,35 +85,42 @@ Module RefineExecOn
     #[export] Hint Extern 1 (Related _ pair _ (@pair _ _)) =>
       exact refine_pair : typeclass_instances.
 
+    Section WithRM.
+
+    Context {MT : TYPE -> TYPE} {M : Type -> Type}
+      {smT : SHeapSpecM MT} {cmM : CHeapSpecM M}
+      {RM : forall {AT A} (R : Rel AT A), Rel (MT AT) (M A)}
+      {rm : RHeapSpecM (@RM)}.
+
     Definition RStoreT Γ1 Γ2 `(R : Rel AT A) :
-      Rel (SStoreT Γ1 Γ2 AT) (CStoreT Γ1 Γ2 A) :=
-      RStore Γ1 -> RHeapSpec (RProd R (RStore Γ2)).
+      Rel (SStoreT MT Γ1 Γ2 AT) (CStoreT M Γ1 Γ2 A) :=
+      RStore Γ1 -> RM (RProd R (RStore Γ2)).
 
     (* Abbreviations, so that hypotheses are local [Related] instances. *)
     Abbreviation RefineExecCall cexec_call sexec_call :=
       (forall Δ τ (f : 𝑭 Δ τ) w,
-        Related (RStore Δ -> RHeapSpec (RVal τ))
-          ((cexec_call : SHAL.ExecCall) Δ τ f) w ((sexec_call : SYMB.ExecCall) Δ τ f w)).
+        Related (RStore Δ -> RM (RVal τ))
+          ((cexec_call : SHAL.ExecCall M) Δ τ f) w ((sexec_call : SYMB.ExecCall MT) Δ τ f w)).
     Abbreviation RefineExecCallForeign cexec_call_foreign sexec_call_foreign :=
       (forall Δ τ (f : 𝑭𝑿 Δ τ) w,
-        Related (RStore Δ -> RHeapSpec (RVal τ))
-          ((cexec_call_foreign : SHAL.ExecCallForeign) Δ τ f) w
-          ((sexec_call_foreign : SYMB.ExecCallForeign) Δ τ f w)).
+        Related (RStore Δ -> RM (RVal τ))
+          ((cexec_call_foreign : SHAL.ExecCallForeign M) Δ τ f) w
+          ((sexec_call_foreign : SYMB.ExecCallForeign MT) Δ τ f w)).
     Abbreviation RefineExecLemma cexec_lemma sexec_lemma :=
       (forall Δ (l : 𝑳 Δ) w,
-        Related (RStore Δ -> RHeapSpec RUnit)
-          ((cexec_lemma : SHAL.ExecLemma) Δ l) w ((sexec_lemma : SYMB.ExecLemma) Δ l w)).
+        Related (RStore Δ -> RM RUnit)
+          ((cexec_lemma : SHAL.ExecLemma M) Δ l) w ((sexec_lemma : SYMB.ExecLemma MT) Δ l w)).
     Abbreviation RefineExecFail cexec_fail sexec_fail :=
       (forall Γ τ (s : Val ty.string) w,
         Related (RStoreT Γ Γ (RVal τ))
-          ((cexec_fail : SHAL.ExecFail) Γ τ s) w ((sexec_fail : SYMB.ExecFail) Γ τ s w)).
+          ((cexec_fail : SHAL.ExecFail M) Γ τ s) w ((sexec_fail : SYMB.ExecFail MT) Γ τ s w)).
     Abbreviation RefineExec cexec sexec :=
       (forall Γ τ (s : Stm Γ τ) w,
         Related (RStoreT Γ Γ (RVal τ))
-          ((cexec : SHAL.Exec) Γ τ s) w ((sexec : SYMB.Exec) Γ τ s w)).
+          ((cexec : SHAL.Exec M) Γ τ s) w ((sexec : SYMB.Exec MT) Γ τ s w)).
 
     #[export] Instance refine_evalStoreT {Γ1 Γ2} `{RA : Rel SA CA} {w : World} :
-      Related (RStoreT Γ1 Γ2 RA -> RStore Γ1 -> RHeapSpec RA)
+      Related (RStoreT Γ1 Γ2 RA -> RStore Γ1 -> RM RA)
         CStoreT.evalStoreT w (SStoreT.evalStoreT (w := w)).
     Proof.
       iIntros (m sm) "Hm %δ %sδ Hδ".
@@ -126,7 +133,7 @@ Module RefineExecOn
     Qed.
 
     #[export] Instance refine_lift_heapspec {Γ} `(R : Rel AT A) {w : World}:
-      Related (RHeapSpec R -> RStoreT Γ Γ R)
+      Related (RM R -> RStoreT Γ Γ R)
           CStoreT.lift_heapspec w (SStoreT.lift_heapspec (w := w)).
     Proof. unfold CStoreT.lift_heapspec, SStoreT.lift_heapspec, RStoreT; solve_related. Qed.
 
@@ -156,7 +163,7 @@ Module RefineExecOn
     Proof. unfold CStoreT.block, SStoreT.block, RStoreT; solve_related. Qed.
 
     #[export] Instance refine_error `{R : Rel AT A} {Γ1 Γ2} {w : World}
-      (cm : CStoreT Γ1 Γ2 A) :
+      (cm : CStoreT M Γ1 Γ2 A) :
       Related (RMsg _ (RStoreT Γ1 Γ2 R)) cm w (SStoreT.error (w := w)).
     Proof.
       iIntros (msg δ sδ) "Hδ".
@@ -166,7 +173,7 @@ Module RefineExecOn
     Lemma refine_debug `{R : Rel AT A}
       {Γ1 Γ2} {w0 : World} {f ms mc} :
       ℛ⟦RStoreT Γ1 Γ2 R⟧ mc ms ⊢
-                   ℛ⟦RStoreT Γ1 Γ2 R⟧ mc (@SStoreT.debug AT Γ1 Γ2 w0 f ms).
+                   ℛ⟦RStoreT Γ1 Γ2 R⟧ mc (@SStoreT.debug MT _ AT Γ1 Γ2 w0 f ms).
     Proof.
       iIntros "Hm %δ %sδ Hδ".
       unfold SStoreT.debug. iApply related_from_lemma.
@@ -174,7 +181,7 @@ Module RefineExecOn
     Qed.
 
     #[export] Instance refine_compat_debug `{R : Rel AT A} {Γ1 Γ2} {w0 : World} {f} {mc ms} :
-      RelatedFrom (RStoreT Γ1 Γ2 R) mc w0 (@SStoreT.debug AT Γ1 Γ2 w0 f ms) _ :=
+      RelatedFrom (RStoreT Γ1 Γ2 R) mc w0 (@SStoreT.debug MT _ AT Γ1 Γ2 w0 f ms) _ :=
       refine_debug.
 
     #[export] Instance refine_demonic_pattern_match {N : Set} (n : N -> LVar) {Γ σ} (pat : Pattern (N:=N) σ) {w} :
@@ -310,7 +317,7 @@ Module RefineExecOn
       Context `(rexec_fail : RefineExecFail c_exec_fail s_exec_fail).
 
       #[export] Instance refine_exec_aux {SPEC : Specification} :
-        RefineExec (@CStoreT.exec_aux _ c_exec_call_foreign c_exec_lemma c_exec_call c_exec_fail) (@SStoreT.exec_aux _ s_exec_call_foreign s_exec_lemma s_exec_call s_exec_fail).
+        RefineExec (@CStoreT.exec_aux M _ _ c_exec_call_foreign c_exec_lemma c_exec_call c_exec_fail) (@SStoreT.exec_aux MT _ _ s_exec_call_foreign s_exec_lemma s_exec_call s_exec_fail).
       Proof.
         intros ? ? s. induction s; cbn; intros w; solve_related.
       Qed.
@@ -321,9 +328,9 @@ Module RefineExecOn
 
     #[export] Instance refine_exec_contract `(rexec : RefineExec c_exec s_exec)
       {Δ τ} (c : SepContract Δ τ) (s : Stm Δ τ) w :
-      Related (RHeapSpec RUnit)
+      Related (RM RUnit)
           (SHAL.exec_contract c_exec c s) w
-          (SYMB.exec_contract s_exec c s (w := w)).
+          (SYMB.exec_contract s_exec c s w).
     Proof.
       unfold Related.
       destruct c as [lvars pats req result ens];
@@ -335,7 +342,7 @@ Module RefineExecOn
     Proof.
       iIntros (? ? ? ? cδ sδ) "#rδ".
       unfold SHAL.exec_call_error_no_fuel, SYMB.exec_call_error_no_fuel.
-      iApply HeapSpec.refine_error.
+      iApply RHeapSpecM.refine_error.
     Qed.
 
     Context {SPEC : Specification}.
@@ -349,7 +356,7 @@ Module RefineExecOn
     Variable cfg : Config.
 
     #[export] Instance refine_debug_lemma [Δ] (l : 𝑳 Δ) w :
-      Related (RStore Δ -> RHeapSpec RUnit)
+      Related (RStore Δ -> RM RUnit)
         (SHAL.debug_lemma l) w (SYMB.debug_lemma cfg l (w := w)).
     Proof.
       unfold SHAL.debug_lemma, SYMB.debug_lemma.
@@ -363,7 +370,7 @@ Module RefineExecOn
     Qed.
 
     #[export] Instance refine_debug_call [Δ τ] (f : 𝑭 Δ τ) w :
-      Related (RStore Δ -> RHeapSpec RUnit)
+      Related (RStore Δ -> RM RUnit)
         (SHAL.debug_call f) w (SYMB.debug_call cfg f (w := w)).
     Proof.
       unfold SHAL.debug_call, SYMB.debug_call.
@@ -390,6 +397,9 @@ Module RefineExecOn
     Qed.
 
     End WithSpec.
+
+    End WithRM.
+    #[global] Arguments RStoreT {MT M} RM Γ1 Γ2 {AT A} R.
 
   End StoreT.
   Export (hints) StoreT.

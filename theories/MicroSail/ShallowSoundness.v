@@ -109,7 +109,7 @@ Module Type Soundness
       apply CHeapSpec.produce_sound.
     Qed.
 
-    Definition SoundExecCall (exec_call : ExecCall) : Prop :=
+    Definition SoundExecCall (exec_call : ExecCall CHeapSpec) : Prop :=
       forall Γ τ Δ (f : 𝑭 Δ τ) (es : NamedEnv (Exp Γ) Δ)
         (Φ : Val τ → SCHeap → Prop)
         (δ1 : CStore Γ) (h1 : SCHeap),
@@ -119,7 +119,7 @@ Module Type Soundness
         ⦃ fun v δ' =>
             ∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ v h' ∧ δ' = δ1⌝ ⦄.
 
-    Definition SoundExecFail (exec_fail : ExecFail) : Prop :=
+    Definition SoundExecFail (exec_fail : ExecFail CHeapSpec) : Prop :=
       forall Γ τ (s : Val ty.string)
         (Φ : Val τ * CStore Γ → SCHeap → Prop)
         (δ1 : CStore Γ) (h1 : SCHeap),
@@ -129,7 +129,7 @@ Module Type Soundness
         ⦃ fun (v : Val τ) (δ' : CStore Γ) =>
             ∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ (v,δ') h'⌝ ⦄.
 
-    Definition SoundExecCallForeign (exec_call_foreign : ExecCallForeign) : Prop :=
+    Definition SoundExecCallForeign (exec_call_foreign : ExecCallForeign CHeapSpec) : Prop :=
       forall Γ τ Δ (f : 𝑭𝑿 Δ τ) (es : NamedEnv (Exp Γ) Δ)
         (Φ : Val τ → SCHeap → Prop) (δ1 : CStore Γ) (h1 : SCHeap),
       exec_call_foreign _ _ f (evals es δ1) Φ h1 →
@@ -138,7 +138,7 @@ Module Type Soundness
       ⦃ fun v δ' =>
           ∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ v h' ∧ δ' = δ1⌝ ⦄.
 
-    Definition SoundExecLemma (exec_lemma : ExecLemma) : Prop :=
+    Definition SoundExecLemma (exec_lemma : ExecLemma CHeapSpec) : Prop :=
       forall Γ Δ (l : 𝑳 Δ) (es : NamedEnv (Exp Γ) Δ)
         (Φ : unit → SCHeap → Prop) (δ1 : CStore Γ) (h1 : SCHeap),
       exec_lemma _ l (evals es δ1) Φ h1 →
@@ -146,7 +146,7 @@ Module Type Soundness
         (∃ h' : SCHeap, interpret_scheap h' ∧ ⌜Φ tt h'⌝)
         (LEnv l).
 
-    Definition SoundExec (exec : Exec) :=
+    Definition SoundExec (exec : Exec CHeapSpec) :=
       forall
         Γ σ (s : Stm Γ σ) (Φ : Val σ * CStore Γ → SCHeap → Prop)
         (δ1 : CStore Γ) (h1 : SCHeap),
@@ -159,10 +159,10 @@ Module Type Soundness
 
     Section ExecAux.
 
-      Variable exec_call_foreign : ExecCallForeign.
-      Variable exec_lemma : ExecLemma.
-      Variable exec_call : ExecCall.
-      Variable exec_fail : ExecFail.
+      Variable exec_call_foreign : ExecCallForeign CHeapSpec.
+      Variable exec_lemma : ExecLemma CHeapSpec.
+      Variable exec_call : ExecCall CHeapSpec.
+      Variable exec_fail : ExecFail CHeapSpec.
 
       Variable sound_exec_call_foreign : SoundExecCallForeign exec_call_foreign.
       Variable sound_exec_lemma : SoundExecLemma exec_lemma.
@@ -316,7 +316,7 @@ Module Type Soundness
 
     Section WithExec.
 
-      Context (exec : Exec) (sound_exec : SoundExec exec).
+      Context (exec : Exec CHeapSpec) (sound_exec : SoundExec exec).
 
       Lemma exec_contract_sound [Δ τ] (c : SepContract Δ τ) (body : Stm Δ τ) Φ h :
         exec_contract exec c body Φ h →

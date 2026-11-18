@@ -412,19 +412,19 @@ Module Type SymbolicExecOn
   End Configuration.
 
   (* The symbolic store transformer. *)
-  Definition SStoreT (Γ1 Γ2 : PCtx) (A : TYPE) : TYPE :=
-    SStore Γ1 -> SHeapSpec (WProd A (SStore Γ2)).
+  Definition SStoreT (M : TYPE -> TYPE) (Γ1 Γ2 : PCtx) (A : TYPE) : TYPE :=
+    SStore Γ1 -> M (WProd A (SStore Γ2)).
 
   (* The paper discusses the case that a function call is replaced by
      interpreting the contract instead. However, this is not always
      convenient. We therefore parameterize the executor by other functions
      that interpret function calls and lemma applications. The following
      types describe the executor and the parameters. *)
-  Definition ExecCall := forall Δ τ, 𝑭 Δ τ -> ⊢ SStore Δ -> SHeapSpec (WTerm τ).
-  Definition ExecCallForeign := forall Δ τ, 𝑭𝑿 Δ τ -> ⊢ SStore Δ -> SHeapSpec (WTerm τ).
-  Definition ExecLemma := forall Δ, 𝑳 Δ -> ⊢ SStore Δ -> SHeapSpec Unit.
-  Definition ExecFail := forall Γ τ (s : Val ty.string), ⊢ SStoreT Γ Γ (WTerm τ).
-  Definition Exec := forall Γ τ (s : Stm Γ τ), ⊢ SStoreT Γ Γ (WTerm τ).
+  Definition ExecCall M := forall Δ τ, 𝑭 Δ τ -> ⊢ SStore Δ -> M (WTerm τ).
+  Definition ExecCallForeign M := forall Δ τ, 𝑭𝑿 Δ τ -> ⊢ SStore Δ -> M (WTerm τ).
+  Definition ExecLemma M := forall Δ, 𝑳 Δ -> ⊢ SStore Δ -> M Unit.
+  Definition ExecFail M := forall Γ τ (s : Val ty.string), ⊢ SStoreT M Γ Γ (WTerm τ).
+  Definition Exec M := forall Γ τ (s : Stm Γ τ), ⊢ SStoreT M Γ Γ (WTerm τ).
 
   Module SStoreT.
 
@@ -433,33 +433,35 @@ Module Type SymbolicExecOn
 
     Section Basic.
 
-      Definition lift_heapspec {Γ A} : ⊢ SHeapSpec A -> SStoreT Γ Γ A :=
+      Context {M : TYPE -> TYPE} {sm : SHeapSpecM M}.
+
+      Definition lift_heapspec {Γ A} : ⊢ M A -> SStoreT M Γ Γ A :=
         fun w m δ =>
           SHeapSpecM.bind m
             (fun w1 θ1 a =>
                SHeapSpecM.pure (A := WProd A (SStore Γ)) (a, persist δ θ1)).
 
-      Definition evalStoreT {Γ1 Γ2 A} : ⊢ SStoreT Γ1 Γ2 A -> SStore Γ1 -> SHeapSpec A :=
+      Definition evalStoreT {Γ1 Γ2 A} : ⊢ SStoreT M Γ1 Γ2 A -> SStore Γ1 -> M A :=
         fun w m δ =>
           SHeapSpecM.bind (m δ) (fun w1 θ1 '(a,_) => SHeapSpecM.pure a).
 
-      Definition pure {Γ A} : ⊢ A -> SStoreT Γ Γ A :=
+      Definition pure {Γ A} : ⊢ A -> SStoreT M Γ Γ A :=
         fun w a δ => SHeapSpecM.pure (A := WProd A (SStore Γ)) (a, δ).
 
       Definition bind {Γ1 Γ2 Γ3 A B} :
-        ⊢ SStoreT Γ1 Γ2 A -> □(A -> SStoreT Γ2 Γ3 B) -> SStoreT Γ1 Γ3 B :=
+        ⊢ SStoreT M Γ1 Γ2 A -> □(A -> SStoreT M Γ2 Γ3 B) -> SStoreT M Γ1 Γ3 B :=
         fun w m f δ =>
           SHeapSpecM.bind (m δ) (fun w1 θ1 '(a,δ2) => f w1 θ1 a δ2).
 
       Definition error {Γ1 Γ2 A} :
-        ⊢ (SStore Γ1 -> SHeap -> AMessage) -> SStoreT Γ1 Γ2 A :=
+        ⊢ (SStore Γ1 -> SHeap -> AMessage) -> SStoreT M Γ1 Γ2 A :=
         fun w msg δ => SHeapSpecM.error (msg δ).
 
-      Definition block {Γ1 Γ2 A} : ⊢ SStoreT Γ1 Γ2 A :=
+      Definition block {Γ1 Γ2 A} : ⊢ SStoreT M Γ1 Γ2 A :=
         fun w δ => SHeapSpecM.block.
 
       Definition debug {AT} {Γ1 Γ2} :
-        ⊢ (SStore Γ1 -> SHeap -> AMessage) -> (SStoreT Γ1 Γ2 AT) -> (SStoreT Γ1 Γ2 AT) :=
+        ⊢ (SStore Γ1 -> SHeap -> AMessage) -> (SStoreT M Γ1 Γ2 AT) -> (SStoreT M Γ1 Γ2 AT) :=
         fun w msg m δ => SHeapSpecM.debug (msg δ) (m δ).
 
     End Basic.
@@ -488,8 +490,10 @@ Module Type SymbolicExecOn
 
     Section PatternMatching.
 
+      Context {M : TYPE -> TYPE} {sm : SHeapSpecM M}.
+
       Definition demonic_pattern_match {N : Set} (n : N -> LVar) {Γ σ} (pat : Pattern (N:=N) σ) :
-        ⊢ STerm σ -> SStoreT Γ Γ (SMatchResult pat) :=
+        ⊢ STerm σ -> SStoreT M Γ Γ (SMatchResult pat) :=
         fun w t => lift_heapspec (SHeapSpecM.demonic_pattern_match n pat t).
       #[global] Arguments demonic_pattern_match {N} n {Γ σ} pat [w].
 
@@ -497,36 +501,38 @@ Module Type SymbolicExecOn
 
     Section State.
 
+      Context {M : TYPE -> TYPE} {sm : SHeapSpecM M}.
+
       Definition pushpop {AT Γ1 Γ2 x σ} :
-        ⊢ STerm σ -> SStoreT (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) AT -> SStoreT Γ1 Γ2 AT :=
+        ⊢ STerm σ -> SStoreT M (Γ1 ▻ x∷σ) (Γ2 ▻ x∷σ) AT -> SStoreT M Γ1 Γ2 AT :=
         fun w t m δ =>
           SHeapSpecM.bind (m δ.[x∷σ↦t])
             (fun w1 θ1 '(a,δ1) =>
                SHeapSpecM.pure (A := WProd AT (SStore Γ2)) (a, env.tail δ1)).
 
       Definition pushspops {AT Γ1 Γ2 Δ} :
-        ⊢ SStore Δ -> SStoreT (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) AT -> SStoreT Γ1 Γ2 AT :=
+        ⊢ SStore Δ -> SStoreT M (Γ1 ▻▻ Δ) (Γ2 ▻▻ Δ) AT -> SStoreT M Γ1 Γ2 AT :=
         fun w δΔ m δ =>
           SHeapSpecM.bind (m (δ ►► δΔ))
             (fun w1 θ1 '(a,δ1) =>
                SHeapSpecM.pure (A := WProd AT (SStore Γ2)) (a, env.drop Δ δ1)).
 
-      Definition get_local {Γ} : ⊢ SStoreT Γ Γ (SStore Γ) :=
+      Definition get_local {Γ} : ⊢ SStoreT M Γ Γ (SStore Γ) :=
         fun w δ => SHeapSpecM.pure (A := WProd (SStore Γ) (SStore Γ)) (δ, δ).
-      Definition put_local {Γ1 Γ2} : ⊢ SStore Γ2 -> SStoreT Γ1 Γ2 Unit :=
+      Definition put_local {Γ1 Γ2} : ⊢ SStore Γ2 -> SStoreT M Γ1 Γ2 Unit :=
         fun w δ' _ => SHeapSpecM.pure (A := WProd Unit (SStore Γ2)) (tt, δ').
 
       Definition eval_exp {Γ σ} (e : Exp Γ σ) :
-        ⊢ SStoreT Γ Γ (STerm σ) :=
+        ⊢ SStoreT M Γ Γ (STerm σ) :=
         fun w δ =>
           SHeapSpecM.pure (A := WProd (STerm σ) (SStore Γ)) (peval (seval_exp δ e), δ).
 
       Definition eval_exps {Γ} {σs : PCtx} (es : NamedEnv (Exp Γ) σs) :
-        ⊢ SStoreT Γ Γ (SStore σs) :=
+        ⊢ SStoreT M Γ Γ (SStore σs) :=
         fun w δ =>
           SHeapSpecM.pure (A := WProd (SStore σs) (SStore Γ)) (seval_exps δ es, δ).
 
-      Definition assign {Γ} x {σ} {xIn : x∷σ ∈ Γ} : ⊢ STerm σ -> SStoreT Γ Γ Unit :=
+      Definition assign {Γ} x {σ} {xIn : x∷σ ∈ Γ} : ⊢ STerm σ -> SStoreT M Γ Γ Unit :=
         fun w t δ => SHeapSpecM.pure (A := WProd Unit (SStore Γ)) (tt, δ ⟪ x ↦ t ⟫).
       Global Arguments assign {Γ} x {σ xIn} [w] v.
 
@@ -534,14 +540,15 @@ Module Type SymbolicExecOn
 
     Section ExecAux.
 
+      Context {M : TYPE -> TYPE} {sm : SHeapSpecM M}.
       Context {SPEC : Specification}.
-      Variable exec_call_foreign : ExecCallForeign.
-      Variable exec_lemma : ExecLemma.
-      Variable exec_call : ExecCall.
-      Variable exec_fail : ExecFail.
+      Variable exec_call_foreign : ExecCallForeign M.
+      Variable exec_lemma : ExecLemma M.
+      Variable exec_call : ExecCall M.
+      Variable exec_fail : ExecFail M.
 
       (* The openly-recursive executor. *)
-      Definition exec_aux : forall {Γ τ} (s : Stm Γ τ), ⊢ SStoreT Γ Γ (STerm τ) :=
+      Definition exec_aux : forall {Γ τ} (s : Stm Γ τ), ⊢ SStoreT M Γ Γ (STerm τ) :=
       fix exec_aux {Γ τ} s {w0} :=
         match s with
         | stm_val _ v => pure (term_val τ v)
@@ -576,21 +583,21 @@ Module Type SymbolicExecOn
             exec_aux s2
         | stm_assertk e _ k =>
             ⟨ ω01 ⟩ t <- eval_exp e (w:=w0) ;;
-            ⟨ ω12 ⟩ _ <- lift_heapspec (SHeapSpec.assert_formula (fun _ => amsg.empty)
+            ⟨ ω12 ⟩ _ <- lift_heapspec (SHeapSpecM.assert_formula (fun _ => amsg.empty)
                                           (if fail_rule_pre
                                            then formula_true
                                            else formula_relop bop.neq t (term_val ty.bool false))) ;;
             (* This uses assume_formula for a partial correctness
                interpretation of the object language failure effect. *)
-            ⟨ ω13 ⟩ _ <- lift_heapspec (SHeapSpec.assume_formula (formula_bool (persist t ω12))) ;;
+            ⟨ ω13 ⟩ _ <- lift_heapspec (SHeapSpecM.assume_formula (formula_bool (persist t ω12))) ;;
             exec_aux k
         | stm_fail _ s =>
-            exec_fail (w:=w0) s
+            @exec_fail _ _ s w0
         | stm_read_register reg =>
-            lift_heapspec (SHeapSpec.read_register reg)
+            lift_heapspec (SHeapSpecM.read_register reg)
         | stm_write_register reg e =>
             ⟨ _ ⟩ tnew <- eval_exp e (w:=_) ;;
-            lift_heapspec (SHeapSpec.write_register reg tnew)
+            lift_heapspec (SHeapSpecM.write_register reg tnew)
         | stm_pattern_match s pat rhs =>
             ⟨ θ1 ⟩ v  <- exec_aux s ;;
             ⟨ θ2 ⟩ '(existT pc vs) <- demonic_pattern_match PVartoLVar pat v ;;
@@ -626,10 +633,12 @@ Module Type SymbolicExecOn
 
   Section WithSpec.
 
-    Import SHeapSpec.notations.
+    Import SHeapSpecM.notations.
 
-    Definition exec_contract (exec : Exec) {Δ τ} (c : SepContract Δ τ) (s : Stm Δ τ) :
-      ⊢ SHeapSpec Unit :=
+    Context {M : TYPE -> TYPE} {sm : SHeapSpecM M}.
+
+    Definition exec_contract (exec : Exec M) {Δ τ} (c : SepContract Δ τ) (s : Stm Δ τ) :
+      ⊢ M Unit :=
       fun w =>
         match c with
         | MkSepContract _ _ lvars pats req result ens =>
@@ -641,27 +650,28 @@ Module Type SymbolicExecOn
             SHeapSpecM.consume ens (sub_snoc lenv3 (result∷τ) res)
         end.
 
-    Definition exec_call_error_no_fuel : ExecCall :=
-      fun Δ τ f w args _ h =>
-        error (amsg.mk {|
+    Definition exec_call_error_no_fuel : ExecCall M :=
+      fun Δ τ f w args =>
+        SHeapSpecM.error (fun h =>
+                 amsg.mk {|
                    error_no_fuel_call_function := f;
                    error_no_fuel_call_arguments := args;
                    error_no_fuel_pathcondition := wco w;
                    error_no_fuel_heap := h
                  |}).
 
-    Definition sexec_call_foreign {SPEC : Specification} : ExecCallForeign :=
+    Definition sexec_call_foreign {SPEC : Specification} : ExecCallForeign M :=
       fun Δ τ f w args =>
         SHeapSpecM.call_contract (CEnvEx f) args.
 
     Variable cfg : Config.
 
     Definition debug_lemma {SPEC : Specification} [Δ] (l : 𝑳 Δ) :
-      ⊢ SStore Δ -> SHeapSpec Unit :=
+      ⊢ SStore Δ -> M Unit :=
       fun w0 args0 =>
         if config_debug_lemma cfg l
         then
-          SHeapSpec.debug
+          SHeapSpecM.debug
             (fun h0 => amsg.mk {|
                            debug_call_lemma_parameters := Δ;
                            debug_call_lemma_name := l;
@@ -669,18 +679,18 @@ Module Type SymbolicExecOn
                            debug_call_lemma_arguments := args0;
                            debug_call_lemma_pathcondition := wco w0;
                            debug_call_lemma_heap := h0
-                         |}) (SHeapSpec.pure tt)
-        else SHeapSpec.pure tt.
-    Definition sexec_lemma {SPEC : Specification} : ExecLemma :=
+                         |}) (SHeapSpecM.pure tt)
+        else SHeapSpecM.pure tt.
+    Definition sexec_lemma {SPEC : Specification} : ExecLemma M :=
       fun Δ l w args =>
         ⟨ θ ⟩ _ <- debug_lemma l args ;;
         SHeapSpecM.call_lemma (LEnv l) (persist args θ).
 
     Definition debug_call {SPEC : Specification} [Δ τ] (f : 𝑭 Δ τ) :
-      ⊢ SStore Δ -> SHeapSpec Unit :=
+      ⊢ SStore Δ -> M Unit :=
       fun w0 args0 =>
         if config_debug_function cfg f
-        then SHeapSpec.debug
+        then SHeapSpecM.debug
                (fun h0 => amsg.mk {|
                               debug_call_function_parameters := Δ;
                               debug_call_function_result_type := τ;
@@ -692,13 +702,13 @@ Module Type SymbolicExecOn
                               (* debug_call_localstore := _; *)
                               debug_call_heap := h0
                             |})
-               (SHeapSpec.pure tt)
-        else SHeapSpec.pure tt.
+               (SHeapSpecM.pure tt)
+        else SHeapSpecM.pure tt.
 
-    Definition sexec_fail {SPEC : Specification} : ExecFail :=
+    Definition sexec_fail {SPEC : Specification} : ExecFail M :=
       fun Γ τ s {w0} =>
         if fail_rule_pre
-        then @SStoreT.block _ _ _ w0
+        then SStoreT.block (w := w0)
         else SStoreT.error (fun δ h =>
                  amsg.mk
                    {| msg_function := "sexec_fail";
@@ -712,7 +722,7 @@ Module Type SymbolicExecOn
     (* If a function does not have a contract, we continue executing the body of
        the called function. A parameter [inline_fuel] bounds the number of
        allowed levels before failing execution. *)
-    Fixpoint sexec_call {SPEC : Specification} (inline_fuel : nat) : ExecCall :=
+    Fixpoint sexec_call {SPEC : Specification} (inline_fuel : nat) : ExecCall M :=
       fun Δ τ f w0 args0 =>
         ⟨ θ1 ⟩ _ <- debug_call f args0 ;;
         (* Let's first see if we have a contract defined for function [f]
@@ -730,16 +740,17 @@ Module Type SymbolicExecOn
               (persist args0 θ1)
         end.
 
-    Definition sexec {SPEC : Specification} (inline_fuel : nat) : Exec :=
-      @SStoreT.exec_aux SPEC sexec_call_foreign sexec_lemma
+    Definition sexec {SPEC : Specification} (inline_fuel : nat) : Exec M :=
+      @SStoreT.exec_aux M _ SPEC sexec_call_foreign sexec_lemma
         (sexec_call inline_fuel) sexec_fail.
-    #[global] Arguments sexec {_} _ [_ _] s _ _ _ _ : simpl never.
 
   End WithSpec.
+  #[global] Arguments exec_call_error_no_fuel {M _}.
+  #[global] Arguments sexec {M _} cfg {SPEC} _ [_ _] s _ : simpl never.
 
   Definition vcgen {SPEC : Specification} (cfg : Config) (inline_fuel : nat) {Δ τ}
     (c : SepContract Δ τ) (s : Stm Δ τ) : ⊢ 𝕊 :=
-    fun w => SHeapSpec.run (exec_contract (sexec cfg inline_fuel) c s (w := w)).
+    fun w => SHeapSpec.run (exec_contract (M := SHeapSpec) (sexec cfg inline_fuel) c s w).
 
   Module Symbolic.
 
