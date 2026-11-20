@@ -1,7 +1,8 @@
 (******************************************************************************)
-(* A certificate oracle for linear integer arithmetic, built on the Simplex    *)
+(* A certificate oracle for linear integer arithmetic, built on the Simplex   *)
 (* of Dutertre and de Moura, "A Fast Linear-Arithmetic Solver for DPLL(T)",   *)
-(* CAV 2006, with branch and bound.                                           *)
+(* CAV 2006, with branch and bound and a test for integer solutions of the    *)
+(* equalities.                                                                *)
 (******************************************************************************)
 
 From Stdlib Require Import Bool List ZArith FMapPositive Lia.
@@ -20,7 +21,8 @@ Import ListNotations.
     of the hypotheses gets a slack variable, a hypothesis becomes a bound on its
     variable, and the tableau is fixed up front. A conflict is a row whose basic
     variable violates a bound that no non-basic variable can repair; the row's
-    coefficients are the Farkas multipliers.
+    coefficients are the Farkas multipliers. Before the Simplex, integer
+    elimination checks that the equalities have an integer solution.
 
     For speed under [vm_compute]:
     - Numbers are primitive integers, with [Z] only on overflow ([Num]).
@@ -617,7 +619,7 @@ Fixpoint loop (p : positive) (st : state) : step :=
 Definition check (p : positive) (st : state) : sresult :=
   match loop p st with Done r => r | More _ => Stuck end.
 
-(** Add a bound to a variable; [lower] tells which. *)
+(** Add a bound to a basic variable; [lower] tells which. *)
 Definition assert (st : state) (x : int) (lower : bool) (b : bnd) : state + conflict :=
   if lower then
     match (hi st).[x] with
