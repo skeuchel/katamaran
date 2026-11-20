@@ -963,4 +963,27 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
 
   End SHeapSpec.
 
+  #[export] Instance sheapspecm_sheapspec : SHeapSpecM SHeapSpec :=
+    {| SHeapSpecM.pure A := SHeapSpec.pure;
+       SHeapSpecM.bind A B := SHeapSpec.bind;
+       SHeapSpecM.error A := SHeapSpec.error;
+       SHeapSpecM.block A w := SHeapSpec.lift_purespec SPureSpec.block;
+       SHeapSpecM.angelic x w σ := SHeapSpec.angelic x σ;
+       SHeapSpecM.demonic x w σ := SHeapSpec.demonic x σ;
+       SHeapSpecM.angelic_binary A := SHeapSpec.angelic_binary;
+       SHeapSpecM.demonic_binary A := SHeapSpec.demonic_binary;
+       SHeapSpecM.assert_formula := SHeapSpec.assert_formula;
+       SHeapSpecM.assume_formula := SHeapSpec.assume_formula;
+       SHeapSpecM.angelic_pattern_match N n σ pat w :=
+         SHeapSpec.angelic_pattern_match n pat (w := w);
+       SHeapSpecM.demonic_pattern_match N n σ pat w t :=
+         SHeapSpec.lift_purespec (SPureSpec.demonic_pattern_match n pat t);
+       SHeapSpecM.debug A := SHeapSpec.debug;
+       SHeapSpecM.produce_chunk := SHeapSpec.produce_chunk;
+       SHeapSpecM.consume_chunk := SHeapSpec.consume_chunk;
+       SHeapSpecM.consume_chunk_angelic := SHeapSpec.consume_chunk_angelic;
+       SHeapSpecM.read_register τ reg w := SHeapSpec.read_register reg;
+       SHeapSpecM.write_register τ := SHeapSpec.write_register;
+    |}.
+
 End SymbolicMonadsOn.

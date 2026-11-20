@@ -52,7 +52,7 @@ Import SignatureNotations ctx.notations env.notations.
 
 Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
   (Import W : WorldsMixin B P) (Import SP : SymPropOn B P W)
-  (Import AS : AssertionsOn B P W).
+  (Import AS : AssertionsOn B P W) (Import SHC : ShallowMonadClassesOn B P W).
 
   (* This is used by potentially multiple instances, but ultimately should be
      moved somewhere else. *)
@@ -1016,6 +1016,30 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
     Proof. destruct lem; cbn [call_lemma]; solve_monotonic. Qed.
 
     #[global] Typeclasses Opaque produce consume call_contract call_lemma.
+
+    #[export] Instance cheapspecm_cheapspec : CHeapSpecM CHeapSpec :=
+      {| CHeapSpecM.pure A := CHeapSpec.pure;
+         CHeapSpecM.bind A B := CHeapSpec.bind;
+         CHeapSpecM.error A := CHeapSpec.error;
+         CHeapSpecM.block A := CHeapSpec.lift_purespec CPureSpec.block;
+         CHeapSpecM.angelic := CHeapSpec.angelic;
+         CHeapSpecM.demonic := CHeapSpec.demonic;
+         CHeapSpecM.angelic_binary A := CHeapSpec.angelic_binary;
+         CHeapSpecM.demonic_binary A := CHeapSpec.demonic_binary;
+         CHeapSpecM.assert_formula := CHeapSpec.assert_formula;
+         CHeapSpecM.assume_formula := CHeapSpec.assume_formula;
+         CHeapSpecM.angelic_pattern_match N σ := CHeapSpec.angelic_pattern_match;
+         CHeapSpecM.demonic_pattern_match N σ pat v :=
+           CHeapSpec.lift_purespec (CPureSpec.demonic_pattern_match pat v);
+         CHeapSpecM.debug A := CHeapSpec.debug;
+         CHeapSpecM.produce_chunk := CHeapSpec.produce_chunk;
+         CHeapSpecM.consume_chunk := CHeapSpec.consume_chunk;
+         CHeapSpecM.read_register τ := CHeapSpec.read_register;
+         CHeapSpecM.write_register τ := CHeapSpec.write_register;
+      |}.
+
+    #[export] Instance mheapspecm_cheapspec : MHeapSpecM CHeapSpec (@MHeapSpec).
+    Proof. constructor; cbn; typeclasses eauto. Qed.
 
     Section WithBI.
 

@@ -35,6 +35,8 @@ From Equations Require Import
 From Katamaran Require Import
      Prelude
      Base
+     Refinement.MonadClasses
+     Shallow.MonadClasses
      Shallow.Monads
      Symbolic.MonadClasses
      Symbolic.Monads
@@ -62,9 +64,11 @@ Module Type RefinementMonadsOn
   (Import LSP : LogSymPropOn B PK WR SP UL)
   (Import GS : GenericSolverOn B PK WR SK SP UL LSP)
   (Import AS : AssertionsOn B PK WR)
-  (Import SHAL : ShallowMonadsOn B PK WR SP AS)
+  (Import SHC : ShallowMonadClassesOn B PK WR)
+  (Import SHAL : ShallowMonadsOn B PK WR SP AS SHC)
   (Import SC : SymbolicMonadClassesOn B PK WR SP)
-  (Import SYMB : SymbolicMonadsOn B PK WR SK SP UL LSP GS AS SC).
+  (Import SYMB : SymbolicMonadsOn B PK WR SK SP UL LSP GS AS SC)
+  (Import RHC : RefinementMonadClassesOn B PK WR SP UL SHC SC).
 
   Import ModalNotations.
   Import LogicalSoundness.
@@ -1410,6 +1414,11 @@ Module Type RefinementMonadsOn
     Proof. unfold CHeapSpec.call_lemma, SHeapSpec.call_lemma; solve_related. Qed.
 
   End HeapSpec.
+
+  Import (hints) PureSpec HeapSpec.
+
+  #[export] Instance rheapspecm_rheapspec : RHeapSpecM (@RHeapSpec).
+  Proof. constructor; intros; cbn; first [typeclasses eauto | solve_related]. Qed.
 
 End RefinementMonadsOn.
 
