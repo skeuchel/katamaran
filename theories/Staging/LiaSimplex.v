@@ -25,7 +25,7 @@ Import ListNotations.
     elimination checks that the equalities have an integer solution.
 
     For speed under [vm_compute]:
-    - Numbers are primitive integers, with [Z] only on overflow ([Num]).
+    - Numbers are primitive integers, and lists of them past 62 bits ([Num]).
     - Rows are kept fraction free, as in SMTInterpol: [h * x = sum a_j x_j]
       with integers [h > 0] and [a_j] without common divisor.
     - Bounds are integers: a hypothesis [g * q + c >= 0], with [q] primitive,
