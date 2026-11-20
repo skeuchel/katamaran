@@ -10,6 +10,36 @@ From Katamaran Require Import Staging.LiaSimplex.
 Import ListNotations.
 #[local] Open Scope Z_scope.
 
+(* The arithmetic of [Num] agrees with [Z], and its results are in the
+   right tier. *)
+
+Definition canon (a : Num.t) : bool := Num.eqb a (Num.of_Z (Num.to_Z a)).
+
+Definition edges : list Z :=
+  let p := [0; 1; 2; 3; 7; 2^31; 2^62 - 1; 2^62; 2^62 + 1; 2^63 - 1; 2^63;
+            2^63 + 1; 3 * 2^62 + 5; 2^100 + 12345; 2^126 - 1; 2^126; 2^126 + 1;
+            2^130 + 7; 123456789012345678901234567] in
+  p ++ map Z.opp p.
+
+Definition agree1 (x y : Z) : bool :=
+  let a := Num.of_Z x in
+  let b := Num.of_Z y in
+  let ok r z := Z.eqb (Num.to_Z r) z && canon r in
+  ok a x && ok (Num.add a b) (x + y) && ok (Num.sub a b) (x - y)
+  && ok (Num.mul a b) (x * y) && ok (Num.opp a) (- x) && ok (Num.abs a) (Z.abs x)
+  && ok (Num.gcd a b) (Z.gcd x y)
+  && Bool.eqb (Num.ltb a b) (x <? y) && Bool.eqb (Num.eqb a b) (x =? y)
+  && Bool.eqb (Num.is_zero a) (x =? 0) && Bool.eqb (Num.is_pos a) (0 <? x)
+  && Bool.eqb (Num.is_neg a) (x <? 0)
+  && (if y =? 0 then true
+      else ok (Num.divexact (Num.mul a b) b) x
+           && Bool.eqb (Num.divides b a) (Z.rem x y =? 0)
+           && (if 0 <? y then ok (Num.fdiv a b) (x / y)
+                              && ok (Num.cdiv a b) (- (- x / y)) else true)).
+
+Goal forallb (fun x => forallb (agree1 x) edges) edges = true.
+Proof. vm_compute. reflexivity. Qed.
+
 (* Infeasible over the rationals. *)
 
 Goal forall x y : Z, x <= y -> y <= x + 1 -> 2 * x <= 2 * y.
