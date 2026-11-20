@@ -36,6 +36,7 @@ From Katamaran Require Import
      Prelude
      Base
      Shallow.Monads
+     Symbolic.MonadClasses
      Symbolic.Monads
      Symbolic.Propositions
      Symbolic.Solver
@@ -62,7 +63,8 @@ Module Type RefinementMonadsOn
   (Import GS : GenericSolverOn B PK WR SK SP UL LSP)
   (Import AS : AssertionsOn B PK WR)
   (Import SHAL : ShallowMonadsOn B PK WR SP AS)
-  (Import SYMB : SymbolicMonadsOn B PK WR SK SP UL LSP GS AS).
+  (Import SC : SymbolicMonadClassesOn B PK WR SP)
+  (Import SYMB : SymbolicMonadsOn B PK WR SK SP UL LSP GS AS SC).
 
   Import ModalNotations.
   Import LogicalSoundness.

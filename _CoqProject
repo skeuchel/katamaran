@@ -105,12 +105,14 @@ theories/Semantics.v
 theories/Semantics/Registers.v
 theories/Sep/Hoare.v
 theories/Sep/Logic.v
+theories/Shallow/MonadClasses.v
 theories/Shallow/Monads.v
 theories/Signature.v
 theories/SmallStep/Inversion.v
 theories/SmallStep/Progress.v
 theories/SmallStep/Step.v
 theories/Symbolic/Instantiation.v
+theories/Symbolic/MonadClasses.v
 theories/Symbolic/Monads.v
 theories/Symbolic/OccursCheck.v
 theories/Symbolic/GenOccursCheck.v

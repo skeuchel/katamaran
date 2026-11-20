@@ -39,6 +39,7 @@ From Equations Require Import
 From Katamaran Require Import
   Prelude
   Base
+  Shallow.MonadClasses
   Syntax.Assertions
   Syntax.Chunks
   Syntax.Predicates
@@ -48,36 +49,6 @@ From Katamaran Require Import
 Import SignatureNotations ctx.notations env.notations.
 
 #[local] Set Implicit Arguments.
-
-(* Monotonicity proofs use [Proper] and its automation for partial
-   applications. The [monotonic] hints decompose the remaining goals: lambdas,
-   matches and [::>]. They are kept out of [typeclass_instances]. *)
-Create HintDb monotonic.
-Ltac solve_monotonic := typeclasses eauto with typeclass_instances monotonic.
-
-Lemma proper_eq_respectful_intro {A B} {MB : relation B} {f : A -> B} :
-  (forall a, Proper MB (f a)) -> Proper (eq ==> MB) f.
-Proof. intros pf ? ? <-. apply pf. Qed.
-
-Lemma proper_pointwise_intro {A B} {MB : relation B} {f : A -> B} :
-  (forall a, Proper MB (f a)) -> Proper (A ::> MB) f.
-Proof. intros pf a. apply pf. Qed.
-Lemma proper_pointwise_to_eq {A B} {MB : relation B} {f : A -> B} :
-  Proper (A ::> MB) f -> Proper (eq ==> MB) f.
-Proof. intros pf ? ? <-. apply pf. Qed.
-
-#[export] Hint Extern 1 (Proper (eq ==> _) (fun _ => _)) =>
-  class_apply @proper_eq_respectful_intro : monotonic.
-#[export] Hint Extern 1 (Proper (_ ::> _) (fun _ => _)) =>
-  class_apply @proper_pointwise_intro : monotonic.
-(* Lets partial application use instances stated with [::>]. *)
-#[export] Hint Resolve proper_pointwise_to_eq | 5 : monotonic.
-#[export] Hint Extern 1 (Proper _ (match ?p with existT _ _ => _ end)) =>
-  destruct p : monotonic.
-#[export] Hint Extern 1 (Proper _ (match ?p with pair _ _ => _ end)) =>
-  destruct p : monotonic.
-#[export] Hint Extern 1 (Proper _ (match ?p with left _ => _ | right _ => _ end)) =>
-  destruct p : monotonic.
 
 Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
   (Import W : WorldsMixin B P) (Import SP : SymPropOn B P W)

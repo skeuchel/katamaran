@@ -30,7 +30,9 @@
 From Katamaran Require Export
   Base
   Refinement.Monads
+  Shallow.MonadClasses
   Shallow.Monads
+  Symbolic.MonadClasses
   Symbolic.Monads
   Symbolic.Propositions
   Symbolic.Solver
@@ -46,7 +48,7 @@ Module Type SignatureMixin
   SymPropOn B P W <+ UnifLogicOn B P W <+ LogSymPropOn B P W  <+
   AssertionsOn B P W <+ ContractNotationsOn B P W <+
     GenericSolverOn B P W S <+ ShallowMonadsOn B P W <+
-    SymbolicMonadsOn B P W S <+
+    SymbolicMonadClassesOn B P W <+ SymbolicMonadsOn B P W S <+
     RefinementMonadsOn B P W S.
 
 Module Type Signature (B : Base) :=
