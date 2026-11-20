@@ -60,10 +60,10 @@ From Katamaran Require Import
      Sep.Hoare
      Signature
      Symbolic.Solver
-     MicroSail.ShallowExecutor
+     MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
-     MicroSail.SymbolicExecutor
-     MicroSail.RefineExecutor
+     MicroSail.SymbolicVCGen
+     MicroSail.RefineVCGen
      MicroSail.Soundness.
 
 From stdpp Require Import decidable finite list fin_maps infinite.
@@ -955,7 +955,7 @@ Module ExampleModel.
     (* Import the soundness proofs for the shallow and symbolic executors. *)
     Include MicroSail.ShallowSoundness.Soundness ExampleBase ExampleSignature
       ExampleProgram ExampleProgramLogic ExampleShalExec.
-    Include MicroSail.RefineExecutor.RefineExecOn ExampleBase ExampleSignature
+    Include MicroSail.RefineVCGen.RefineVCGenOn ExampleBase ExampleSignature
       ExampleProgram ExampleProgramLogic ExampleShalExec ExampleExecutor.
 
     (* In this section we verify the contracts of the foreign functions defined in

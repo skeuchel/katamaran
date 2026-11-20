@@ -47,7 +47,7 @@ From Katamaran Require Import
      Signature
      Sep.Hoare
      Symbolic.Solver
-     MicroSail.SymbolicExecutor.
+     MicroSail.SymbolicVCGen.
 From stdpp Require Import base.
 
 Import ctx.notations.

@@ -49,10 +49,10 @@ From Katamaran Require Import
      Iris.Base
      Semantics
      Sep.Hoare
-     MicroSail.ShallowExecutor
+     MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
-     MicroSail.SymbolicExecutor
-     MicroSail.RefineExecutor
+     MicroSail.SymbolicVCGen
+     MicroSail.RefineVCGen
      MinimalCaps.Logic
      MinimalCaps.Machine
      MinimalCaps.Sig

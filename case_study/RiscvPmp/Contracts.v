@@ -40,8 +40,8 @@ From Katamaran Require Import
      Symbolic.Solver
      Symbolic.Propositions
      Symbolic.Worlds
-     MicroSail.ShallowExecutor
-     MicroSail.SymbolicExecutor
+     MicroSail.ShallowVCGen
+     MicroSail.SymbolicVCGen
      RiscvPmp.Logic
      RiscvPmp.PmpCheck
      RiscvPmp.Machine

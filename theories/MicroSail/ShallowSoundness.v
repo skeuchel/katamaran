@@ -34,7 +34,7 @@ From Katamaran Require Import
      Sep.Hoare
      Prelude
      Program
-     MicroSail.ShallowExecutor.
+     MicroSail.ShallowVCGen.
 
 Set Implicit Arguments.
 
@@ -46,7 +46,7 @@ Module Type Soundness
   (Import SIG : Signature B)
   (Import PROG : Program B)
   (Import PLOG : ProgramLogic B SIG PROG)
-  (Import EXEC : ShallowExecOn B SIG PROG PLOG).
+  (Import EXEC : ShallowVCGen B SIG PROG PLOG).
 
   Import CStoreT.
   Import ProgLog.
@@ -480,7 +480,7 @@ Module MakeShallowSoundness
   (Import SIG : Signature B)
   (Import PROG : Program B)
   (Import PLOG : ProgramLogic B SIG PROG)
-  (Import EXEC : ShallowExecOn B SIG PROG PLOG).
+  (Import EXEC : ShallowVCGen B SIG PROG PLOG).
 
   Include Soundness B SIG PROG PLOG EXEC.
 

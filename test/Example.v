@@ -43,7 +43,7 @@ From Katamaran Require Import
      Bitvector
      Sep.Hoare
      Semantics.Registers
-     MicroSail.SymbolicExecutor
+     MicroSail.SymbolicVCGen
      Symbolic.Solver
      Program.
 

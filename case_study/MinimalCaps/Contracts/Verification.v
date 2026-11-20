@@ -43,8 +43,8 @@ From Katamaran Require Import
      MinimalCaps.Sig
      MinimalCaps.Contracts.Definitions
      Sep.Hoare
-     MicroSail.ShallowExecutor
-     MicroSail.SymbolicExecutor
+     MicroSail.ShallowVCGen
+     MicroSail.SymbolicVCGen
      Symbolic.Solver.
 
 Set Implicit Arguments.
