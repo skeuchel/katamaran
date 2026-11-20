@@ -29,6 +29,7 @@
 
 From Katamaran Require Import
      Signature
+     Verifier
      Program
      Hoare
      MicroSail.ShallowVCGen
@@ -44,8 +45,9 @@ Module RefineVCGenOn
   (Import SIG  : Signature B)
   (Import PROG : Program B)
   (Import PLOG : ProgramLogic B SIG PROG)
-  (Import SHAL : ShallowVCGen B SIG PROG PLOG)
-  (Import SYMB : SymbolicVCGen B SIG PROG PLOG).
+  (Import V    : Verifier B SIG)
+  (Import SHAL : ShallowVCGen B SIG PROG PLOG V)
+  (Import SYMB : SymbolicVCGen B SIG PROG PLOG V).
 
   Include RefineExecOn B SIG PROG PLOG SHAL SYMB.
 

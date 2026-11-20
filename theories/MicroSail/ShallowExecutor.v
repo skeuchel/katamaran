@@ -103,8 +103,6 @@ Module Type ShallowExecOn
 
   Module CStoreT.
 
-    Import (hints) CHeapSpec.
-
     Section Basic.
 
       Context {M} {cm : CHeapSpecM M}.

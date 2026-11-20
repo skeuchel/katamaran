@@ -28,6 +28,7 @@
 
 From Katamaran Require Import
   Signature
+  Verifier
   Program
   Tactics
   Hoare
@@ -40,8 +41,9 @@ Module MakeSymbolicSoundness
   (Import SIG  : Signature B)
   (Import PROG : Program B)
   (Import PLOG : ProgramLogic B SIG PROG)
-  (Import SHAL : ShallowVCGen B SIG PROG PLOG)
-  (Import SYMB : SymbolicVCGen B SIG PROG PLOG).
+  (Import V    : Verifier B SIG)
+  (Import SHAL : ShallowVCGen B SIG PROG PLOG V)
+  (Import SYMB : SymbolicVCGen B SIG PROG PLOG V).
 
-Include RefineVCGenOn B SIG PROG PLOG SHAL SYMB.
+Include RefineVCGenOn B SIG PROG PLOG V SHAL SYMB.
 End MakeSymbolicSoundness.

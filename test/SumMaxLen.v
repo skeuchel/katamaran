@@ -56,6 +56,7 @@ From Katamaran Require Import
      Symbolic.Worlds
      Syntax.Predicates
      Syntax.Terms
+     Verifier
      MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
      MicroSail.SymbolicVCGen
@@ -257,11 +258,12 @@ Local Ltac solve :=
 
 (* Use the specification and the solver module to compose the symbolic executor
    and symbolic verification condition generator. *)
+Module Import ExampleVerifier := MakeVerifier DefaultBase ExampleSig.
 Module Import ExampleExecutor :=
-  MakeExecutor DefaultBase ExampleSig ExampleProgram ExampleProgramLogic.
+  MakeExecutor DefaultBase ExampleSig ExampleProgram ExampleProgramLogic ExampleVerifier.
 (* Also instantiate the shallow verification condition generator. *)
 Module Import ExampleShalExec :=
-  MakeShallowExecutor DefaultBase ExampleSig ExampleProgram ExampleProgramLogic.
+  MakeShallowExecutor DefaultBase ExampleSig ExampleProgram ExampleProgramLogic ExampleVerifier.
 
 (* This computes and proves the shallow VC. Make sure to not unfold the
    definition of the binary operators and Coq predicates used in the example. *)
@@ -433,9 +435,9 @@ Module Import ExampleModel.
 
     (* Import the soundness proofs for the shallow and symbolic executors. *)
     Include MicroSail.ShallowSoundness.Soundness DefaultBase ExampleSig ExampleProgram
-      ExampleProgramLogic ExampleShalExec.
+      ExampleProgramLogic ExampleVerifier ExampleShalExec.
     Include MicroSail.RefineVCGen.RefineVCGenOn DefaultBase ExampleSig
-      ExampleProgram ExampleProgramLogic ExampleShalExec ExampleExecutor.
+      ExampleProgram ExampleProgramLogic ExampleVerifier ExampleShalExec ExampleExecutor.
 
     (* Show that all the contracts are sound in the Iris model. *)
     Lemma contracts_sound `{sailGS Σ} : ⊢ ValidContractEnvSem CEnv.

@@ -60,6 +60,7 @@ From Katamaran Require Import
      Sep.Hoare
      Signature
      Symbolic.Solver
+     Verifier
      MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
      MicroSail.SymbolicVCGen
@@ -722,8 +723,9 @@ End ExampleSpecification.
 
 (* Use the specification and the solver module to compose the symbolic executor
    and symbolic verification condition generator. *)
+Module Import ExampleVerifier := MakeVerifier ExampleBase ExampleSignature.
 Module Import ExampleExecutor :=
-  MakeExecutor ExampleBase ExampleSignature ExampleProgram ExampleProgramLogic.
+  MakeExecutor ExampleBase ExampleSignature ExampleProgram ExampleProgramLogic ExampleVerifier.
 
 Section DebugExample.
   Import SymProp.notations.
@@ -786,7 +788,7 @@ End ContractVerification.
 (* Also instantiate the shallow executor for the soundness proofs and the
    statistics. *)
 Module Import ExampleShalExec :=
-  MakeShallowExecutor ExampleBase ExampleSignature ExampleProgram ExampleProgramLogic.
+  MakeShallowExecutor ExampleBase ExampleSignature ExampleProgram ExampleProgramLogic ExampleVerifier.
 
 (* Instantiate the operational semantics which is an input to the Iris model. *)
 Module ExampleSemantics <: Semantics ExampleBase ExampleProgram :=
@@ -954,9 +956,9 @@ Module ExampleModel.
 
     (* Import the soundness proofs for the shallow and symbolic executors. *)
     Include MicroSail.ShallowSoundness.Soundness ExampleBase ExampleSignature
-      ExampleProgram ExampleProgramLogic ExampleShalExec.
+      ExampleProgram ExampleProgramLogic ExampleVerifier ExampleShalExec.
     Include MicroSail.RefineVCGen.RefineVCGenOn ExampleBase ExampleSignature
-      ExampleProgram ExampleProgramLogic ExampleShalExec ExampleExecutor.
+      ExampleProgram ExampleProgramLogic ExampleVerifier ExampleShalExec ExampleExecutor.
 
     (* In this section we verify the contracts of the foreign functions defined in
        Coq and the entailments encoded in ghost lemmas using Iris Proof Mode. *)

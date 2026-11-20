@@ -31,6 +31,7 @@ From Stdlib Require Import
      ZArith.BinInt.
 From Katamaran Require Import
      Signature
+     Verifier
      Sep.Hoare
      Prelude
      Program
@@ -46,7 +47,8 @@ Module Type Soundness
   (Import SIG : Signature B)
   (Import PROG : Program B)
   (Import PLOG : ProgramLogic B SIG PROG)
-  (Import EXEC : ShallowVCGen B SIG PROG PLOG).
+  (Import V : Verifier B SIG)
+  (Import EXEC : ShallowVCGen B SIG PROG PLOG V).
 
   Import CStoreT.
   Import ProgLog.
@@ -469,8 +471,9 @@ Module MakeShallowSoundness
   (Import SIG : Signature B)
   (Import PROG : Program B)
   (Import PLOG : ProgramLogic B SIG PROG)
-  (Import EXEC : ShallowVCGen B SIG PROG PLOG).
+  (Import V : Verifier B SIG)
+  (Import EXEC : ShallowVCGen B SIG PROG PLOG V).
 
-  Include Soundness B SIG PROG PLOG EXEC.
+  Include Soundness B SIG PROG PLOG V EXEC.
 
 End MakeShallowSoundness.

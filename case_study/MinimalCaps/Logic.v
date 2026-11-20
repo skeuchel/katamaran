@@ -30,6 +30,7 @@ From Katamaran Require Import
      MinimalCaps.Machine
      MinimalCaps.Sig
      Sep.Hoare
+     Verifier
      MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
      MicroSail.SymbolicVCGen
@@ -38,15 +39,19 @@ From Katamaran Require Import
 Module MinCapsProgramLogic :=
   MakeProgramLogic MinCapsBase MinCapsSignature MinCapsProgram.
 
+Module MinCapsVerifier := MakeVerifier MinCapsBase MinCapsSignature.
+
 Module MinCapsExecutor :=
-  MakeExecutor MinCapsBase MinCapsSignature MinCapsProgram MinCapsProgramLogic.
+  MakeExecutor MinCapsBase MinCapsSignature MinCapsProgram MinCapsProgramLogic
+    MinCapsVerifier.
 Module MinCapsShallowExec :=
-  MakeShallowExecutor MinCapsBase MinCapsSignature MinCapsProgram MinCapsProgramLogic.
+  MakeShallowExecutor MinCapsBase MinCapsSignature MinCapsProgram MinCapsProgramLogic
+    MinCapsVerifier.
 
 (* Import the soundness proofs for the shallow and symbolic executors. *)
 Module MinCapsShallowSoundness :=
   MakeShallowSoundness MinCapsBase MinCapsSignature MinCapsProgram
-    MinCapsProgramLogic MinCapsShallowExec.
+    MinCapsProgramLogic MinCapsVerifier MinCapsShallowExec.
 Module MinCapsSymbolicSoundness :=
   MakeSymbolicSoundness MinCapsBase MinCapsSignature MinCapsProgram
-    MinCapsProgramLogic MinCapsShallowExec MinCapsExecutor.
+    MinCapsProgramLogic MinCapsVerifier MinCapsShallowExec MinCapsExecutor.

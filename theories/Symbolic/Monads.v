@@ -34,29 +34,16 @@ From Equations Require Import
 From Katamaran Require Import
   Prelude
   Base
-  Syntax.Assertions
-  Syntax.Chunks
-  Syntax.Predicates
-  Symbolic.MonadClasses
-  Symbolic.Propositions
-  Symbolic.UnifLogic
-  Symbolic.Solver
-  Symbolic.Worlds.
+  Signature
+  Symbolic.Solver.
 
 Import ctx.notations.
 Import env.notations.
 
 #[local] Set Implicit Arguments.
 
-Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P)
-  (Import SK : SolverKit B P W)
-  (Import SP : SymPropOn B P W)
-  (Import UL : UnifLogicOn B P W)
-  (Import LSP : LogSymPropOn B P W SP UL)
-  (Import GS : GenericSolverOn B P W SK SP UL LSP)
-  (Import A : AssertionsOn B P W)
-  (Import SC : SymbolicMonadClassesOn B P W SP A).
+Module Type SymbolicMonadsOn (Import B : Base) (Import SIG : Signature B)
+  (Import GS : GenericSolverOn B SIG SIG SIG SIG SIG SIG).
 
   Import ModalNotations.
   Import Erasure.

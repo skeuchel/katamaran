@@ -38,8 +38,7 @@ From Equations Require Import
 From Katamaran Require Import
   MinimalCaps.Base
   Notations
-  Signature
-  Symbolic.Solver.
+  Signature.
 
 Set Implicit Arguments.
 Import ctx.notations.

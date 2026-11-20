@@ -711,7 +711,7 @@ Module RiscvPmpBlockVerifPartialVerifier
             (cannotated_block_verification_condition req b ens)
             (sannotated_block_verification_condition req b ens w).
       Proof.
-        iApply RiscvPmpSignature.HeapSpec.refine_run.
+        iApply RiscvPmpVerifier.HeapSpec.refine_run.
         iApply rexec_annotated_block_triple_addr.
       Qed.
 

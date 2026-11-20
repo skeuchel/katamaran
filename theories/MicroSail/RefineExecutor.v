@@ -77,8 +77,6 @@ Module RefineExecOn
     RInst (SStore Γ) (CStore Γ).
 
   Module StoreT.
-    Import PureSpec.
-    Import HeapSpec.
 
     (* Instance search does not solve [?AT w ≡ SStore Γ (wctx w)] for
        [refine_pair], but [exact] does. *)
