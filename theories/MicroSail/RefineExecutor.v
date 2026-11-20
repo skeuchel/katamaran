@@ -77,8 +77,6 @@ Module RefineExecOn
     RInst (SStore Γ) (CStore Γ).
 
   Module StoreT.
-    Import PureSpec.
-    Import HeapSpec.
 
     Section WithRM.
 

@@ -35,19 +35,10 @@ From Equations Require Import
 From Katamaran Require Import
      Prelude
      Base
-     Refinement.MonadClasses
-     Shallow.MonadClasses
+     Signature
      Shallow.Monads
-     Symbolic.MonadClasses
      Symbolic.Monads
-     Symbolic.Propositions
-     Symbolic.Solver
-     Symbolic.UnifLogic
-     Symbolic.Worlds
-     Syntax.Assertions
-     Syntax.Chunks
-     Syntax.Formulas
-     Syntax.Predicates.
+     Symbolic.Solver.
 
 Import ctx.notations.
 Import env.notations.
@@ -56,19 +47,10 @@ Set Implicit Arguments.
 
 Module Type RefinementMonadsOn
   (Import B : Base)
-  (Import PK : PredicateKit B)
-  (Import WR : WorldsMixin B PK)
-  (Import SK : SolverKit B PK WR)
-  (Import SP : SymPropOn B PK WR)
-  (Import UL : UnifLogicOn B PK WR)
-  (Import LSP : LogSymPropOn B PK WR SP UL)
-  (Import GS : GenericSolverOn B PK WR SK SP UL LSP)
-  (Import AS : AssertionsOn B PK WR)
-  (Import SHC : ShallowMonadClassesOn B PK WR AS)
-  (Import SHAL : ShallowMonadsOn B PK WR SP AS SHC)
-  (Import SC : SymbolicMonadClassesOn B PK WR SP AS)
-  (Import SYMB : SymbolicMonadsOn B PK WR SK SP UL LSP GS AS SC)
-  (Import RHC : RefinementMonadClassesOn B PK WR SP UL AS SHC SC).
+  (Import SIG : Signature B)
+  (Import GS : GenericSolverOn B SIG SIG SIG SIG SIG SIG)
+  (Import SHAL : ShallowMonadsOn B SIG)
+  (Import SYMB : SymbolicMonadsOn B SIG GS).
 
   Import ModalNotations.
   Import LogicalSoundness.

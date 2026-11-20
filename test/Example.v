@@ -43,6 +43,7 @@ From Katamaran Require Import
      Bitvector
      Sep.Hoare
      Semantics.Registers
+     Verifier
      MicroSail.SymbolicVCGen
      Symbolic.Solver
      Program.
@@ -559,8 +560,9 @@ Module Import ExampleSpecification.
 
 End ExampleSpecification.
 
+Module Import ExampleVerifier := MakeVerifier ExampleBase ExampleSig.
 Module Import ExampleExecutor :=
-  MakeExecutor ExampleBase ExampleSig ExampleProgram ExampleProgramLogic.
+  MakeExecutor ExampleBase ExampleSig ExampleProgram ExampleProgramLogic ExampleVerifier.
 
 Local Ltac solve :=
   repeat

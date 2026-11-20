@@ -30,6 +30,7 @@
 From Katamaran Require Import
      Prelude
      Signature
+     Verifier
      Hoare.
 From Katamaran Require Export
      MicroSail.SymbolicExecutor.
@@ -44,6 +45,7 @@ Module Type SymbolicVCGenOn
   (Import SIG : Signature B)
   (Import PROG : Program B)
   (Import PLOG : ProgramLogic B SIG PROG)
+  (Import V : Verifier B SIG)
   (Import EXEC : SymbolicExecOn B SIG PROG PLOG).
 
   Import ModalNotations.
@@ -212,15 +214,16 @@ Module Type SymbolicVCGenOn
 End SymbolicVCGenOn.
 
 Module Type SymbolicVCGen (B : Base) (SIG : Signature B) (PROG : Program B)
-  (PLOG : ProgramLogic B SIG PROG) :=
-  SymbolicExecOn B SIG PROG PLOG <+ SymbolicVCGenOn B SIG PROG PLOG.
+  (PLOG : ProgramLogic B SIG PROG) (V : Verifier B SIG) :=
+  SymbolicExecOn B SIG PROG PLOG <+ SymbolicVCGenOn B SIG PROG PLOG V.
 
 Module MakeExecutor
   (Import B    : Base)
   (Import SIG  : Signature B)
   (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG).
+  (Import PLOG : ProgramLogic B SIG PROG)
+  (Import V    : Verifier B SIG).
 
-  Include SymbolicVCGen B SIG PROG PLOG.
+  Include SymbolicVCGen B SIG PROG PLOG V.
 
 End MakeExecutor.

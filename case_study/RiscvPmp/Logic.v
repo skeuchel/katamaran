@@ -30,6 +30,7 @@ From Katamaran Require Import
      RiscvPmp.Machine
      RiscvPmp.Sig
      Sep.Hoare
+     Verifier
      MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
      MicroSail.SymbolicVCGen
@@ -38,15 +39,19 @@ From Katamaran Require Import
 Module RiscvPmpProgramLogic :=
   MakeProgramLogic RiscvPmpBase RiscvPmpSignature RiscvPmpProgram.
 
+Module Export RiscvPmpVerifier := MakeVerifier RiscvPmpBase RiscvPmpSignature.
+
 Module RiscvPmpExecutor :=
-  MakeExecutor RiscvPmpBase RiscvPmpSignature RiscvPmpProgram RiscvPmpProgramLogic.
+  MakeExecutor RiscvPmpBase RiscvPmpSignature RiscvPmpProgram RiscvPmpProgramLogic
+    RiscvPmpVerifier.
 Module RiscvPmpShallowExec :=
-  MakeShallowExecutor RiscvPmpBase RiscvPmpSignature RiscvPmpProgram RiscvPmpProgramLogic.
+  MakeShallowExecutor RiscvPmpBase RiscvPmpSignature RiscvPmpProgram RiscvPmpProgramLogic
+    RiscvPmpVerifier.
 
 (* Import the soundness proofs for the shallow and symbolic executors. *)
 Module RiscvPmpShallowSoundness :=
   MakeShallowSoundness RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
-    RiscvPmpProgramLogic RiscvPmpShallowExec.
+    RiscvPmpProgramLogic RiscvPmpVerifier RiscvPmpShallowExec.
 Module RiscvPmpSymbolicSoundness :=
   MakeSymbolicSoundness RiscvPmpBase RiscvPmpSignature RiscvPmpProgram
-    RiscvPmpProgramLogic RiscvPmpShallowExec RiscvPmpExecutor.
+    RiscvPmpProgramLogic RiscvPmpVerifier RiscvPmpShallowExec RiscvPmpExecutor.

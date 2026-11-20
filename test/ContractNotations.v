@@ -47,6 +47,7 @@ From Katamaran Require Import
      Signature
      Sep.Hoare
      Symbolic.Solver
+     Verifier
      MicroSail.SymbolicVCGen.
 From stdpp Require Import base.
 
@@ -415,8 +416,9 @@ End Errors.
 (******************************************************************************)
 (* Verification of the functions against the contracts written above.         *)
 (******************************************************************************)
+Module Import TestVerifier := MakeVerifier DefaultBase TestSig.
 Module Import TestExecutor :=
-  MakeExecutor DefaultBase TestSig TestProgram TestProgramLogic.
+  MakeExecutor DefaultBase TestSig TestProgram TestProgramLogic TestVerifier.
 
 (* The functions satisfy their contracts. *)
 Lemma valid_contract_add : Symbolic.ValidContractReflect sep_contract_add fun_add.

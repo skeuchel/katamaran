@@ -33,6 +33,7 @@ From Stdlib Require Import
 From Katamaran Require Import
      Prelude
      Signature
+     Verifier
      Hoare.
 From Katamaran Require Export
      MicroSail.ShallowExecutor.
@@ -47,6 +48,7 @@ Module Type ShallowVCGenOn
   (Import SIG : Signature B)
   (Import PROG : Program B)
   (Import PLOG : ProgramLogic B SIG PROG)
+  (Import V : Verifier B SIG)
   (Import EXEC : ShallowExecOn B SIG PROG PLOG).
 
   Definition vcgen {SPEC : Specification} (cfg : Config) (inline_fuel : nat) {Δ τ} (c : SepContract Δ τ) (body : Stm Δ τ) : Prop :=
@@ -117,15 +119,16 @@ Module Type ShallowVCGenOn
 End ShallowVCGenOn.
 
 Module Type ShallowVCGen (B : Base) (SIG : Signature B) (PROG : Program B)
-  (PLOG : ProgramLogic B SIG PROG) :=
-  ShallowExecOn B SIG PROG PLOG <+ ShallowVCGenOn B SIG PROG PLOG.
+  (PLOG : ProgramLogic B SIG PROG) (V : Verifier B SIG) :=
+  ShallowExecOn B SIG PROG PLOG <+ ShallowVCGenOn B SIG PROG PLOG V.
 
 Module MakeShallowExecutor
   (Import B    : Base)
   (Import SIG  : Signature B)
   (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG).
+  (Import PLOG : ProgramLogic B SIG PROG)
+  (Import V    : Verifier B SIG).
 
-  Include ShallowVCGen B SIG PROG PLOG.
+  Include ShallowVCGen B SIG PROG PLOG V.
 
 End MakeShallowExecutor.

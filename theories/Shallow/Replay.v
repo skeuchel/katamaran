@@ -30,13 +30,8 @@
 From Katamaran Require Import
   Prelude
   Base
-  Shallow.MonadClasses
   Shallow.Monads
-  Syntax.Assertions
-  Syntax.Chunks
-  Syntax.Predicates
-  Symbolic.Propositions
-  Symbolic.Worlds.
+  Signature.
 
 Import ctx.notations env.notations.
 
@@ -44,10 +39,8 @@ Import ctx.notations env.notations.
 
 (* Replaying a symbolic proposition as a shallow computation, generic over the
    monad classes. *)
-Module Type ShallowReplayOn (Import B : Base) (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P) (Import SP : SymPropOn B P W)
-  (Import AS : AssertionsOn B P W) (Import SHC : ShallowMonadClassesOn B P W AS)
-  (Import SHAL : ShallowMonadsOn B P W SP AS SHC).
+Module Type ShallowReplayOn (Import B : Base) (Import SIG : Signature B)
+  (Import SHAL : ShallowMonadsOn B SIG).
 
   Module CReplay.
 

@@ -32,15 +32,9 @@ From Stdlib Require Import
 From Katamaran Require Import
   Prelude
   Base
-  Symbolic.MonadClasses
+  Signature
   Symbolic.Monads
-  Symbolic.Propositions
-  Symbolic.UnifLogic
-  Symbolic.Solver
-  Symbolic.Worlds
-  Syntax.Assertions
-  Syntax.Chunks
-  Syntax.Predicates.
+  Symbolic.Solver.
 
 Import ctx.notations.
 Import env.notations.
@@ -50,16 +44,9 @@ Import env.notations.
 
 (* Replaying a symbolic proposition as a symbolic computation, generic over
    the monad classes. *)
-Module Type SymbolicReplayOn (Import B : Base) (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P)
-  (Import SK : SolverKit B P W)
-  (Import SP : SymPropOn B P W)
-  (Import UL : UnifLogicOn B P W)
-  (Import LSP : LogSymPropOn B P W SP UL)
-  (Import GS : GenericSolverOn B P W SK SP UL LSP)
-  (Import A : AssertionsOn B P W)
-  (Import SC : SymbolicMonadClassesOn B P W SP A)
-  (Import SYMB : SymbolicMonadsOn B P W SK SP UL LSP GS A SC).
+Module Type SymbolicReplayOn (Import B : Base) (Import SIG : Signature B)
+  (Import GS : GenericSolverOn B SIG SIG SIG SIG SIG SIG)
+  (Import SYMB : SymbolicMonadsOn B SIG GS).
 
   Import ModalNotations.
   #[local] Open Scope modal.

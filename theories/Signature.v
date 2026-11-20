@@ -30,16 +30,9 @@
 From Katamaran Require Export
   Base
   Refinement.MonadClasses
-  Refinement.Monads
-  Refinement.Replay
   Shallow.MonadClasses
-  Shallow.Monads
-  Shallow.Replay
   Symbolic.MonadClasses
-  Symbolic.Monads
   Symbolic.Propositions
-  Symbolic.Replay
-  Symbolic.Solver
   Symbolic.UnifLogic
   Symbolic.Worlds
   Syntax.Assertions
@@ -47,16 +40,11 @@ From Katamaran Require Export
   Syntax.ContractNotations
   Syntax.Predicates.
 
-Module Type SignatureMixin
-  (B : Base) (P : PredicateKit B) (W : WorldsMixin B P) (S : SolverKit B P W) :=
+Module Type SignatureMixin (B : Base) (P : PredicateKit B) (W : WorldsMixin B P) :=
   SymPropOn B P W <+ UnifLogicOn B P W <+ LogSymPropOn B P W  <+
   AssertionsOn B P W <+ ContractNotationsOn B P W <+
-    GenericSolverOn B P W S <+
-    ShallowMonadClassesOn B P W <+ ShallowMonadsOn B P W <+ ShallowReplayOn B P W <+
-    SymbolicMonadClassesOn B P W <+ SymbolicMonadsOn B P W S <+
-    SymbolicReplayOn B P W S <+
-    RefinementMonadClassesOn B P W <+ RefinementMonadsOn B P W S <+
-    RefinementReplayOn B P W S.
+    ShallowMonadClassesOn B P W <+ SymbolicMonadClassesOn B P W <+
+    RefinementMonadClassesOn B P W.
 
 Module Type Signature (B : Base) :=
   PredicateKit B <+ WorldsMixin B <+ SolverKit B <+ SignatureMixin B.

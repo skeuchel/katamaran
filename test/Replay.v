@@ -45,6 +45,7 @@ From Katamaran Require Import
      Sep.Hoare
      Signature
      Symbolic.Solver
+     Verifier
      MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
      MicroSail.SymbolicVCGen
@@ -400,12 +401,13 @@ End ReplaySig.
 Module Import ReplayProgramLogic :=
   MakeProgramLogic DefaultBase ReplaySig ReplayProgram.
 (* Compose the symbolic executor and symbolic verification condition generator. *)
+Module Import ReplayVerifier := MakeVerifier DefaultBase ReplaySig.
 Module Import ReplayExecutor :=
-  MakeExecutor DefaultBase ReplaySig ReplayProgram ReplayProgramLogic.
+  MakeExecutor DefaultBase ReplaySig ReplayProgram ReplayProgramLogic ReplayVerifier.
 (* Also instantiate the shallow executor for the soundness proofs and the
    statistics. *)
 Module Import ReplayShalExec :=
-  MakeShallowExecutor DefaultBase ReplaySig ReplayProgram ReplayProgramLogic.
+  MakeShallowExecutor DefaultBase ReplaySig ReplayProgram ReplayProgramLogic ReplayVerifier.
 (* Instantiate the operational semantics which is an input to the Iris model. *)
 Module ReplaySemantics <: Semantics DefaultBase ReplayProgram :=
   MakeSemantics DefaultBase ReplayProgram.

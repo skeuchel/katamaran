@@ -39,20 +39,13 @@ From Equations Require Import
 From Katamaran Require Import
   Prelude
   Base
-  Shallow.MonadClasses
-  Syntax.Assertions
-  Syntax.Chunks
-  Syntax.Predicates
-  Symbolic.Propositions
-  Symbolic.Worlds.
+  Signature.
 
 Import SignatureNotations ctx.notations env.notations.
 
 #[local] Set Implicit Arguments.
 
-Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P) (Import SP : SymPropOn B P W)
-  (Import AS : AssertionsOn B P W) (Import SHC : ShallowMonadClassesOn B P W AS).
+Module Type ShallowMonadsOn (Import B : Base) (Import SIG : Signature B).
 
   (* This is used by potentially multiple instances, but ultimately should be
      moved somewhere else. *)

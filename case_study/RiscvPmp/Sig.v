@@ -34,7 +34,6 @@ From Katamaran Require Import
      Signature
      Notations
      Bitvector
-     Symbolic.Solver
      RiscvPmp.Base
      RiscvPmp.PmpCheck.
 From Equations Require Import

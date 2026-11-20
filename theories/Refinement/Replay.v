@@ -30,22 +30,13 @@
 From Katamaran Require Import
   Prelude
   Base
-  Refinement.MonadClasses
   Refinement.Monads
-  Shallow.MonadClasses
   Shallow.Monads
   Shallow.Replay
-  Symbolic.MonadClasses
+  Signature
   Symbolic.Monads
-  Symbolic.Propositions
   Symbolic.Replay
-  Symbolic.Solver
-  Symbolic.UnifLogic
-  Symbolic.Worlds
-  Syntax.Assertions
-  Syntax.Chunks
-  Syntax.Formulas
-  Syntax.Predicates.
+  Symbolic.Solver.
 
 Import ctx.notations.
 Import env.notations.
@@ -56,22 +47,13 @@ Set Implicit Arguments.
    are related by [RHeapSpecM]. *)
 Module Type RefinementReplayOn
   (Import B : Base)
-  (Import PK : PredicateKit B)
-  (Import WR : WorldsMixin B PK)
-  (Import SK : SolverKit B PK WR)
-  (Import SP : SymPropOn B PK WR)
-  (Import UL : UnifLogicOn B PK WR)
-  (Import LSP : LogSymPropOn B PK WR SP UL)
-  (Import GS : GenericSolverOn B PK WR SK SP UL LSP)
-  (Import AS : AssertionsOn B PK WR)
-  (Import SHC : ShallowMonadClassesOn B PK WR AS)
-  (Import SHAL : ShallowMonadsOn B PK WR SP AS SHC)
-  (Import SHR : ShallowReplayOn B PK WR SP AS SHC SHAL)
-  (Import SC : SymbolicMonadClassesOn B PK WR SP AS)
-  (Import SYMB : SymbolicMonadsOn B PK WR SK SP UL LSP GS AS SC)
-  (Import SYR : SymbolicReplayOn B PK WR SK SP UL LSP GS AS SC SYMB)
-  (Import RHC : RefinementMonadClassesOn B PK WR SP UL AS SHC SC)
-  (Import RMON : RefinementMonadsOn B PK WR SK SP UL LSP GS AS SHC SHAL SC SYMB RHC).
+  (Import SIG : Signature B)
+  (Import GS : GenericSolverOn B SIG SIG SIG SIG SIG SIG)
+  (Import SHAL : ShallowMonadsOn B SIG)
+  (Import SHR : ShallowReplayOn B SIG SHAL)
+  (Import SYMB : SymbolicMonadsOn B SIG GS)
+  (Import SYR : SymbolicReplayOn B SIG GS SYMB)
+  (Import RMON : RefinementMonadsOn B SIG GS SHAL SYMB).
 
   Import ModalNotations.
   Import SymProp.

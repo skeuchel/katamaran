@@ -114,6 +114,7 @@ theories/Shallow/MonadClasses.v
 theories/Shallow/Monads.v
 theories/Shallow/Replay.v
 theories/Signature.v
+theories/Verifier.v
 theories/SmallStep/Inversion.v
 theories/SmallStep/Progress.v
 theories/SmallStep/Step.v
