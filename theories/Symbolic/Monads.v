@@ -1154,6 +1154,13 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
       ⊢ Formula -> SHeapSpec Unit :=
       fun w fml => lift_purespec (@SPureSpec.assume_formula w fml).
 
+    Definition angelic_pattern_match {N : Set} (n : N -> LVar) {σ} (pat : Pattern (N:=N) σ) :
+      ⊢ (SHeap -> AMessage) -> WTerm σ -> SHeapSpec (SMatchResult pat) :=
+      fun w msg t Φ h =>
+        SPureSpec.angelic_pattern_match n pat (msg h) t
+          (fun w1 θ1 r => Φ w1 θ1 r h⟨θ1⟩).
+    #[global] Arguments angelic_pattern_match {N} n {σ} pat [w] msg t.
+
     Definition produce_chunk : ⊢ Chunk -> SHeapSpec Unit :=
       fun w0 c Φ h => SPureSpec.produce_chunk c h
                         (fun w1 θ1 => Φ w1 θ1 tt).
@@ -1237,14 +1244,14 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
           consume_chunk_angelic (subst c ζ)
       | asn.pattern_match s pat rhs =>
           ⟨ θ ⟩ '(existT pc δpc) <-
-            lift_purespec
-              (SPureSpec.angelic_pattern_match id pat
-                 (amsg.mk
-                    {| debug_string_pathcondition := wco w;
-                       debug_string_message       :=
-                        "SHeapSpec.consume.pattern_match";
-                    |})
-                 (subst s ζ)) ;;
+            angelic_pattern_match id pat
+              (fun _ =>
+                 amsg.mk
+                   {| debug_string_pathcondition := wco w;
+                      debug_string_message       :=
+                       "SHeapSpec.consume.pattern_match";
+                   |})
+              (subst s ζ) ;;
           consume (rhs pc) (persist ζ θ ►► δpc)
       | asn.sep a1 a2 =>
           ⟨ θ ⟩ _ <- consume a1 ζ ;;

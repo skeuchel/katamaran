@@ -1210,8 +1210,9 @@ Module Type RefinementMonadsOn
     (* Instance search does not unfold the concrete operations, so their
        instances are indexed, and tried, by their head. *)
     #[export] Typeclasses Opaque CHeapSpec.angelic CHeapSpec.angelic_binary
-      CHeapSpec.angelic_ctx CHeapSpec.assert_formula CHeapSpec.assume_formula
-      CHeapSpec.bind CHeapSpec.call_contract CHeapSpec.call_lemma
+      CHeapSpec.angelic_ctx CHeapSpec.angelic_pattern_match
+      CHeapSpec.assert_formula CHeapSpec.assume_formula CHeapSpec.bind
+      CHeapSpec.call_contract CHeapSpec.call_lemma
       CHeapSpec.consume CHeapSpec.consume_chunk CHeapSpec.debug
       CHeapSpec.demonic CHeapSpec.demonic_binary CHeapSpec.demonic_ctx
       CHeapSpec.lift_purespec CHeapSpec.produce CHeapSpec.produce_chunk
@@ -1313,6 +1314,20 @@ Module Type RefinementMonadsOn
       Related (RFormula -> RHeapSpec RUnit)
         CHeapSpec.assume_formula w (SHeapSpec.assume_formula (w := w)).
     Proof. unfold CHeapSpec.assume_formula, SHeapSpec.assume_formula; solve_related. Qed.
+
+    #[export] Instance refine_angelic_pattern_match {N : Set} (n : N -> LVar)
+      {σ} (pat : Pattern (N:=N) σ) {w} :
+      Related (RMsg _ (RVal σ -> RHeapSpec (RMatchResult pat)))
+        (CHeapSpec.angelic_pattern_match pat) w
+        (SHeapSpec.angelic_pattern_match n pat (w := w)).
+    Proof.
+      unfold Related, CHeapSpec.angelic_pattern_match,
+        SHeapSpec.angelic_pattern_match, CHeapSpec.lift_purespec.
+      iIntros (msg v sv) "rv %cΦ %sΦ rΦ %ch %sh rh".
+      iApply (PureSpec.refine_angelic_pattern_match with "rv").
+      iIntros (w1 θ1) "!> %r %sr rr".
+      iApply ("rΦ" with "rr"); solve_related.
+    Qed.
 
     #[export] Instance refine_produce_chunk {w} :
       Related (RChunk -> RHeapSpec RUnit)

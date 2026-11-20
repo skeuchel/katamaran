@@ -841,6 +841,11 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
     Definition assume_formula : Prop -> CHeapSpec unit :=
       fun fml => lift_purespec (CPureSpec.assume_formula fml).
 
+    Definition angelic_pattern_match {N : Set} {σ} (pat : Pattern (N:=N) σ)
+      (v : Val σ) : CHeapSpec (MatchResult pat) :=
+      lift_purespec (CPureSpec.angelic_pattern_match pat v).
+    #[global] Arguments angelic_pattern_match {N σ} pat v.
+
     Definition produce_chunk (c : SCChunk) : CHeapSpec unit :=
       fun Φ h => CPureSpec.produce_chunk c h (Φ tt).
     Definition consume_chunk (c : SCChunk) : CHeapSpec unit :=
@@ -902,6 +907,9 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
     #[export] Instance mon_assume_formula fml :
       Proper (MHeapSpec eq) (assume_formula fml).
     Proof. firstorder. Qed.
+    #[export] Instance mon_angelic_pattern_match {N σ} (pat : Pattern (N:=N) σ) v :
+      Proper (MHeapSpec eq) (angelic_pattern_match pat v).
+    Proof. unfold angelic_pattern_match. solve_monotonic. Qed.
 
     Definition angelic_ctx {N} (Δ : NCtx N Ty) : CHeapSpec (NamedEnv Val Δ) :=
       lift_purespec (CPureSpec.angelic_ctx Δ).
@@ -950,8 +958,7 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
       | asn.chunk_angelic c =>
           consume_chunk (inst c ι)
       | asn.pattern_match s pat rhs =>
-          '(existT pc δpc) <-
-            lift_purespec (CPureSpec.angelic_pattern_match pat (inst s ι)) ;;
+          '(existT pc δpc) <- angelic_pattern_match pat (inst s ι) ;;
           consume (rhs pc) (ι ►► δpc)
       | asn.sep a1 a2 =>
           _ <- consume a1 ι ;;
@@ -1016,8 +1023,8 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
     Qed.
 
     #[global] Typeclasses Opaque angelic demonic angelic_ctx demonic_ctx
-      assert_formula assume_formula produce_chunk consume_chunk read_register
-      write_register.
+      assert_formula assume_formula angelic_pattern_match produce_chunk
+      consume_chunk read_register write_register.
 
     #[export] Instance mon_produce {Σ} (asn : Assertion Σ) ι :
       Proper (MHeapSpec eq) (produce asn ι).
@@ -1049,6 +1056,7 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
       #[local] Arguments CHeapSpec.angelic_binary {_} _ _ /.
       #[local] Arguments CHeapSpec.demonic_binary {_} _ _ /.
       #[local] Arguments CHeapSpec.lift_purespec {_} _ _ /.
+      #[local] Arguments CHeapSpec.angelic_pattern_match {_ _} _ _ /.
 
       Lemma consume_sound {Σ} {ι : Valuation Σ} {asn : Assertion Σ} :
         forall (Φ : unit -> SCHeap -> Prop) h,
