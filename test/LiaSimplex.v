@@ -213,9 +213,23 @@ Fixpoint run (k m n : nat) (d c : Z) (s : Z) (acc : counts) : counts :=
 
 Definition zero : counts := Counts 0 0 0 0 0 0 0 0.
 
-Compute run 200 4 3 8 3 2 zero.
-Compute run 200 6 4 8 3 1 zero.
-Compute run 100 10 4 8 3 5 zero.
-Compute run 40 12 8 8 3 3 zero.
-Compute run 40 12 8 3 3 7 zero.
-Compute run 20 20 15 8 3 3 zero.
+(* The counts of rationally infeasible and of wrongly answered clauses depend
+   only on the generator; the others record the strength of the search. *)
+
+Goal run 200 4 3 8 3 2 zero = Counts 24 33 79 88 33 163 4 0.
+Proof. vm_compute. reflexivity. Qed.
+
+Goal run 200 6 4 8 3 1 zero = Counts 42 49 38 113 53 134 13 0.
+Proof. vm_compute. reflexivity. Qed.
+
+Goal run 100 10 4 8 3 5 zero = Counts 82 86 2 12 86 12 2 0.
+Proof. vm_compute. reflexivity. Qed.
+
+Goal run 40 12 8 8 3 3 zero = Counts 6 8 0 32 9 7 24 0.
+Proof. vm_compute. reflexivity. Qed.
+
+Goal run 40 12 8 3 3 7 zero = Counts 28 28 0 12 28 8 4 0.
+Proof. vm_compute. reflexivity. Qed.
+
+Goal run 20 20 15 2 3 3 zero = Counts 14 14 0 6 14 0 6 0.
+Proof. vm_compute. reflexivity. Qed.
