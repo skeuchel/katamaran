@@ -33,11 +33,14 @@ From Stdlib Require Import
 From Katamaran Require Import
   Prelude
   Base
+  Syntax.Assertions
   Syntax.Chunks
   Syntax.Predicates
   Symbolic.Worlds.
 
-Import SignatureNotations.
+Import SignatureNotations ctx.notations env.notations.
+
+#[local] Set Implicit Arguments.
 
 (* Monotonicity proofs use [Proper] and its automation for partial
    applications. The [monotonic] hints decompose the remaining goals: lambdas,
@@ -70,7 +73,7 @@ Proof. intros pf ? ? <-. apply pf. Qed.
   destruct p : monotonic.
 
 Module Type ShallowMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P).
+  (Import W : WorldsMixin B P) (Import AS : AssertionsOn B P W).
 
   (* Interface of monads with the verification effects and a heap. *)
   Module CHeapSpecM.
@@ -125,6 +128,107 @@ Module Type ShallowMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
       Notation "ma ;; mb" := (bind ma (fun _ => mb)).
     End notations.
 
+    (* Operations that are derived from the interface. *)
+    Section Derived.
+
+    Context {M} {cm : CHeapSpecM M}.
+
+    Definition angelic_ctx {N : Set} :
+      forall Δ : NCtx N Ty, M (NamedEnv Val Δ) :=
+      fix rec Δ {struct Δ} :=
+        match Δ with
+        | [ctx]   => pure [env]
+        | Δ ▻ x∷σ => vs <- rec Δ;;
+                     v  <- angelic σ;;
+                     pure (vs ► (x∷σ ↦ v))
+        end.
+
+    Definition demonic_ctx {N : Set} :
+      forall Δ : NCtx N Ty, M (NamedEnv Val Δ) :=
+      fix rec Δ {struct Δ} :=
+        match Δ with
+        | [ctx]   => pure [env]
+        | Δ ▻ x∷σ => vs <- rec Δ;;
+                     v  <- demonic σ;;
+                     pure (vs ► (x∷σ ↦ v))
+        end.
+
+    Equations(noeqns) assert_eq_nenv {N : Set} [Δ : NCtx N Ty]
+      (δ δ' : NamedEnv Val Δ) : M unit :=
+      assert_eq_nenv env.nil          env.nil            := pure tt;
+      assert_eq_nenv (env.snoc δ _ t) (env.snoc δ' _ t') :=
+        bind (assert_eq_nenv δ δ') (fun _ => assert_formula (t = t')).
+
+    Fixpoint produce {Σ} (asn : Assertion Σ) (ι : Valuation Σ) : M unit :=
+      match asn with
+      | asn.formula fml =>
+          assume_formula (instprop fml ι)
+      | asn.chunk c =>
+          produce_chunk (inst c ι)
+      | asn.chunk_angelic c =>
+          produce_chunk (inst c ι)
+      | asn.pattern_match s pat rhs =>
+          '(existT pc δpc) <- demonic_pattern_match pat (inst s ι) ;;
+          produce (rhs pc) (ι ►► δpc)
+      | asn.sep a1 a2 =>
+          _ <- produce a1 ι ;;
+          produce a2 ι
+      | asn.or a1 a2 =>
+          demonic_binary (produce a1 ι) (produce a2 ι)
+      | asn.exist ς τ a =>
+          t <- demonic τ ;;
+          produce a (env.snoc ι (ς∷τ) t)
+      | asn.debug =>
+          pure tt
+      end.
+
+    Fixpoint consume {Σ} (asn : Assertion Σ) (ι : Valuation Σ) : M unit :=
+      match asn with
+      | asn.formula fml =>
+          assert_formula (instprop fml ι)
+      | asn.chunk c =>
+          consume_chunk (inst c ι)
+      | asn.chunk_angelic c =>
+          consume_chunk (inst c ι)
+      | asn.pattern_match s pat rhs =>
+          '(existT pc δpc) <- angelic_pattern_match pat (inst s ι) ;;
+          consume (rhs pc) (ι ►► δpc)
+      | asn.sep a1 a2 =>
+          _ <- consume a1 ι ;;
+          consume a2 ι
+      | asn.or a1 a2 =>
+          angelic_binary (consume a1 ι) (consume a2 ι)
+      | asn.exist ς τ a =>
+          t <- angelic τ ;;
+          consume a (env.snoc ι (ς∷τ) t)
+      | asn.debug =>
+          pure tt
+      end.
+
+    Definition call_contract [Δ τ] (c : SepContract Δ τ) (args : CStore Δ) : M (Val τ) :=
+      match c with
+      | MkSepContract _ _ Σe δ req result ens =>
+          ι <- angelic_ctx Σe ;;
+          assert_eq_nenv (inst δ ι) args ;;
+          consume req ι ;;
+          v <- demonic τ ;;
+          produce ens (env.snoc ι (result∷τ) v) ;;
+          pure v
+      end.
+
+    Definition call_lemma [Δ] (lem : Lemma Δ) (vs : CStore Δ) : M unit :=
+      match lem with
+      | MkLemma _ Σe δ req ens =>
+          ι <- angelic_ctx Σe ;;
+          assert_eq_nenv (inst δ ι) vs ;;
+          consume req ι ;;
+          produce ens ι
+      end.
+
+    End Derived.
+    #[global] Arguments angelic_ctx {M _ N} Δ.
+    #[global] Arguments demonic_ctx {M _ N} Δ.
+
   End CHeapSpecM.
   Export CHeapSpecM (CHeapSpecM).
 
@@ -161,6 +265,42 @@ Module Type ShallowMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
           Proper (RM eq) (write_register reg v);
       }.
     #[global] Arguments MHeapSpecM M {cm} RM.
+
+    Section Derived.
+
+    Context `{mm : MHeapSpecM M RM}.
+
+    #[export] Instance mon_angelic_ctx {N : Set} (Δ : NCtx N Ty) :
+      Proper (RM eq) (angelic_ctx Δ).
+    Proof. induction Δ; cbn; solve_monotonic. Qed.
+
+    #[export] Instance mon_demonic_ctx {N : Set} (Δ : NCtx N Ty) :
+      Proper (RM eq) (demonic_ctx Δ).
+    Proof. induction Δ; cbn; solve_monotonic. Qed.
+
+    #[export] Instance mon_assert_eq_nenv {N : Set} {Δ : NCtx N Ty} (δ δ' : NamedEnv Val Δ) :
+      Proper (RM eq) (assert_eq_nenv δ δ').
+    Proof.
+      induction δ; env.destroy δ'; cbn; solve_monotonic.
+    Qed.
+
+    #[export] Instance mon_produce {Σ} (asn : Assertion Σ) ι :
+      Proper (RM eq) (produce asn ι).
+    Proof. induction asn; cbn; solve_monotonic. Qed.
+
+    #[export] Instance mon_consume {Σ} (asn : Assertion Σ) ι :
+      Proper (RM eq) (consume asn ι).
+    Proof. induction asn; cbn; solve_monotonic. Qed.
+
+    #[export] Instance mon_call_contract [Δ τ] (c : SepContract Δ τ) (args : CStore Δ) :
+      Proper (RM eq) (call_contract c args).
+    Proof. destruct c; cbn; solve_monotonic. Qed.
+
+    #[export] Instance mon_call_lemma [Δ] (lem : Lemma Δ) (vs : CStore Δ) :
+      Proper (RM eq) (call_lemma lem vs).
+    Proof. destruct lem; cbn; solve_monotonic. Qed.
+
+    End Derived.
 
   End MHeapSpecM.
   Export MHeapSpecM (MHeapSpecM).

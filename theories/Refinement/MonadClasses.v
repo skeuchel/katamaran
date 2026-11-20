@@ -35,6 +35,7 @@ From Katamaran Require Import
   Symbolic.Propositions
   Symbolic.UnifLogic
   Symbolic.Worlds
+  Syntax.Assertions
   Syntax.Chunks
   Syntax.Predicates.
 
@@ -46,11 +47,13 @@ Module Type RefinementMonadClassesOn
   (Import WR : WorldsMixin B PK)
   (Import SP : SymPropOn B PK WR)
   (Import UL : UnifLogicOn B PK WR)
-  (Import SHC : ShallowMonadClassesOn B PK WR)
-  (Import SYC : SymbolicMonadClassesOn B PK WR SP).
+  (Import AS : AssertionsOn B PK WR)
+  (Import SHC : ShallowMonadClassesOn B PK WR AS)
+  (Import SYC : SymbolicMonadClassesOn B PK WR SP AS).
 
   Import ModalNotations.
-  Import logicalrelation logicalrelation.notations.
+  Import logicalrelation logicalrelation.notations proofmode.
+  Import iris.bi.interface iris.proofmode.proofmode.
 
   (* Interface of logical relations between a symbolic and a shallow monad:
      each operation of [SHeapSpecM] refines that of [CHeapSpecM]. *)
@@ -123,6 +126,74 @@ Module Type RefinementMonadClassesOn
 
     End WithMonads.
     #[global] Arguments RHeapSpecM {MT M smT cm} RM.
+
+    Section WithRM.
+
+    Import SHeapSpecM.notations.
+
+    Context {MT : TYPE -> TYPE} {M : Type -> Type}
+      {smT : SHeapSpecM MT} {cmM : CHeapSpecM M}
+      {RM : forall {AT A} (R : Rel AT A), Rel (MT AT) (M A)}
+      {rm : RHeapSpecM (@RM)}.
+
+    #[export] Instance refine_angelic_ctx {N : Set} {n : N -> LVar} Δ {w} :
+      Related (RM (RNEnv N Δ))
+        (CHeapSpecM.angelic_ctx Δ) w (SHeapSpecM.angelic_ctx (w := w) n Δ).
+    Proof.
+      induction Δ; cbn [SHeapSpecM.angelic_ctx CHeapSpecM.angelic_ctx]; solve_related.
+    Qed.
+
+    #[export] Instance refine_demonic_ctx {N : Set} {n : N -> LVar} Δ {w} :
+      Related (RM (RNEnv N Δ))
+        (CHeapSpecM.demonic_ctx Δ) w (SHeapSpecM.demonic_ctx (w := w) n Δ).
+    Proof.
+      induction Δ; cbn [SHeapSpecM.demonic_ctx CHeapSpecM.demonic_ctx]; solve_related.
+    Qed.
+
+    Lemma refine_assert_eq_nenv {N : Set} {w} :
+      ⊢ ℛ⟦∀ᵣ Δ : NCtx N Ty, RMsg _ (RNEnv _ Δ -> RNEnv _ Δ -> RM RUnit)⟧
+        CHeapSpecM.assert_eq_nenv (SHeapSpecM.assert_eq_nenv (w := w)).
+    Proof.
+      iIntros (Δ msg E1 Es1) "HE1 %E2 %Es2 HE2".
+      iInduction Es1 as [|Es1] "IHEs1";
+        env.destroy Es2; env.destroy E1; env.destroy E2; cbn -[RSat].
+      - now iApply (refine_pure (RA := RUnit)).
+      - iDestruct (repₚ_invert_snoc with "HE1") as "(HE1 & Hv0db)".
+        iDestruct (repₚ_invert_snoc with "HE2") as "(HE2 & Hv1v)".
+        iSpecialize ("IHEs1" with "HE1 HE2").
+        iApply (refine_bind (RA := RUnit) (RB := RUnit) with "IHEs1"); solve_related.
+    Qed.
+
+    #[export] Instance refine_compat_assert_eq_nenv {N : Set} {w} {Δ : NCtx N Ty} :
+      Related (RMsg _ (RNEnv _ Δ -> RNEnv _ Δ -> RM RUnit))
+        (CHeapSpecM.assert_eq_nenv (Δ := Δ)) w (@SHeapSpecM.assert_eq_nenv _ _ N w Δ).
+    Proof. iIntros. iApply refine_assert_eq_nenv. Qed.
+
+    #[export] Instance refine_produce {Σ} (asn : Assertion Σ) :
+      ∀ w, Related (RInst (Sub Σ) (Valuation Σ) -> RM RUnit)
+             (CHeapSpecM.produce asn) w (SHeapSpecM.produce (w := w) asn).
+    Proof.
+      induction asn; cbn - [RSat]; intros w; solve_related.
+    Qed.
+
+    #[export] Instance refine_consume {Σ} (asn : Assertion Σ) :
+      ∀ w, Related (RInst (Sub Σ) (Valuation Σ) -> RM RUnit)
+             (CHeapSpecM.consume asn) w (SHeapSpecM.consume asn (w := w)).
+    Proof.
+      induction asn; cbn - [RSat]; intros w; solve_related.
+    Qed.
+
+    #[export] Instance refine_call_contract {Δ τ} (c : SepContract Δ τ) {w} :
+      Related (RInst (SStore Δ) (CStore Δ) -> RM (RVal τ))
+        (CHeapSpecM.call_contract c) w (SHeapSpecM.call_contract c (w := w)).
+    Proof. unfold CHeapSpecM.call_contract, SHeapSpecM.call_contract; solve_related. Qed.
+
+    #[export] Instance refine_call_lemma {Δ} (lem : Lemma Δ) w :
+      Related (RInst (SStore Δ) (CStore Δ) -> RM RUnit)
+        (CHeapSpecM.call_lemma lem) w (SHeapSpecM.call_lemma lem (w := w)).
+    Proof. unfold CHeapSpecM.call_lemma, SHeapSpecM.call_lemma; solve_related. Qed.
+
+    End WithRM.
 
   End RHeapSpecM.
   Export RHeapSpecM (RHeapSpecM).

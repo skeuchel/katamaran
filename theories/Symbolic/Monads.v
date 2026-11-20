@@ -56,7 +56,7 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
   (Import LSP : LogSymPropOn B P W SP UL)
   (Import GS : GenericSolverOn B P W SK SP UL LSP)
   (Import A : AssertionsOn B P W)
-  (Import SC : SymbolicMonadClassesOn B P W SP).
+  (Import SC : SymbolicMonadClassesOn B P W SP A).
 
   Import ModalNotations.
   Import Erasure.

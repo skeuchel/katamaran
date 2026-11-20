@@ -52,7 +52,7 @@ Import SignatureNotations ctx.notations env.notations.
 
 Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
   (Import W : WorldsMixin B P) (Import SP : SymPropOn B P W)
-  (Import AS : AssertionsOn B P W) (Import SHC : ShallowMonadClassesOn B P W).
+  (Import AS : AssertionsOn B P W) (Import SHC : ShallowMonadClassesOn B P W AS).
 
   (* This is used by potentially multiple instances, but ultimately should be
      moved somewhere else. *)
@@ -1040,6 +1040,46 @@ Module Type ShallowMonadsOn (Import B : Base) (Import P : PredicateKit B)
 
     #[export] Instance mheapspecm_cheapspec : MHeapSpecM CHeapSpec (@MHeapSpec).
     Proof. constructor; cbn; typeclasses eauto. Qed.
+
+    Lemma wp_angelic_ctx {N : Set} {Δ : NCtx N Ty} Φ h :
+      CHeapSpecM.angelic_ctx (M := CHeapSpec) Δ Φ h <->
+        exists vs : NamedEnv Val Δ, Φ vs h.
+    Proof.
+      revert Φ. induction Δ; cbn; intros Φ.
+      - split.
+        + now exists env.nil.
+        + intros [vs ?]. now destruct (env.view vs).
+      - unfold bind, angelic, lift_purespec, pure, CPureSpec.pure,
+          CPureSpec.angelic.
+        rewrite IHΔ. split.
+        + intros (vs & v & H). now exists (vs ► (b ↦ v)).
+        + intros [vs H]. destruct (env.view vs) as [vs v]. now exists vs, v.
+    Qed.
+
+    Lemma wp_demonic_ctx {N : Set} {Δ : NCtx N Ty} Φ h :
+      CHeapSpecM.demonic_ctx (M := CHeapSpec) Δ Φ h <->
+        forall vs : NamedEnv Val Δ, Φ vs h.
+    Proof.
+      revert Φ. induction Δ; cbn; intros Φ.
+      - split.
+        + intros ? vs. now destruct (env.view vs).
+        + intros H. apply H.
+      - unfold bind, demonic, lift_purespec, pure, CPureSpec.pure,
+          CPureSpec.demonic.
+        rewrite IHΔ. split.
+        + intros H vs. destruct (env.view vs) as [vs v]. apply H.
+        + intros H vs v. apply H.
+    Qed.
+
+    Lemma wp_assert_eq_nenv {N} {Δ : NCtx N Ty} (δ δ' : NamedEnv Val Δ) Φ h :
+      CHeapSpecM.assert_eq_nenv (M := CHeapSpec) δ δ' Φ h <-> δ = δ' /\ Φ tt h.
+    Proof.
+      revert Φ. induction δ; intros Φ; destruct (env.view δ'); cbn; unfold NamedEnv.
+      - intuition auto.
+      - unfold bind, assert_formula, lift_purespec, CPureSpec.assert_formula,
+          CPureSpec.assert_pathcondition.
+        rewrite IHδ, env.inversion_eq_snoc. intuition auto.
+    Qed.
 
     Section WithBI.
 

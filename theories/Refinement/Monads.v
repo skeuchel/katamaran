@@ -64,11 +64,11 @@ Module Type RefinementMonadsOn
   (Import LSP : LogSymPropOn B PK WR SP UL)
   (Import GS : GenericSolverOn B PK WR SK SP UL LSP)
   (Import AS : AssertionsOn B PK WR)
-  (Import SHC : ShallowMonadClassesOn B PK WR)
+  (Import SHC : ShallowMonadClassesOn B PK WR AS)
   (Import SHAL : ShallowMonadsOn B PK WR SP AS SHC)
-  (Import SC : SymbolicMonadClassesOn B PK WR SP)
+  (Import SC : SymbolicMonadClassesOn B PK WR SP AS)
   (Import SYMB : SymbolicMonadsOn B PK WR SK SP UL LSP GS AS SC)
-  (Import RHC : RefinementMonadClassesOn B PK WR SP UL SHC SC).
+  (Import RHC : RefinementMonadClassesOn B PK WR SP UL AS SHC SC).
 
   Import ModalNotations.
   Import LogicalSoundness.

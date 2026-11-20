@@ -32,6 +32,7 @@ From Stdlib Require Import
 From Katamaran Require Import
   Prelude
   Base
+  Syntax.Assertions
   Syntax.Chunks
   Syntax.Predicates
   Symbolic.Propositions
@@ -43,11 +44,17 @@ Import env.notations.
 #[local] Set Implicit Arguments.
 
 Module Type SymbolicMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
-  (Import W : WorldsMixin B P) (Import SP : SymPropOn B P W).
+  (Import W : WorldsMixin B P) (Import SP : SymPropOn B P W)
+  (Import AS : AssertionsOn B P W).
 
   Import ModalNotations.
   Import Erasure.
   #[local] Open Scope modal.
+
+  #[local] Hint Extern 2 (Persistent (WTerm ?σ)) =>
+    refine (@persistent_subst (STerm σ) (@SubstTerm σ)) : typeclass_instances.
+  #[local] Hint Extern 2 (Persistent (fun w : World => NamedEnv (Term (wctx w)) ?Γ)) =>
+    refine (@persistent_subst (fun Σ : LCtx => NamedEnv (Term Σ) Γ) _) : typeclass_instances.
 
   Definition seval_exps {Γ Σ N} (δ : SStore Γ Σ) {Δ} :
     NamedEnv (X := N) (Exp Γ) Δ -> NamedEnv (Term Σ) Δ
@@ -463,6 +470,168 @@ Module Type SymbolicMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
                right associativity).
       Notation "x ⟨ θ ⟩" := (persist x θ).
     End notations.
+
+    (* Operations that are derived from the interface. *)
+    Section Derived.
+
+    Context {M} {sm : SHeapSpecM M}.
+
+    Definition angelic_ctx {N : Set} (n : N -> LVar) :
+      ⊢ ∀ Δ : NCtx N Ty, M (fun w => NamedEnv (Term w) Δ) :=
+      fix rec {w} Δ {struct Δ} :=
+        match Δ with
+        | []%ctx => pure []%env
+        | Γ ▻ x∷σ =>
+            bind (rec Γ) (fun w1 _ (tΔ : NamedEnv (Term w1) Γ) =>
+            bind (angelic (Some (n x)) σ) (fun w2 ω2 (tσ : Term w2 σ) =>
+            pure (A := fun w => NamedEnv (Term w) (Γ ▻ x∷σ))
+              (env.snoc (persist (A := fun w => NamedEnv (Term w) Γ) tΔ ω2) (x∷σ) tσ)))
+        end.
+
+    Definition demonic_ctx {N : Set} (n : N -> LVar) :
+      ⊢ ∀ Δ : NCtx N Ty, M (fun w => NamedEnv (Term w) Δ) :=
+      fix rec {w} Δ {struct Δ} :=
+        match Δ with
+        | []%ctx => pure []%env
+        | Γ ▻ x∷σ =>
+            bind (rec Γ) (fun w1 _ (tΔ : NamedEnv (Term w1) Γ) =>
+            bind (demonic (Some (n x)) σ) (fun w2 ω2 (tσ : Term w2 σ) =>
+            pure (A := fun w => NamedEnv (Term w) (Γ ▻ x∷σ))
+              (env.snoc (persist (A := fun w => NamedEnv (Term w) Γ) tΔ ω2) (x∷σ) tσ)))
+        end.
+
+    #[local] Arguments angelic_ctx {N} n [w] Δ : rename.
+    #[local] Arguments demonic_ctx {N} n [w] Δ : rename.
+
+    Equations(noeqns) assert_eq_nenv {N} :
+      let E Δ := fun w : World => NamedEnv (Term w) Δ in
+      ⊢ ∀ Δ : NCtx N Ty, AMessage -> E Δ -> E Δ -> M Unit :=
+    assert_eq_nenv msg env.nil          env.nil            := pure tt;
+    assert_eq_nenv msg (env.snoc δ _ t) (env.snoc δ' _ t') :=
+      ⟨ θ ⟩ _ <- assert_eq_nenv msg δ δ' ;;
+      assert_formula (fun _ => persist msg θ) (formula_relop bop.eq t t')⟨θ⟩.
+
+    Definition produce :
+      forall {Σ} (asn : Assertion Σ), ⊢ Sub Σ -> M Unit :=
+    fix produce {Σ} asn {w} ζ :=
+      match asn with
+      | asn.formula fml =>
+          assume_formula (subst fml ζ)
+      | asn.chunk c =>
+          produce_chunk (subst c ζ)
+      | asn.chunk_angelic c =>
+          produce_chunk (subst c ζ)
+      | asn.pattern_match s pat rhs =>
+          ⟨ θ ⟩ '(existT pc δpc) <- demonic_pattern_match id pat (subst s ζ) ;;
+          produce (rhs pc) (persist ζ θ ►► δpc)
+      | asn.sep a1 a2 =>
+          ⟨ θ ⟩ _ <- produce a1 ζ ;;
+          produce a2 (persist ζ θ)
+      | asn.or a1 a2 =>
+          demonic_binary (produce a1 ζ) (produce a2 ζ)
+      | asn.exist ς τ a =>
+          ⟨ θ ⟩ t <- demonic (Some ς) τ ;;
+          produce a (env.snoc (persist ζ θ) (ς∷τ) t)
+      | asn.debug =>
+          debug
+            (fun h1 =>
+               amsg.mk
+                 {| debug_asn_pathcondition := wco _;
+                    debug_asn_heap := h1;
+                 |})
+            (pure tt)
+      end.
+
+    Definition consume :
+      forall {Σ} (asn : Assertion Σ), ⊢ Sub Σ -> M Unit :=
+    fix consume {Σ} asn {w} ζ :=
+      match asn with
+      | asn.formula fml =>
+          let fml := subst fml ζ in
+          assert_formula
+            (fun h =>
+               amsg.mk
+                 {| debug_assert_formula_pathcondition := wco _;
+                    debug_assert_formula_heap          := h;
+                    debug_assert_formula_formula       := fml;
+                 |})
+            fml
+      | asn.chunk c =>
+          consume_chunk (subst c ζ)
+      | asn.chunk_angelic c =>
+          consume_chunk_angelic (subst c ζ)
+      | asn.pattern_match s pat rhs =>
+          ⟨ θ ⟩ '(existT pc δpc) <-
+            angelic_pattern_match id pat
+              (fun _ =>
+                 amsg.mk
+                   {| debug_string_pathcondition := wco w;
+                      debug_string_message       :=
+                       "SHeapSpec.consume.pattern_match";
+                   |})
+              (subst s ζ) ;;
+          consume (rhs pc) (persist ζ θ ►► δpc)
+      | asn.sep a1 a2 =>
+          ⟨ θ ⟩ _ <- consume a1 ζ ;;
+          consume a2 (persist ζ θ)
+      | asn.or a1 a2 =>
+          angelic_binary (consume a1 ζ) (consume a2 ζ)
+      | asn.exist ς τ a =>
+          ⟨ θ ⟩ t <- angelic (Some ς) τ ;;
+          consume a (env.snoc (persist ζ θ) (ς∷τ) t)
+      | asn.debug =>
+          debug
+            (fun h1 =>
+               amsg.mk
+                 {| debug_asn_pathcondition := wco _;
+                    debug_asn_heap := h1;
+                 |})
+            (pure tt)
+      end.
+
+    Definition call_contract {Δ τ} (c : SepContract Δ τ) :
+      ⊢ SStore Δ -> M (STerm τ) :=
+      fun w0 args =>
+        match c with
+        | MkSepContract _ _ Σe δe req result ens =>
+            ⟨ θ1 ⟩ evars <- angelic_ctx id Σe ;;
+            ⟨ θ2 ⟩ _     <-
+              assert_eq_nenv
+                (amsg.mk
+                   {| debug_string_pathcondition := wco w0;
+                      debug_string_message       := "SHeapSpec.call_contract";
+                   |})
+                (subst δe evars) args⟨θ1⟩ ;;
+            let evars2 := persist (A := Sub _) evars θ2 in
+            ⟨ θ3 ⟩ _     <- consume req evars2 ;;
+            ⟨ θ4 ⟩ res   <- demonic (Some result) τ ;;
+            let evars4 := persist (A := Sub _) evars2 (θ3 ∘ θ4) in
+            ⟨ θ5 ⟩ _     <- produce ens (sub_snoc evars4 (result∷τ) res) ;;
+            pure res⟨θ5⟩
+        end.
+
+    Definition call_lemma {Δ} (lem : Lemma Δ) :
+      ⊢ SStore Δ -> M Unit :=
+      fun w0 args =>
+        match lem with
+        | MkLemma _ Σe δe req ens =>
+            ⟨ θ1 ⟩ evars <- angelic_ctx id Σe ;;
+            ⟨ θ2 ⟩ _     <-
+              assert_eq_nenv
+                (amsg.mk
+                   {| debug_string_pathcondition := wco w0;
+                      debug_string_message       := "SHeapSpec.call_lemma";
+                   |})
+                (subst δe evars) args⟨θ1⟩ ;;
+            let evars2 := persist (A := Sub _) evars θ2 in
+            ⟨ θ3 ⟩ _     <- consume req evars2 ;;
+            let evars3 := persist (A := Sub _) evars2 θ3 in
+            produce ens evars3
+        end.
+
+    End Derived.
+    #[global] Arguments angelic_ctx {M _ N} n [w] Δ : rename.
+    #[global] Arguments demonic_ctx {M _ N} n [w] Δ : rename.
 
   End SHeapSpecM.
   Export SHeapSpecM (SHeapSpecM).
