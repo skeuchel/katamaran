@@ -106,6 +106,12 @@ Section Util.
 
   Lemma plusNatPos_of_succ_nat {n m} : plusNatPos n (Pos.of_succ_nat m) = Pos.of_succ_nat (n + m).
   Proof. induction n; cbn; now f_equal. Qed.
+
+  Lemma jump_nil {A} (p : positive) : BinList.jump p (@nil A) = nil.
+  Proof. induction p; cbn; now rewrite ?IHp. Qed.
+
+  Lemma nth_nil {A} {def : A} (p : positive) : BinList.nth def p nil = def.
+  Proof. induction p; cbn; now rewrite ?jump_nil. Qed.
 End Util.
 
 Module Type PartialEvaluationOn (Import B : Base).
@@ -1150,15 +1156,104 @@ Module Type PartialEvaluationOn (Import B : Base).
         (fun c => term_val σ (tmr_of_Z c))
         get_signZ.
 
+    (* Quoting numbers atoms in the order it meets them. We sort them by a
+       syntactic key, so that the normal form does not depend on that order. The
+       key ignores values and operator parameters, which may be open. *)
+    Definition binop_tag {σ1 σ2 σ3} (op : BinOp σ1 σ2 σ3) : nat :=
+      match op with
+      | bop.plus => 0 | bop.minus => 1 | bop.times => 2 | bop.land => 3
+      | bop.and => 4 | bop.or => 5 | bop.pair => 6 | bop.cons => 7
+      | bop.append => 8 | bop.shiftr => 9 | bop.shiftl => 10 | bop.bvadd => 11
+      | bop.bvsub => 12 | bop.bvmul => 13 | bop.bvand => 14 | bop.bvor => 15
+      | bop.bvxor => 16 | bop.bvapp => 17 | bop.bvcons => 18
+      | bop.update_vector_subrange _ _ => 19 | bop.relop _ => 20
+      end.
+
+    Definition unop_tag {σ1 σ2} (op : UnOp σ1 σ2) : nat :=
+      match op with
+      | uop.inl => 0 | uop.inr => 1 | uop.neg => 2 | uop.not => 3 | uop.rev => 4
+      | uop.sext => 5 | uop.zext => 6 | uop.get_slice_int => 7 | uop.signed => 8
+      | uop.unsigned => 9 | uop.truncate _ => 10 | uop.vector_subrange _ _ => 11
+      | uop.bvnot => 12 | uop.bvdrop _ => 13 | uop.bvtake _ => 14 | uop.negate => 15
+      end.
+
+    (* Preorder serialisation of t in front of k; older variables come first. *)
+    Fixpoint term_key {σ} (t : Term Σ σ) (k : list nat) : list nat :=
+      match t with
+      | @term_var _ _ _ xIn => 0 :: Nat.sub (ctx.length Σ) (ctx.in_at xIn) :: k
+      | term_val _ _        => 1 :: k
+      | term_binop op t1 t2 => 2 :: binop_tag op :: term_key t1 (term_key t2 k)
+      | term_unop op t      => 3 :: unop_tag op :: term_key t k
+      | term_tuple _        => 4 :: k
+      | term_union _ _ t    => 5 :: term_key t k
+      | term_record _ _     => 6 :: k
+      end%list.
+
+    Fixpoint key_leb (k1 k2 : list nat) : bool :=
+      match k1 , k2 with
+      | nil       , _         => true
+      | cons _ _  , nil       => false
+      | cons n1 k1, cons n2 k2 =>
+          match Nat.compare n1 n2 with
+          | Lt => true
+          | Eq => key_leb k1 k2
+          | Gt => false
+          end
+      end.
+
+    Fixpoint atom_insert {A} (x : list nat * A) (l : list (list nat * A)) : list (list nat * A) :=
+      match l with
+      | nil      => cons x nil
+      | cons y l' => if key_leb (fst x) (fst y) then cons x l else cons y (atom_insert x l')
+      end.
+
+    (* Atoms sorted by key, each with its index in ts. *)
+    Definition sort_atoms {σ} (ts : list (Term Σ σ)) : list (list nat * (nat * Term Σ σ)) :=
+      fold_right atom_insert nil (list_monad.list.imap (fun i t => (term_key t nil, (i, t))) ts).
+
+    (* The new variable of each old one, from index i on. *)
+    Fixpoint atoms_renaming {A} (s : list (list nat * (nat * A))) (i : nat) (ts : list A) :
+      option (list (PExpr Z)) :=
+      match ts with
+      | nil => Some nil
+      | cons _ ts =>
+          match find_index (fun x => Nat.eqb (fst (snd x)) i) s , atoms_renaming s (S i) ts with
+          | Some j , Some r => Some (cons (PEX Z (Pos.of_succ_nat j)) r)
+          | _      , _      => None
+          end
+      end.
+
+    Fixpoint PExpr_rename (r : list (PExpr Z)) (p : PExpr Z) : PExpr Z :=
+      match p with
+      | PEX _ i     => BinList.nth PEO i r
+      | PEadd p1 p2 => PEadd (PExpr_rename r p1) (PExpr_rename r p2)
+      | PEsub p1 p2 => PEsub (PExpr_rename r p1) (PExpr_rename r p2)
+      | PEmul p1 p2 => PEmul (PExpr_rename r p1) (PExpr_rename r p2)
+      | PEopp p1    => PEopp (PExpr_rename r p1)
+      | PEpow p1 n  => PEpow (PExpr_rename r p1) n
+      | p           => p
+      end.
+
+    Definition sort_quoted {σ} (q : PExpr Z * list (Term Σ σ)) : PExpr Z * list (Term Σ σ) :=
+      match q with
+      | (_ , nil) | (_ , cons _ nil) => q
+      | (p , ts) =>
+          let s := sort_atoms ts in
+          match atoms_renaming s 0 ts with
+          | Some r => (PExpr_rename r p , base.fmap (fun x => snd (snd x)) s)
+          | None   => q
+          end
+      end.
+
     Definition CanonTerm_to_Term {σ} : CanonTerm σ -> Term Σ σ :=
       match σ return CanonTerm σ -> Term Σ σ with
       | ty.bvec n => fun ct =>
-                       match ct nil 1%positive with
+                       match sort_quoted (ct nil 1%positive) with
                        | (pexpr , env) =>
                            evalPolTm (H := TermRing_bv) env (norm_aux 0%Z 1%Z Z.add Z.mul Z.sub Z.opp Z.eqb pexpr)
                        end
       | ty.int => fun ct =>
-                    match ct nil 1%positive with
+                    match sort_quoted (ct nil 1%positive) with
                     | (pexpr , env) =>
                         evalPolTm env (norm_aux 0%Z 1%Z Z.add Z.mul Z.sub Z.opp Z.eqb pexpr)
                     end
@@ -1346,12 +1441,79 @@ Module Type PartialEvaluationOn (Import B : Base).
         now apply proper_term_binop.
     Qed.
 
+    Lemma atom_insert_Forall {A} (P : list nat * A -> Prop) x l :
+      P x -> Forall P l -> Forall P (atom_insert x l).
+    Proof.
+      intros Hx Hl. induction Hl; cbn; first now constructor.
+      destruct key_leb; repeat (constructor; auto).
+    Qed.
+
+    Lemma sort_atoms_Forall {σ} (ts : list (Term Σ σ)) :
+      Forall (fun x => ts !! fst (snd x) = Some (snd (snd x))) (sort_atoms ts).
+    Proof.
+      unfold sort_atoms.
+      assert (Forall (fun x => ts !! fst (snd x) = Some (snd (snd x)))
+                (list_monad.list.imap (fun i t => (term_key t nil, (i, t))) ts)) as Hl.
+      { apply list_relations.list.Forall_lookup. intros i x.
+        rewrite list_monad.list.list_lookup_imap. destruct (ts !! i) eqn:?; cbn; [now intros [= <-]|discriminate]. }
+      induction Hl; cbn; first constructor.
+      now apply atom_insert_Forall.
+    Qed.
+
+    Lemma atoms_renaming_sound `{TermRing σ} (s : list (list nat * (nat * Term Σ σ))) pre ts r :
+      Forall (fun x => (pre ++ ts) !! fst (snd x) = Some (snd (snd x))) s ->
+      atoms_renaming s (length pre) ts = Some r ->
+      Forall2 (fun t e => evalPExprTm (base.fmap (fun x => snd (snd x)) s) e = t) ts r.
+    Proof.
+      revert pre r. induction ts as [|t ts IH]; intros pre r Hs; cbn.
+      - intros [= <-]. constructor.
+      - destruct (find_index_spec (fun x => Nat.eqb (fst (snd x)) (length pre)) s)
+          as [j Hj|]; [|discriminate].
+        specialize (IH (pre ++ cons t nil)%list).
+        rewrite length_app, Nat.add_comm in IH. cbn in IH.
+        destruct atoms_renaming as [r'|]; [|discriminate].
+        intros [= <-]. constructor.
+        + destruct (s !! j) as [x|] eqn:Hx; [|now inversion Hj].
+          inversion Hj as [? Hj']; clear Hj.
+          destruct (Nat.eqb_spec (fst (snd x)) (length pre)) as [Hi|]; [|contradiction].
+          rewrite list_relations.list.Forall_lookup in Hs. specialize (Hs j x Hx).
+          rewrite Hi, list_basics.list.list_lookup_middle in Hs; last easy. injection Hs as ->.
+          unfold evalPExprTm, PEeval.
+          rewrite <-(app_nil_r (base.fmap _ s)).
+          apply nth_lookup. now rewrite list_monad.list.list_lookup_fmap, Hx.
+        + apply IH; last easy. now rewrite <-app_assoc.
+    Qed.
+
+    Lemma PExpr_rename_sound `{TermRing σ} (env env' : list (Term Σ σ)) r p :
+      Forall2 (fun t e => evalPExprTm env' e = t) env r ->
+      evalPExprTm env' (PExpr_rename r p) = evalPExprTm env p.
+    Proof.
+      intros Hr. induction p; cbn [PExpr_rename]; unfold evalPExprTm in *;
+        cbn [PEeval]; try congruence.
+      revert p. induction Hr as [|t e env r He Hr IH]; intros p.
+      - now rewrite !nth_nil.
+      - destruct p using Pos.peano_case; first easy.
+        now rewrite !nth_succ.
+    Qed.
+
+    Lemma sort_quoted_sound `{TermRing σ} (q : PExpr Z * list (Term Σ σ)) :
+      evalPExprTm (snd (sort_quoted q)) (fst (sort_quoted q)) = evalPExprTm (snd q) (fst q).
+    Proof.
+      destruct q as [p [|t1 [|t2 ts]]]; try easy.
+      unfold sort_quoted. destruct atoms_renaming eqn:Hr; try easy.
+      apply PExpr_rename_sound.
+      apply (atoms_renaming_sound nil) in Hr; first easy.
+      apply sort_atoms_Forall.
+    Qed.
+
     Lemma CanonTermRep_adeq {σ : Ty} {ct : CanonTerm σ} {t} : CanonTermRep ct t -> CanonTerm_to_Term ct ≡ t.
     Proof.
       destruct σ; intros; cbn; try trivial;
         specialize (H []%list 1%positive);
-        destruct (ct []%list 1%positive);
-        rewrite evalPol_norm_aux;
+        destruct (ct []%list 1%positive) as [p ts];
+        generalize (sort_quoted_sound (p , ts));
+        destruct (sort_quoted (p , ts)); cbn; intros Hs;
+        rewrite evalPol_norm_aux, Hs;
         now rewrite <-(H eq_refl nil), app_nil_r.
     Qed.
 
