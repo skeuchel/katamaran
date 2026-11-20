@@ -102,6 +102,14 @@ Proof. intros. lia_simplex. Qed.
 Goal forall x y : Z, 1 <= 2 * x + 3 * y <= 1 -> 0 <= x -> 0 <= y -> False.
 Proof. intros. lia_simplex_auto. Qed.
 
+(* Equalities without integer solutions, which branching cannot refute. *)
+
+Goal forall x y z w : Z, x + 2 * y = 3 * z + 1 -> 2 * x + 4 * y = 6 * w -> False.
+Proof. intros. lia_simplex. Qed.
+
+Goal forall x y z : Z, 0 <= z -> 6 * x + 10 * y + 15 * z = 1 -> 2 * x + 5 * z = 6 -> False.
+Proof. intros. lia_simplex. Qed.
+
 (* Not supported: the non-linear preprocessing of [lia]. *)
 
 Goal forall x y : Z, x = 2 -> x * y >= 2 * y.
