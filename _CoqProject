@@ -100,6 +100,7 @@ theories/MicroSail/SymbolicExecutor.v
 theories/Notations.v
 theories/Prelude.v
 theories/Program.v
+theories/Refinement/MonadClasses.v
 theories/Refinement/Monads.v
 theories/Semantics.v
 theories/Semantics/Registers.v

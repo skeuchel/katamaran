@@ -31,7 +31,11 @@ From Stdlib Require Import
   Classes.Morphisms
   Relations.Relation_Definitions.
 From Katamaran Require Import
-  Prelude.
+  Prelude
+  Base
+  Syntax.Chunks
+  Syntax.Predicates
+  Symbolic.Worlds.
 
 Import SignatureNotations.
 
@@ -64,3 +68,102 @@ Proof. intros pf ? ? <-. apply pf. Qed.
   destruct p : monotonic.
 #[export] Hint Extern 1 (Proper _ (match ?p with left _ => _ | right _ => _ end)) =>
   destruct p : monotonic.
+
+Module Type ShallowMonadClassesOn (Import B : Base) (Import P : PredicateKit B)
+  (Import W : WorldsMixin B P).
+
+  (* Interface of monads with the verification effects and a heap. *)
+  Module CHeapSpecM.
+
+    Class CHeapSpecM (M : Type -> Type) : Type :=
+      { pure {A} : A -> M A;
+        bind {A B} : M A -> (A -> M B) -> M B;
+        error {A} : M A;
+        block {A} : M A;
+        angelic (σ : Ty) : M (Val σ);
+        demonic (σ : Ty) : M (Val σ);
+        angelic_binary {A} : M A -> M A -> M A;
+        demonic_binary {A} : M A -> M A -> M A;
+        assert_formula : Prop -> M unit;
+        assume_formula : Prop -> M unit;
+        angelic_pattern_match {N : Set} {σ} (pat : Pattern (N:=N) σ) :
+          Val σ -> M (MatchResult pat);
+        demonic_pattern_match {N : Set} {σ} (pat : Pattern (N:=N) σ) :
+          Val σ -> M (MatchResult pat);
+        debug {A} : M A -> M A;
+        produce_chunk : SCChunk -> M unit;
+        consume_chunk : SCChunk -> M unit;
+        read_register {τ} (reg : 𝑹𝑬𝑮 τ) : M (Val τ);
+        write_register {τ} (reg : 𝑹𝑬𝑮 τ) : Val τ -> M (Val τ);
+      }.
+    #[global] Arguments pure {M _ A} a.
+    #[global] Arguments bind {M _ A B} m f.
+    #[global] Arguments error {M _ A}.
+    #[global] Arguments block {M _ A}.
+    #[global] Arguments angelic {M _} σ.
+    #[global] Arguments demonic {M _} σ.
+    #[global] Arguments angelic_binary {M _ A} m1 m2.
+    #[global] Arguments demonic_binary {M _ A} m1 m2.
+    #[global] Arguments assert_formula {M _} fml.
+    #[global] Arguments assume_formula {M _} fml.
+    #[global] Arguments angelic_pattern_match {M _ N σ} pat v.
+    #[global] Arguments demonic_pattern_match {M _ N σ} pat v.
+    #[global] Arguments debug {M _ A} m.
+    #[global] Arguments produce_chunk {M _} c.
+    #[global] Arguments consume_chunk {M _} c.
+    #[global] Arguments read_register {M _ τ} reg.
+    #[global] Arguments write_register {M _ τ} reg v.
+
+    Module Import notations.
+      Notation "' x <- ma ;; mb" :=
+        (bind ma (fun x => mb))
+          (at level 20, x pattern, ma at next level, mb at level 200, right associativity,
+             format "' x  <-  ma  ;;  mb").
+      Notation "x <- ma ;; mb" :=
+        (bind ma (fun x => mb))
+          (at level 20, ma at next level, mb at level 200, right associativity).
+      Notation "ma ;; mb" := (bind ma (fun _ => mb)).
+    End notations.
+
+  End CHeapSpecM.
+  Export CHeapSpecM (CHeapSpecM).
+
+  (* Monotonicity of the operations of a [CHeapSpecM] monad, with respect to a
+     lifting [RM] of relations on results to relations on computations. *)
+  Module MHeapSpecM.
+
+    Import CHeapSpecM.
+
+    Class MHeapSpecM M {cm : CHeapSpecM M} (RM : forall {A}, relation A -> relation (M A)) :
+      Prop :=
+      { mon_pure {A} {MA : relation A} :: Proper (MA ==> RM MA) pure;
+        mon_bind {A B} {MA : relation A} {MB : relation B} ::
+          Proper (RM MA ==> (MA ==> RM MB) ==> RM MB) bind;
+        mon_error {A} {MA : relation A} :: Proper (RM MA) error;
+        mon_block {A} {MA : relation A} :: Proper (RM MA) block;
+        mon_angelic σ :: Proper (RM eq) (angelic σ);
+        mon_demonic σ :: Proper (RM eq) (demonic σ);
+        mon_angelic_binary {A} {MA : relation A} ::
+          Proper (RM MA ==> RM MA ==> RM MA) angelic_binary;
+        mon_demonic_binary {A} {MA : relation A} ::
+          Proper (RM MA ==> RM MA ==> RM MA) demonic_binary;
+        mon_assert_formula fml :: Proper (RM eq) (assert_formula fml);
+        mon_assume_formula fml :: Proper (RM eq) (assume_formula fml);
+        mon_angelic_pattern_match {N : Set} {σ} (pat : Pattern (N:=N) σ) v ::
+          Proper (RM eq) (angelic_pattern_match pat v);
+        mon_demonic_pattern_match {N : Set} {σ} (pat : Pattern (N:=N) σ) v ::
+          Proper (RM eq) (demonic_pattern_match pat v);
+        mon_debug {A} {MA : relation A} :: Proper (RM MA ==> RM MA) debug;
+        mon_produce_chunk c :: Proper (RM eq) (produce_chunk c);
+        mon_consume_chunk c :: Proper (RM eq) (consume_chunk c);
+        mon_read_register {τ} (reg : 𝑹𝑬𝑮 τ) :: Proper (RM eq) (read_register reg);
+        mon_write_register {τ} (reg : 𝑹𝑬𝑮 τ) v ::
+          Proper (RM eq) (write_register reg v);
+      }.
+    #[global] Arguments MHeapSpecM M {cm} RM.
+
+  End MHeapSpecM.
+  Export MHeapSpecM (MHeapSpecM).
+  Export (hints) MHeapSpecM.
+
+End ShallowMonadClassesOn.
