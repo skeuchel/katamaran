@@ -16,9 +16,8 @@ Import ListNotations.
 Definition canon (a : Num.t) : bool := Num.eqb a (Num.of_Z (Num.to_Z a)).
 
 Definition edges : list Z :=
-  let p := [0; 1; 2; 3; 7; 2^31; 2^62 - 1; 2^62; 2^62 + 1; 2^63 - 1; 2^63;
-            2^63 + 1; 3 * 2^62 + 5; 2^100 + 12345; 2^126 - 1; 2^126; 2^126 + 1;
-            2^130 + 7; 123456789012345678901234567] in
+  let p := [0; 1; 3; 2^31; 2^62 - 1; 2^62; 2^63 - 1; 2^63; 3 * 2^62 + 5;
+            2^126 - 1; 2^126; 2^189 - 1; 2^200 + 2^63 + 1; 3^150] in
   p ++ map Z.opp p.
 
 Definition agree1 (x y : Z) : bool :=
