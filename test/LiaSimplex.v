@@ -1,11 +1,11 @@
-(* Tests for the oracle of Staging/LiaSimplex.v. *)
+(* Tests for the oracle of Symbolic/LiaSimplex.v. *)
 
 From Stdlib Require Import List ZArith QArith Lia.
 From Stdlib Require PrimInt63.
 Import (notations) PrimInt63.
 From Stdlib.micromega Require Import EnvRing RingMicromega Tauto ZMicromega.
 From Katamaran Require Staging.LiaOracle.
-From Katamaran Require Import Staging.LiaSimplex.
+From Katamaran Require Import Symbolic.LiaSimplex.
 
 Import ListNotations.
 #[local] Open Scope Z_scope.
