@@ -322,6 +322,13 @@ Module Num.
     | _, _ => of_Z (Z.quot (to_Z a) (to_Z b))
     end.
 
+  (** Rounded towards 0. *)
+  Definition quot (a b : t) : t :=
+    match a, b with
+    | Sm x, Sm y => Sm (PrimInt63.divs x y)
+    | _, _ => of_Z (Z.quot (to_Z a) (to_Z b))
+    end.
+
   (** Rounded down, for [b > 0]. *)
   Definition fdiv (a b : t) : t :=
     match a, b with
@@ -975,6 +982,124 @@ Definition proof (mons : array (list positive)) (t : tree) : ZArithProof :=
          cuts (O, fun p => p))
     (tree_proof mons cuts ncuts O t).
 
+(** * Integer solutions of the equalities
+
+    The equalities alone may have no integer solution, which branching cannot
+    show. Integer elimination, as in the omega test, finds an integer
+    combination of them whose coefficients have a gcd that does not divide its
+    constant. Every row [co * x = b] is the combination [comb] of hypotheses.
+    Column operations, [x_k -= q * x_j] in every row, change the variables but
+    not that gcd: they reduce a row to a single variable [a * x_k = b], which
+    has a solution only if [a] divides [b], and then [x_k] is eliminated. *)
+
+Record drow : Type := DRow { dco : vec; db : num; dcomb : vec }.
+
+(** Add [d] to the coefficient of [x] in [v]. *)
+Fixpoint vadd1 (x : int) (d : num) (v : vec) : vec :=
+  match v with
+  | [] => [(x, d)]
+  | (y, a) :: v' =>
+      if PrimInt63.ltb x y then (x, d) :: v
+      else if PrimInt63.eqb x y then
+        let a := Num.add a d in if Num.is_zero a then v' else (x, a) :: v'
+      else (y, a) :: vadd1 x d v'
+  end.
+
+(** Column [k] minus [q] times column [j], in every row. *)
+Definition colop (j k : int) (q : num) (rs : list drow) : list drow :=
+  map (fun r =>
+         let a := vget j (dco r) in
+         if Num.is_zero a then r
+         else DRow (vadd1 k (Num.opp (Num.mul q a)) (dco r)) (db r) (dcomb r))
+    rs.
+
+(** A coefficient of [v] of least absolute value. *)
+Definition min_abs (v : vec) : int * num :=
+  match v with
+  | [] => (0%uint63, Num.zero)
+  | ja :: v =>
+      fold_left (fun '(j, a) '(k, b) => if Num.ltb (Num.abs b) (Num.abs a) then (k, b) else (j, a))
+        v ja
+  end.
+
+(** Reduce the first row to a single variable. *)
+Fixpoint reduce (fuel : nat) (rs : list drow) : list drow :=
+  match fuel, rs with
+  | S fuel, p :: _ =>
+      match dco p with
+      | _ :: _ :: _ =>
+          let '(j, aj) := min_abs (dco p) in
+          reduce fuel
+            (fold_left
+               (fun rs '(k, ak) =>
+                  if PrimInt63.eqb k j then rs else colop j k (Num.quot ak aj) rs)
+               (dco p) rs)
+      | _ => rs
+      end
+  | _, _ => rs
+  end.
+
+Definition dnorm (r : drow) : drow :=
+  let g := vgcd (vgcd (Num.gcd (db r) Num.zero) (dco r)) (dcomb r) in
+  if Num.is_one g || Num.is_zero g then r
+  else DRow (vdiv g (dco r)) (Num.divexact (db r) g) (vdiv g (dcomb r)).
+
+(** Eliminate [x_k] from [r] with [p], which is [a * x_k = b]. *)
+Definition elim (k : int) (a : num) (p r : drow) : drow :=
+  let rk := vget k (dco r) in
+  if Num.is_zero rk then r
+  else
+    let g := Num.gcd a rk in
+    let s := Num.divexact a g in
+    let t := Num.opp (Num.divexact rk g) in
+    dnorm (DRow (vcomb 9223372036854775807%uint63 t s (dco p) (dco r))
+             (Num.add (Num.mul s (db r)) (Num.mul t (db p)))
+             (vcomb 9223372036854775807%uint63 t s (dcomb p) (dcomb r))).
+
+(** The combination of the equalities [comb]. *)
+Definition dcert (comb : vec) : Psatz Z :=
+  fold_left
+    (fun w '(i, a) =>
+       let t := PsatzMulC (Pc (Num.to_Z a)) (PsatzIn Z (Z.to_nat (Num.z_of_int i))) in
+       match w with PsatzZ _ => t | _ => PsatzAdd t w end)
+    comb (PsatzZ Z).
+
+(** A refutation, if the equalities [rs] have no integer solution. *)
+Fixpoint dioph (fuel : nat) (rs : list drow) : option ZArithProof :=
+  match fuel, rs with
+  | S fuel, p :: rs =>
+      match dco p with
+      | [] =>
+          if Num.is_zero (db p) then dioph fuel rs
+          else Some (RatProof (dcert (dcomb p)) DoneProof)
+      | _ =>
+          match reduce 1000 (p :: rs) with
+          | p :: rs =>
+              match dco p with
+              | [(k, a)] =>
+                  if Num.divides a (db p) then dioph fuel (map (elim k a p) rs)
+                  else Some (CutProof (dcert (dcomb p)) DoneProof)
+              | _ => None
+              end
+          | [] => None
+          end
+      end
+  | _, _ => None
+  end.
+
+Fixpoint int_of_nat (n : nat) : int :=
+  match n with O => 0%uint63 | S n => PrimInt63.add (int_of_nat n) 1%uint63 end.
+
+Definition equalities (hs : list lhyp) : list drow :=
+  fold_right
+    (fun h rs =>
+       match hop h, hvec h with
+       | Equal, _ :: _ =>
+           DRow (hvec h) (Num.opp (hcst h)) [(int_of_nat (hidx h), Num.one)] :: rs
+       | _, _ => rs
+       end)
+    [] hs.
+
 (** * The oracle *)
 
 Record params : Set := Params { depth : nat; budget : nat }.
@@ -999,6 +1124,10 @@ Definition solve (ps : params) (l : list (NFormula Z)) : answer :=
   match fold_left (fun acc h => prep_hyp h acc) hs (Bounds [] [] n) with
   | Trivial pf => Proof pf
   | Bounds bs sl next =>
+      let eqs := equalities hs in
+      match dioph (S (length eqs)) eqs with
+      | Some pf => Proof pf
+      | None =>
       let monos := array_of_list (PArray.make n []) 0%uint63 (rev (mlist ms)) in
       match initial n next bs (rev sl) with
       | inr c => Proof (proof monos (Leaf c))
@@ -1008,6 +1137,7 @@ Definition solve (ps : params) (l : list (NFormula Z)) : answer :=
           | Model st => Sat n st (rev (mlist ms))
           | GaveUp => Unknown
           end
+      end
       end
   end.
 
