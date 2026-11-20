@@ -45,6 +45,7 @@ case_study/RiscvPmp/IrisInstanceBinary.v
 case_study/RiscvPmp/ModelBinary.v
 case_study/RiscvPmp/LoopVerification.v
 case_study/RiscvPmp/LoopVerificationBinary.v
+case_study/RiscvPmp/Lifting/Dominators.v
 case_study/RiscvPmp/BlockVer/Examples.v
 case_study/RiscvPmp/BlockVer/Spec.v
 case_study/RiscvPmp/BlockVer/PartialVerifier.v
@@ -78,6 +79,7 @@ test/SumMaxLen.v
 test/Replay.v
 test/Reification.v
 test/ContractNotations.v
+test/DominatorTree.v
 theories/Base.v
 theories/Bitvector.v
 theories/Context.v
