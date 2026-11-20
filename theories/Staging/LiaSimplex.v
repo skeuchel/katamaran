@@ -40,18 +40,16 @@ Import ListNotations.
 
 Module Num.
 
-  (** Three tiers, each used only for numbers too large for the previous one:
+  (** Two tiers:
       - [Sm i]: [|i| < 2^62], so [i <> min_int] and negation cannot overflow.
-      - [Md neg h l]: [(-1)^neg * (h * 2^63 + l)] for [2^62 <= h * 2^63 + l <
-        2^126], [h] and [l] unsigned. Products of two [Sm] are [Md] ([mulc]),
-        and gcds and exact divisions by an [Sm] stay primitive ([diveucl_21]).
-      - [Bg z] otherwise.
-      Fraction-free rows need the middle tier: their entries are determinants,
-      and their updates multiply two of them. *)
+      - [Bg neg m]: [(-1)^neg * m] for [m >= 2^62], [m] a list of 63-bit limbs,
+        least significant first, without leading zeros.
+      Fraction-free rows need the second tier to be fast: their entries are
+      determinants, and their updates multiply two of them. [Z] is only used
+      to convert, and for divisions by a number of several limbs. *)
   Variant t : Set :=
   | Sm (i : PrimInt63.int)
-  | Md (neg : bool) (h l : PrimInt63.int)
-  | Bg (z : Z).
+  | Bg (neg : bool) (m : list PrimInt63.int).
 
   #[local] Abbreviation int := PrimInt63.int.
   #[local] Abbreviation ieqb := PrimInt63.eqb.
@@ -62,6 +60,188 @@ Module Num.
   #[local] Open Scope uint63_scope.
 
   Definition min_int : int := Eval vm_compute in PrimInt63.lsl 1 62.
+
+  (** ** Magnitudes: lists of limbs *)
+
+  Fixpoint trim (m : list int) : list int :=
+    match m with
+    | [] => []
+    | x :: m => match trim m with [] => if ieqb x 0 then [] else [x] | m => x :: m end
+    end.
+
+  Fixpoint minc (a : list int) : list int :=
+    match a with
+    | [] => [1]
+    | x :: a =>
+        match PrimInt63.addc x 1 with
+        | CarryType.C0 r => r :: a
+        | CarryType.C1 r => r :: minc a
+        end
+    end.
+
+  (** [a + b + c]. *)
+  Fixpoint madd (c : bool) (a b : list int) : list int :=
+    match a, b with
+    | [], _ => if c then minc b else b
+    | _, [] => if c then minc a else a
+    | x :: a, y :: b =>
+        match (if c then PrimInt63.addcarryc x y else PrimInt63.addc x y) with
+        | CarryType.C0 r => r :: madd false a b
+        | CarryType.C1 r => r :: madd true a b
+        end
+    end.
+
+  (** [a - b - c], for [a >= b + c]; not trimmed. *)
+  Fixpoint msub (c : bool) (a b : list int) : list int :=
+    match a, b with
+    | [], _ => []
+    | x :: a, [] =>
+        if c then
+          match PrimInt63.subc x 1 with
+          | CarryType.C0 r => r :: a
+          | CarryType.C1 r => r :: msub true a []
+          end
+        else x :: a
+    | x :: a, y :: b =>
+        match (if c then PrimInt63.subcarryc x y else PrimInt63.subc x y) with
+        | CarryType.C0 r => r :: msub false a b
+        | CarryType.C1 r => r :: msub true a b
+        end
+    end.
+
+  (** For trimmed [a] and [b]. *)
+  Fixpoint mcmp (a b : list int) : comparison :=
+    match a, b with
+    | [], [] => Eq
+    | [], _ => Lt
+    | _, [] => Gt
+    | x :: a, y :: b => match mcmp a b with Eq => PrimInt63.compare x y | c => c end
+    end.
+
+  (** [a * y + c]. *)
+  Fixpoint mmul1 (c : int) (a : list int) (y : int) : list int :=
+    match a with
+    | [] => if ieqb c 0 then [] else [c]
+    | x :: a =>
+        let '(h, l) := PrimInt63.mulc x y in
+        match PrimInt63.addc l c with
+        | CarryType.C0 r => r :: mmul1 h a y
+        | CarryType.C1 r => r :: mmul1 (iadd h 1) a y
+        end
+    end.
+
+  (** Not trimmed. *)
+  Fixpoint mmul (a b : list int) : list int :=
+    match b with
+    | [] => []
+    | y :: b => madd false (mmul1 0 a y) (0 :: mmul a b)
+    end.
+
+  (** Quotient and remainder of the number with limbs [ra], most significant
+      first, plus [r * 2^(63 * length ra)], by [y > r]. *)
+  Fixpoint mdiv1 (r : int) (ra : list int) (y : int) (acc : list int) : list int * int :=
+    match ra with
+    | [] => (acc, r)
+    | x :: ra =>
+        let '(q, r) := PrimInt63.diveucl_21 r x y in mdiv1 r ra y (q :: acc)
+    end.
+
+  Definition mdivmod1 (a : list int) (y : int) : list int * int :=
+    let '(q, r) := mdiv1 0 (rev a) y [] in (trim q, r).
+
+  (** Shifts by [0 < k < 63] bits. *)
+  Fixpoint mshr (k : int) (a : list int) : list int :=
+    match a with
+    | [] => []
+    | x :: a' =>
+        match a' with
+        | [] => [PrimInt63.lsr x k]
+        | y :: _ => PrimInt63.lor (PrimInt63.lsr x k) (PrimInt63.lsl y (isub 63 k)) :: mshr k a'
+        end
+    end.
+
+  Fixpoint mshl (c k : int) (a : list int) : list int :=
+    match a with
+    | [] => if ieqb c 0 then [] else [c]
+    | x :: a => PrimInt63.lor (PrimInt63.lsl x k) c :: mshl (PrimInt63.lsr x (isub 63 k)) k a
+    end.
+
+  (** Drop the factors 2 of [a <> 0]; also return how many limbs and bits. *)
+  Fixpoint mstrip (a : list int) (limbs : nat) : list int * nat * int :=
+    match a with
+    | [] => ([], limbs, 0)
+    | x :: a' =>
+        if ieqb x 0 then mstrip a' (S limbs)
+        else
+          let k := PrimInt63.tail0 x in
+          (if ieqb k 0 then a else trim (mshr k a), limbs, k)
+    end.
+
+  Definition mstrip' (a : list int) : list int :=
+    let '(a, _, _) := mstrip a O in a.
+
+  (** Binary gcd of odd [a] and [b]; each step removes a bit. *)
+  Fixpoint mgcd_odd (fuel : nat) (a b : list int) : list int :=
+    match fuel with
+    | O => a
+    | S fuel =>
+        match mcmp a b with
+        | Eq => a
+        | Gt => mgcd_odd fuel (mstrip' (trim (msub false a b))) b
+        | Lt => mgcd_odd fuel a (mstrip' (trim (msub false b a)))
+        end
+    end.
+
+  Definition mgcd (a b : list int) : list int :=
+    match a, b with
+    | [], _ => b
+    | _, [] => a
+    | _, _ =>
+        let '(a, la, ka) := mstrip a O in
+        let '(b, lb, kb) := mstrip b O in
+        let g := mgcd_odd (64 * (length a + length b)) a b in
+        let '(l, k) :=
+          if Nat.ltb la lb then (la, ka)
+          else if Nat.ltb lb la then (lb, kb)
+          else (la, if iltb ka kb then ka else kb) in
+        repeat 0 l ++ (if ieqb k 0 then g else mshl 0 k g)
+    end.
+
+  (** [b^-1 mod 2^63] for odd [b]: Newton's iteration doubles the correct
+      bits, from 3. *)
+  Fixpoint minv (n : nat) (b x : int) : int :=
+    match n with
+    | O => x
+    | S n => minv n b (PrimInt63.mul x (isub 2 (PrimInt63.mul b x)))
+    end.
+
+  (** [k] limbs of [a / b] for odd [b] dividing [a], from the least
+      significant one (Jebelean): each is the low limb of the remainder times
+      [inv = b^-1], which clears that limb. *)
+  Fixpoint mdivexact_odd (k : nat) (inv : int) (a b : list int) (acc : list int) :
+    list int :=
+    match k, a with
+    | S k, x :: _ =>
+        let q := PrimInt63.mul x inv in
+        match msub false a (mmul1 0 b q) with
+        | _ :: a => mdivexact_odd k inv a b (q :: acc)
+        | [] => rev (q :: acc)
+        end
+    | _, _ => rev acc
+    end.
+
+  (** [a / b] for [b <> 0] dividing [a]. *)
+  Definition mdivexact (a b : list int) : list int :=
+    let '(b, l, k) := mstrip b O in
+    let a := skipn l a in
+    let a := if ieqb k 0 then a else trim (mshr k a) in
+    match b with
+    | [] => []
+    | b0 :: _ =>
+        trim (mdivexact_odd (S (length a - length b)) (minv 5%nat b0 b0) a b [])
+    end.
+
+  (** ** Conversions *)
 
   (** For [i <> 0], unsigned. *)
   Fixpoint pos_of_int (fuel : nat) (i : int) : positive :=
@@ -87,86 +267,67 @@ Module Num.
     | xI p => PrimInt63.lor (PrimInt63.lsl (int_of_pos p) 1) 1
     end.
 
+  Definition z_of_mag (m : list int) : Z :=
+    fold_right (fun x z => Z.add (Z.mul z 9223372036854775808%Z) (z_of_uint x)) Z0 m.
+
   Definition to_Z (a : t) : Z :=
     match a with
     | Sm i => z_of_int i
-    | Md neg h l =>
-        let z := Z.add (Z.mul (z_of_uint h) 9223372036854775808%Z) (z_of_uint l) in
-        if neg then Z.opp z else z
-    | Bg z => z
+    | Bg neg m => if neg then Z.opp (z_of_mag m) else z_of_mag m
     end.
 
-  Definition of_mag (neg : bool) (p : positive) (z : Z) : t :=
+  (** The limbs of [z > 0], with fuel for [2^(63 * fuel)]. *)
+  Fixpoint mag_of_Z (fuel : nat) (z : Z) : list int :=
+    match fuel with
+    | O => []
+    | S fuel =>
+        let '(q, r) := Z.div_eucl z 9223372036854775808%Z in
+        (match r with Zpos p => int_of_pos p | _ => 0 end)
+          :: match q with Z0 => [] | _ => mag_of_Z fuel q end
+    end.
+
+  Definition of_mag (neg : bool) (p : positive) : t :=
     if Pos.ltb p 4611686018427387904%positive then
       if neg then Sm (isub 0 (int_of_pos p)) else Sm (int_of_pos p)
-    else if Pos.ltb p 85070591730234615865843651857942052864%positive then
-      let '(h, l) := Z.div_eucl (Zpos p) 9223372036854775808%Z in
-      Md neg (match h with Zpos q => int_of_pos q | _ => 0 end)
-        (match l with Zpos q => int_of_pos q | _ => 0 end)
-    else Bg z.
+    else Bg neg (mag_of_Z (Pos.size_nat p) (Zpos p)).
 
   Definition of_Z (z : Z) : t :=
     match z with
     | Z0 => Sm 0
-    | Zpos p => of_mag false p z
-    | Zneg p => of_mag true p z
+    | Zpos p => of_mag false p
+    | Zneg p => of_mag true p
     end.
 
   Definition zero : t := Sm 0.
   Definition one : t := Sm 1.
 
-  (** The number of sign [neg] and magnitude [h * 2^63 + l]. *)
-  Definition mk (neg : bool) (h l : int) : t :=
-    if ieqb h 0 then
-      if iltb l min_int then Sm (if neg then isub 0 l else l) else Md neg 0 l
-    else Md neg h l.
-
-  Definition mag_ltb (h1 l1 h2 l2 : int) : bool :=
-    if iltb h1 h2 then true else if ieqb h1 h2 then iltb l1 l2 else false.
-
-  (** [h1 * 2^63 + l1 - (h2 * 2^63 + l2)], which is not negative, with sign
-      [neg]. *)
-  Definition mag_sub (neg : bool) (h1 l1 h2 l2 : int) : t :=
-    match PrimInt63.subc l1 l2 with
-    | CarryType.C0 l => mk neg (isub h1 h2) l
-    | CarryType.C1 l => mk neg (isub (isub h1 h2) 1) l
+  (** The number of sign [neg] and magnitude [m], trimmed. *)
+  Definition mk (neg : bool) (m : list int) : t :=
+    match m with
+    | [] => Sm 0
+    | [l] => if iltb l min_int then Sm (if neg then isub 0 l else l) else Bg neg m
+    | _ => Bg neg m
     end.
 
-  (** The sum of two numbers given by sign and magnitude, or [None] if it
-      does not fit in [Md]. *)
-  Definition mag_add (n1 : bool) (h1 l1 : int) (n2 : bool) (h2 l2 : int) : option t :=
-    if Bool.eqb n1 n2 then
-      match PrimInt63.addc l1 l2 with
-      | CarryType.C0 l =>
-          match PrimInt63.addc h1 h2 with
-          | CarryType.C0 h => Some (mk n1 h l)
-          | CarryType.C1 _ => None
-          end
-      | CarryType.C1 l =>
-          match PrimInt63.addcarryc h1 h2 with
-          | CarryType.C0 h => Some (mk n1 h l)
-          | CarryType.C1 _ => None
-          end
-      end
-    else if mag_ltb h1 l1 h2 l2 then Some (mag_sub n2 h2 l2 h1 l1)
-    else Some (mag_sub n1 h1 l1 h2 l2).
-
-  Definition sign_mag (a : t) : option (bool * int * int) :=
+  Definition sign_mag (a : t) : bool * list int :=
     match a with
-    | Sm x => Some (if iltsb x 0 then (true, 0, isub 0 x) else (false, 0, x))
-    | Md n h l => Some (n, h, l)
-    | Bg _ => None
+    | Sm x =>
+        if iltsb x 0 then (true, [isub 0 x])
+        else if ieqb x 0 then (false, []) else (false, [x])
+    | Bg n m => (n, m)
     end.
+
+  (** ** Arithmetic *)
 
   Definition add_slow (a b : t) : t :=
-    match sign_mag a, sign_mag b with
-    | Some (n1, h1, l1), Some (n2, h2, l2) =>
-        match mag_add n1 h1 l1 n2 h2 l2 with
-        | Some c => c
-        | None => of_Z (Z.add (to_Z a) (to_Z b))
-        end
-    | _, _ => of_Z (Z.add (to_Z a) (to_Z b))
-    end.
+    let '(n1, m1) := sign_mag a in
+    let '(n2, m2) := sign_mag b in
+    if Bool.eqb n1 n2 then mk n1 (madd false m1 m2)
+    else match mcmp m1 m2 with
+         | Eq => Sm 0
+         | Gt => mk n1 (trim (msub false m1 m2))
+         | Lt => mk n2 (trim (msub false m2 m1))
+         end.
 
   Definition add (a b : t) : t :=
     match a, b with
@@ -182,8 +343,7 @@ Module Num.
   Definition opp (a : t) : t :=
     match a with
     | Sm x => Sm (isub 0 x)
-    | Md n h l => Md (negb n) h l
-    | Bg z => Bg (Z.opp z)
+    | Bg n m => Bg (negb n) m
     end.
 
   Definition sub (a b : t) : t :=
@@ -197,29 +357,14 @@ Module Num.
     | _, _ => add_slow a (opp b)
     end.
 
-  (** [h * 2^63 + l] times [y], with sign [neg]. *)
-  Definition mag_mul (neg : bool) (h l y : int) : option t :=
-    let '(a1, a0) := PrimInt63.mulc l y in
-    let '(b1, b0) := PrimInt63.mulc h y in
-    if ieqb b1 0 then
-      match PrimInt63.addc b0 a1 with
-      | CarryType.C0 m => Some (mk neg m a0)
-      | CarryType.C1 _ => None
-      end
-    else None.
-
   Definition mul_slow (a b : t) : t :=
-    match sign_mag a, sign_mag b with
-    | Some (n1, h1, l1), Some (n2, h2, l2) =>
-        match
-          if ieqb h2 0 then mag_mul (xorb n1 n2) h1 l1 l2
-          else if ieqb h1 0 then mag_mul (xorb n1 n2) h2 l2 l1
-          else None
-        with
-        | Some c => c
-        | None => of_Z (Z.mul (to_Z a) (to_Z b))
-        end
-    | _, _ => of_Z (Z.mul (to_Z a) (to_Z b))
+    let '(n1, m1) := sign_mag a in
+    let '(n2, m2) := sign_mag b in
+    match m1, m2 with
+    | [], _ | _, [] => Sm 0
+    | _, [y] => mk (xorb n1 n2) (mmul1 0 m1 y)
+    | [x], _ => mk (xorb n1 n2) (mmul1 0 m2 x)
+    | _, _ => mk (xorb n1 n2) (trim (mmul m1 m2))
     end.
 
   (** If [r <> min_int] and [r / y = x], then [r] is the exact product. *)
@@ -238,27 +383,21 @@ Module Num.
   Definition abs (a : t) : t :=
     match a with
     | Sm x => if iltsb x 0 then Sm (isub 0 x) else a
-    | Md _ h l => Md false h l
-    | Bg z => Bg (Z.abs z)
+    | Bg _ m => Bg false m
     end.
 
   Definition compare (a b : t) : comparison :=
     match a, b with
     | Sm x, Sm y => PrimInt63.compares x y
-    | Sm _, Md n _ _ => if n then Gt else Lt
-    | Md n _ _, Sm _ => if n then Lt else Gt
-    | Md n1 h1 l1, Md n2 h2 l2 =>
+    | Sm _, Bg n _ => if n then Gt else Lt
+    | Bg n _, Sm _ => if n then Lt else Gt
+    | Bg n1 m1, Bg n2 m2 =>
         match n1, n2 with
         | false, true => Gt
         | true, false => Lt
-        | false, false =>
-            match PrimInt63.compare h1 h2 with Eq => PrimInt63.compare l1 l2 | c => c end
-        | true, true =>
-            match PrimInt63.compare h2 h1 with Eq => PrimInt63.compare l2 l1 | c => c end
+        | false, false => mcmp m1 m2
+        | true, true => mcmp m2 m1
         end
-    | Bg z, Bg w => Z.compare z w
-    | Bg z, _ => match z with Zpos _ => Gt | _ => Lt end
-    | _, Bg z => match z with Zpos _ => Lt | _ => Gt end
     end.
 
   Definition ltb (a b : t) : bool :=
@@ -270,8 +409,7 @@ Module Num.
   Definition eqb (a b : t) : bool :=
     match a, b with
     | Sm x, Sm y => ieqb x y
-    | Md n1 h1 l1, Md n2 h2 l2 => Bool.eqb n1 n2 && ieqb h1 h2 && ieqb l1 l2
-    | Bg z, Bg w => Z.eqb z w
+    | Bg _ _, Bg _ _ => match compare a b with Eq => true | _ => false end
     | _, _ => false
     end.
 
@@ -280,17 +418,9 @@ Module Num.
   Definition is_one (a : t) : bool :=
     match a with Sm x => ieqb x 1 | _ => false end.
   Definition is_pos (a : t) : bool :=
-    match a with
-    | Sm x => iltsb 0 x
-    | Md n _ _ => negb n
-    | Bg z => match z with Zpos _ => true | _ => false end
-    end.
+    match a with Sm x => iltsb 0 x | Bg n _ => negb n end.
   Definition is_neg (a : t) : bool :=
-    match a with
-    | Sm x => iltsb x 0
-    | Md n _ _ => n
-    | Bg z => match z with Zneg _ => true | _ => false end
-    end.
+    match a with Sm x => iltsb x 0 | Bg n _ => n end.
 
   (** Euclid needs fewer than 92 steps below [2^63]. *)
   Fixpoint igcd (fuel : nat) (a b : int) : int :=
@@ -299,36 +429,31 @@ Module Num.
     | S fuel => if ieqb b 0 then a else igcd fuel b (PrimInt63.mod a b)
     end.
 
-  (** [(h * 2^63 + l) mod y] for [0 < y < 2^63]. *)
-  Definition mag_mod (h l y : int) : int :=
-    snd (PrimInt63.diveucl_21 (PrimInt63.mod h y) l y).
-
   (** Non-negative. *)
   Definition gcd (a b : t) : t :=
     match abs a, abs b with
     | Sm x, Sm y => Sm (igcd 100%nat x y)
-    | Md _ h l, Sm y | Sm y, Md _ h l =>
-        if ieqb y 0 then Md false h l else Sm (igcd 100%nat y (mag_mod h l y))
-    | a, b => of_Z (Z.gcd (to_Z a) (to_Z b))
-    end.
-
-  (** Division of [a] by a divisor [b]. *)
-  Definition divexact (a b : t) : t :=
-    match a, b with
-    | Sm x, Sm y => Sm (PrimInt63.divs x y)
-    | Md n h l, Sm y =>
-        let ny := iltsb y 0 in
-        let y := if ny then isub 0 y else y in
-        mk (xorb n ny) (PrimInt63.div h y)
-          (fst (PrimInt63.diveucl_21 (PrimInt63.mod h y) l y))
-    | _, _ => of_Z (Z.quot (to_Z a) (to_Z b))
+    | Bg _ m, Sm y | Sm y, Bg _ m =>
+        if ieqb y 0 then Bg false m else Sm (igcd 100%nat y (snd (mdivmod1 m y)))
+    | Bg _ m1, Bg _ m2 => mk false (mgcd m1 m2)
     end.
 
   (** Rounded towards 0. *)
   Definition quot (a b : t) : t :=
     match a, b with
     | Sm x, Sm y => Sm (PrimInt63.divs x y)
+    | Bg n m, Sm y =>
+        let ny := iltsb y 0 in
+        mk (xorb n ny) (fst (mdivmod1 m (if ny then isub 0 y else y)))
+    | Sm _, Bg _ _ => Sm 0
     | _, _ => of_Z (Z.quot (to_Z a) (to_Z b))
+    end.
+
+  (** Division of [a] by a divisor [b]. *)
+  Definition divexact (a b : t) : t :=
+    match a, b with
+    | Bg n1 m1, Bg n2 m2 => mk (xorb n1 n2) (mdivexact m1 m2)
+    | _, _ => quot a b
     end.
 
   (** Rounded down, for [b > 0]. *)
@@ -339,6 +464,10 @@ Module Num.
         if iltsb x 0 then
           if ieqb (PrimInt63.mods x y) 0 then Sm q else Sm (isub q 1)
         else Sm q
+    | Bg n m, Sm y =>
+        let '(q, r) := mdivmod1 m y in
+        if n then if ieqb r 0 then mk true q else mk true (minc q) else mk false q
+    | Sm x, Bg _ _ => if iltsb x 0 then Sm (isub 0 1) else Sm 0
     | _, _ => of_Z (Z.div (to_Z a) (to_Z b))
     end.
 
@@ -348,7 +477,8 @@ Module Num.
   Definition divides (b a : t) : bool :=
     match a, b with
     | Sm x, Sm y => ieqb (PrimInt63.mods x y) 0
-    | Md _ h l, Sm y => ieqb (mag_mod h l (if iltsb y 0 then isub 0 y else y)) 0
+    | Bg _ m, Sm y => ieqb (snd (mdivmod1 m (if iltsb y 0 then isub 0 y else y))) 0
+    | Sm x, Bg _ _ => ieqb x 0
     | _, _ => Z.eqb (Z.rem (to_Z a) (to_Z b)) 0
     end.
 
