@@ -79,6 +79,7 @@ test/Replay.v
 test/Reification.v
 test/ContractNotations.v
 test/LiaOracle.v
+test/LiaSimplex.v
 theories/Base.v
 theories/Bitvector.v
 theories/Context.v
@@ -152,3 +153,4 @@ theories/Staging/WorldInstance.v
 # theories/Staging/WorldIsomorphisms.v
 theories/Staging/LinearProgramming.v
 theories/Staging/LiaOracle.v
+theories/Staging/LiaSimplex.v
