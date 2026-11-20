@@ -31,17 +31,17 @@ From Katamaran Require Import
   Program
   Tactics
   Hoare
-  MicroSail.ShallowExecutor
-  MicroSail.SymbolicExecutor
-  MicroSail.RefineExecutor.
+  MicroSail.ShallowVCGen
+  MicroSail.SymbolicVCGen
+  MicroSail.RefineVCGen.
 
 Module MakeSymbolicSoundness
   (Import B    : Base)
   (Import SIG  : Signature B)
   (Import PROG : Program B)
   (Import PLOG : ProgramLogic B SIG PROG)
-  (Import SHAL : ShallowExecOn B SIG PROG PLOG)
-  (Import SYMB : SymbolicExecOn B SIG PROG PLOG).
+  (Import SHAL : ShallowVCGen B SIG PROG PLOG)
+  (Import SYMB : SymbolicVCGen B SIG PROG PLOG).
 
-Include RefineExecOn B SIG PROG PLOG SHAL SYMB.
+Include RefineVCGenOn B SIG PROG PLOG SHAL SYMB.
 End MakeSymbolicSoundness.

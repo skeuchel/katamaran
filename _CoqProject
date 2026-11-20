@@ -93,10 +93,13 @@ theories/Iris/BinaryWeakestPre.v
 theories/Iris/BinaryAdequacy.v
 theories/Iris/BinaryInstance.v
 theories/MicroSail/RefineExecutor.v
+theories/MicroSail/RefineVCGen.v
 theories/MicroSail/ShallowExecutor.v
+theories/MicroSail/ShallowVCGen.v
 theories/MicroSail/ShallowSoundness.v
 theories/MicroSail/Soundness.v
 theories/MicroSail/SymbolicExecutor.v
+theories/MicroSail/SymbolicVCGen.v
 theories/Notations.v
 theories/Prelude.v
 theories/Program.v

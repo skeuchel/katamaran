@@ -452,46 +452,4 @@ Module Type ShallowExecOn
 
   End Monotonicity.
 
-  Definition vcgen {SPEC : Specification} (inline_fuel : nat) {Δ τ} (c : SepContract Δ τ) (body : Stm Δ τ) : Prop :=
-    CHeapSpec.run (exec_contract (M := CHeapSpec) (cexec inline_fuel) c body).
-
-  Module Shallow.
-
-    Definition ValidContractWithFuel {SPEC : Specification} {Δ τ} (fuel : nat)
-      (c : SepContract Δ τ) (body : Stm Δ τ) : Prop :=
-      vcgen fuel c body.
-
-    Definition ValidContract {SPEC : Specification} {Δ τ} (c : SepContract Δ τ)
-      (body : Stm Δ τ) : Prop :=
-      (* Use inline_fuel = 1 by default. *)
-      ValidContractWithFuel 1 c body.
-
-    Module Statistics.
-
-      Ltac calc fnc :=
-        let P := eval compute - [FALSE TRUE FINISH
-                                 negb Z.mul Z.opp Z.compare Z.add Z.geb Z.eqb
-                                 Z.leb Z.gtb Z.ltb Z.le Z.lt Z.gt Z.ge Z.of_nat
-                                 List.app List.length rev rev_append
-            ] in
-                   (match CEnv fnc with
-                    | Some c => Shallow.ValidContract c (FunDef fnc)
-                    | None => False
-                    end) in
-        let s := eval compute in (CStatistics.stats P) in s.
-
-    End Statistics.
-
-  End Shallow.
-
 End ShallowExecOn.
-
-Module MakeShallowExecutor
-  (Import B    : Base)
-  (Import SIG  : Signature B)
-  (Import PROG : Program B)
-  (Import PLOG : ProgramLogic B SIG PROG).
-
-  Include ShallowExecOn B SIG PROG PLOG.
-
-End MakeShallowExecutor.

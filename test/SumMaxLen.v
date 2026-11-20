@@ -56,10 +56,10 @@ From Katamaran Require Import
      Symbolic.Worlds
      Syntax.Predicates
      Syntax.Terms
-     MicroSail.ShallowExecutor
+     MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
-     MicroSail.SymbolicExecutor
-     MicroSail.RefineExecutor
+     MicroSail.SymbolicVCGen
+     MicroSail.RefineVCGen
      MicroSail.Soundness.
 
 From stdpp Require Import base.
@@ -434,7 +434,7 @@ Module Import ExampleModel.
     (* Import the soundness proofs for the shallow and symbolic executors. *)
     Include MicroSail.ShallowSoundness.Soundness DefaultBase ExampleSig ExampleProgram
       ExampleProgramLogic ExampleShalExec.
-    Include MicroSail.RefineExecutor.RefineExecOn DefaultBase ExampleSig
+    Include MicroSail.RefineVCGen.RefineVCGenOn DefaultBase ExampleSig
       ExampleProgram ExampleProgramLogic ExampleShalExec ExampleExecutor.
 
     (* Show that all the contracts are sound in the Iris model. *)

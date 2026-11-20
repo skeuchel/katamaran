@@ -38,10 +38,10 @@ From Katamaran Require Import
      Notations
      Bitvector
      Sep.Hoare
-     MicroSail.ShallowExecutor
+     MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
-     MicroSail.SymbolicExecutor
-     MicroSail.RefineExecutor
+     MicroSail.SymbolicVCGen
+     MicroSail.RefineVCGen
      MicroSail.Soundness
      RiscvPmp.PmpCheck
      RiscvPmp.GVT.IrisModel

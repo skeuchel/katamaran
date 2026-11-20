@@ -30,9 +30,9 @@ From Katamaran Require Import
      MinimalCaps.Machine
      MinimalCaps.Sig
      Sep.Hoare
-     MicroSail.ShallowExecutor
+     MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
-     MicroSail.SymbolicExecutor
+     MicroSail.SymbolicVCGen
      MicroSail.Soundness.
 
 Module MinCapsProgramLogic :=

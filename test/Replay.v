@@ -45,10 +45,10 @@ From Katamaran Require Import
      Sep.Hoare
      Signature
      Symbolic.Solver
-     MicroSail.ShallowExecutor
+     MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
-     MicroSail.SymbolicExecutor
-     MicroSail.RefineExecutor
+     MicroSail.SymbolicVCGen
+     MicroSail.RefineVCGen
      MicroSail.Soundness.
 
 From stdpp Require Import decidable finite.

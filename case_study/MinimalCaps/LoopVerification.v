@@ -31,9 +31,9 @@ From Stdlib Require Import
 From Katamaran Require Import
      Bitvector
      Environment
-     MicroSail.ShallowExecutor
+     MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
-     MicroSail.RefineExecutor
+     MicroSail.RefineVCGen
      MicroSail.Soundness
      Iris.Instance
      Iris.Base

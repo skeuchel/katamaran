@@ -37,9 +37,9 @@ From Katamaran Require Import
      Semantics
      Sep.Hoare
      Sep.Logic
-     MicroSail.ShallowExecutor
+     MicroSail.ShallowVCGen
      MicroSail.ShallowSoundness
-     MicroSail.RefineExecutor
+     MicroSail.RefineVCGen
      MicroSail.Soundness
      RiscvPmp.Machine
      RiscvPmp.Logic
