@@ -79,7 +79,7 @@ Section Utils.
   Definition addr_after_block : Block -> N :=
     N.of_nat ∘ mult bytes_per_instr ∘ List.length.
 
-  Definition AssertionWith (Σ : LCtx) := Assertion {| wctx := Σ; wco := []%ctx |}.
+  Definition AssertionWith (Σ : LCtx) := Assertion (wlctx Σ).
 
   Section WithAsnNotations.
     Import AsnNotations.

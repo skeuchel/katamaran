@@ -112,6 +112,7 @@ theories/Signature.v
 theories/SmallStep/Inversion.v
 theories/SmallStep/Progress.v
 theories/SmallStep/Step.v
+theories/Symbolic/ArithIndex.v
 theories/Symbolic/Instantiation.v
 theories/Symbolic/LiaSimplex.v
 theories/Symbolic/Monads.v

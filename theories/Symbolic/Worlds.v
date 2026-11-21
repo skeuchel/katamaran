@@ -33,6 +33,7 @@ From Katamaran Require Import
      Syntax.Chunks
      Syntax.Formulas
      Syntax.Predicates
+     Symbolic.ArithIndex
      Symbolic.PartialEvaluation
      Base.
 From stdpp Require Import base.
@@ -55,47 +56,56 @@ Module Type WorldsOn
   (Import P : PredicateKit B)
   (Import PE : PartialEvaluationOn B)
   (Import F : FormulasOn B P)
-  (Import C : ChunksOn B P PE F).
+  (Import C : ChunksOn B P PE F)
+  (Import AI : ArithIndexOn B P F).
 
   Section Worlds.
 
-    (* A World consists of a logic variable context [wctx]
-       and a path constraint [wco] with variables in [wctx]. *)
+    (* A World consists of a logic variable context [wctx] and what holds in
+       it [wpc]: a path constraint [wco] with variables in [wctx], and an index
+       [widx] of its arithmetic formulas. The index is part of the meaning. *)
     Record World : Type :=
       MkWorld
         { wctx :> LCtx;
-          wco  : PathCondition wctx;
+          wpc  : Pair PathCondition ArithIndex wctx;
         }.
     #[global] Arguments MkWorld : clear implicits.
 
+    Definition wco (w : World) : PathCondition w := fst (wpc w).
+    Definition widx (w : World) : ArithIndex w := snd (wpc w).
+    #[global] Arguments wco !w.
+    #[global] Arguments widx !w.
+
     (* The empty world without logic variables and constraints. *)
-    Definition wnil : World := @MkWorld ctx.nil ctx.nil.
-    Definition wlctx : LCtx -> World := fun Σ => MkWorld Σ [ctx].
+    Definition wnil : World := @MkWorld ctx.nil (ctx.nil, ai_empty).
+    Definition wlctx : LCtx -> World := fun Σ => MkWorld Σ ([ctx], ai_empty).
 
     (* This adds one new logic variable binding [b] to the world, i.e. after
        "allocating" it in a quantifier in the proposition. *)
     Definition wsnoc (w : World) (b : LVar ∷ Ty) : World :=
-      @MkWorld (wctx w ▻ b) (subst (wco w) sub_wk1).
+      @MkWorld (wctx w ▻ b) (subst (wco w) sub_wk1, subst (widx w) sub_wk1).
     Definition term_var_zero {Σ} {b} : Term (Σ ▻ b) (type b) :=
       @term_var (Σ ▻ b) (name b) (type b) ctx.in_zero.
     Definition wlet (w : World) (b : LVar ∷ Ty) (v : Val (type b)): World :=
-      @MkWorld  (wctx w ▻ b) (subst (wco w) sub_wk1 ▻ 
-                                formula_relop bop.eq (term_var_zero) (term_val _ v)).
+      let F := formula_relop bop.eq (term_var_zero) (term_val _ v) in
+      @MkWorld (wctx w ▻ b) (subst (wco w) sub_wk1 ▻ F, ai_assume F (subst (widx w) sub_wk1)).
 
     (* Add [Δ] many logic variables to the world [w]. *)
     Definition wcat (w : World) (Δ : LCtx) : World :=
-      @MkWorld (wctx w ▻▻ Δ) (subst (wco w) (sub_cat_left Δ)).
+      @MkWorld (wctx w ▻▻ Δ) (subst (wco w) (sub_cat_left Δ), subst (widx w) (sub_cat_left Δ)).
 
     (* Adds a new assume or asserted formula [f] to the world [w]. *)
     Definition wformula (w : World) (f : Formula w) : World :=
-      @MkWorld (wctx w) (ctx.snoc (wco w) f).
+      @MkWorld (wctx w) (ctx.snoc (wco w) f, ai_assume f (widx w)).
     (* Add all the formulas [C] to the world [w]. *)
     Definition wpathcondition (w : World) (C : PathCondition w) : World :=
-      @MkWorld (wctx w) (ctx.cat (wco w) C).
+      @MkWorld (wctx w) (ctx.cat (wco w) C, ai_assume_pc C (widx w)).
 
     (* Change the world after a unifying variable [x] with term [t]. *)
     Definition wsubst (w : World) x {σ} {xIn : (x∷σ ∈ w)%katamaran} (t : Term (w - x∷σ) σ) : World :=
-      {| wctx := (wctx w - x∷σ); wco := subst (wco w) (sub_single xIn t) |}.
+      let C := subst (wco w) (sub_single xIn t) in
+      @MkWorld (wctx w - x∷σ)
+        (C, ai_reassume xIn (wco w) C (subst (widx w) (sub_single xIn t))).
     Global Arguments wsubst w x {σ xIn} t.
 
     Definition wmatch (w : World) {σ} (s : Term w σ) (p : Pattern (N:=LVar) σ)
@@ -134,6 +144,47 @@ Module Type WorldsOn
       fun w => forall i : I, A i w.
 
   End Worlds.
+
+  Section WorldMeaning.
+
+    Lemma wpc_wsnoc (w : World) (b : LVar ∷ Ty) :
+      wpc (wsnoc w b) = subst (wpc w) (sub_wk1 (b := b)).
+    Proof. now destruct w as [Σ [C I]]. Qed.
+
+    Lemma wpc_wcat (w : World) (Δ : LCtx) :
+      wpc (wcat w Δ) = subst (wpc w) (sub_cat_left Δ).
+    Proof. now destruct w as [Σ [C I]]. Qed.
+
+    Lemma instprop_wpc (w : World) (ι : Valuation w) :
+      instprop (wpc w) ι <-> instprop (wco w) ι /\ instprop (widx w) ι.
+    Proof. destruct w as [Σ [C I]]. reflexivity. Qed.
+
+    Lemma instprop_wpc_wformula (w : World) (f : Formula w) (ι : Valuation w) :
+      instprop (wpc (wformula w f)) ι <-> instprop (wpc w) ι /\ instprop f ι.
+    Proof.
+      rewrite !instprop_wpc. cbn [wformula wco widx wpc fst snd].
+      change (instprop (wco w ▻ f) ι) with (instprop (wco w) ι /\ instprop f ι).
+      destruct (ai_assume_spec ι f (widx w)). intuition.
+    Qed.
+
+    Lemma instprop_wpc_wpathcondition (w : World) (C : PathCondition w) (ι : Valuation w) :
+      instprop (wpc (wpathcondition w C)) ι <-> instprop (wpc w) ι /\ instprop C ι.
+    Proof.
+      rewrite !instprop_wpc. cbn [wpathcondition wco widx wpc fst snd]. rewrite (instprop_cat (A := Formula)).
+      destruct (ai_assume_pc_spec ι C (widx w)). intuition.
+    Qed.
+
+    Lemma instprop_wpc_wsubst (w : World) x {σ} {xIn : (x∷σ ∈ w)%katamaran}
+      (t : Term (w - x∷σ) σ) (ι : Valuation (w - x∷σ)) :
+      instprop (wpc (wsubst w x t)) ι <-> instprop (wpc w) (inst (sub_single xIn t) ι).
+    Proof.
+      rewrite !instprop_wpc. cbn [wsubst wco widx wpc fst snd].
+      destruct (ai_reassume_spec xIn (wco w) (subst (wco w) (sub_single xIn t))
+                  (subst (widx w) (sub_single xIn t)) ι) as [H1 H2].
+      rewrite <- !instprop_subst. intuition.
+    Qed.
+
+  End WorldMeaning.
 
   (* A definition of triangular substitutions presented as a proof relevant
      relation between worlds. This is a sub-relation of the accessibility
@@ -220,14 +271,15 @@ Module Type WorldsOn
     (* Forward entailment *)
     Lemma entails_triangular_inv {w0 w1} (ν : Tri w0 w1) (ι0 : Valuation w0) :
       inst_triangular ν ι0 ->
-      instprop (wco w0) ι0 ->
-      instprop (wco w1) (inst (sub_triangular_inv ν) ι0).
+      instprop (wpc w0) ι0 ->
+      instprop (wpc w1) (inst (sub_triangular_inv ν) ι0).
     Proof.
-      induction ν; cbn.
+      induction ν; cbn [inst_triangular sub_triangular_inv].
       - now rewrite inst_sub_id.
       - rewrite <- inst_sub_shift, inst_subst. intros [Heqx Heq'] Hpc0.
-        apply IHν; cbn; auto.
-        rewrite instprop_subst, inst_sub_single_shift; auto.
+        apply IHν; auto. rewrite instprop_wpc_wsubst.
+        replace (inst (sub_single xIn t) (inst (sub_shift xIn) ι0)) with ι0; [exact Hpc0|].
+        symmetry. now apply inst_sub_single_shift.
     Qed.
 
     Lemma inst_triangular_valid {w0 w1} (ζ01 : Tri w0 w1) (ι1 : Valuation w1) :
@@ -262,7 +314,7 @@ Module Type WorldsOn
        many computations that don't change the world and we would therefore
        often run the identity substitution over the entire state. *)
     | acc_refl : Acc w1 w1
-    | acc_sub {w2 : World} (ζ : Sub w1 w2) (ent : wco w2 ⊢ subst (wco w1) ζ) : Acc w1 w2.
+    | acc_sub {w2 : World} (ζ : Sub w1 w2) (ent : wpc w2 ⊢ subst (wpc w1) ζ) : Acc w1 w2.
     Global Arguments acc_refl {w} : rename.
     Global Arguments acc_sub {w1 w2} ζ ent.
     Notation "w1 ⊒ w2" := (Acc w1 w2) (at level 80).
@@ -272,7 +324,7 @@ Module Type WorldsOn
     | ω01              | acc_refl         := ω01;
     | acc_sub ζ01 ent1 | acc_sub ζ12 ent2 := acc_sub (subst (T := Sub _) ζ01 ζ12) _.
     Next Obligation.
-      intros w0 w1 w2 ζ01 Hpc01 ζ12 Hpc12. transitivity (subst (wco w1) ζ12); auto.
+      intros w0 w1 w2 ζ01 Hpc01 ζ12 Hpc12. transitivity (subst (wpc w1) ζ12); auto.
       rewrite subst_sub_comp. now apply proper_subst_entails.
     Qed.
     Global Arguments acc_trans {w0 w1 w2} !ω01 !ω12.
@@ -294,29 +346,31 @@ Module Type WorldsOn
       fun w0 => forall w1, w0 ⊒ w1 -> A w1.
 
     Lemma ent_acc_sub {w1 w2} (ω : w1 ⊒ w2) :
-      wco w2 ⊢ subst (wco w1) (sub_acc ω).
+      wpc w2 ⊢ subst (wpc w1) (sub_acc ω).
     Proof. destruct ω; cbn; now rewrite ?subst_sub_id. Qed.
 
     Definition acc_wnil_init {w} : Acc wnil w :=
-      @acc_sub wnil w [env] entails_nil.
+      @acc_sub wnil w [env] (fun _ _ => conj I I).
 
     Definition acc_wlctx_valuation {Σ} : Valuation Σ -> Acc (wlctx Σ) wnil :=
-      fun ι => @acc_sub (wlctx Σ) wnil (lift ι) entails_nil.
+      fun ι => @acc_sub (wlctx Σ) wnil (lift ι) (fun _ _ => conj I I).
 
     Definition acc_snoc_right {w} {b : LVar ∷ Ty} : w ⊒ wsnoc w b :=
-      @acc_sub w (wsnoc w b) sub_wk1 (entails_refl (subst (wco w) sub_wk1)).
+      @acc_sub w (wsnoc w b) sub_wk1
+        (eq_ind_r (fun x => x ⊢ _) (entails_refl (subst (wpc w) sub_wk1)) (wpc_wsnoc w b)).
 
     Definition acc_cat_right w (Δ : LCtx) : w ⊒ wcat w Δ :=
       @acc_sub w (wcat w Δ) (@sub_cat_left w Δ)
-        (entails_refl (subst (wco w) (sub_cat_left Δ))).
+        (eq_ind_r (fun x => x ⊢ _) (entails_refl (subst (wpc w) (sub_cat_left Δ))) (wpc_wcat w Δ)).
 
     Program Definition acc_snoc_left {w1 w2} (ω12 : w1 ⊒ w2) (b : LVar ∷ Ty) (t : Term w2 (type b)) :
       wsnoc w1 b ⊒ w2 := acc_sub (sub_snoc (sub_acc ω12) b t) _.
     Next Obligation.
     Proof.
-      intros *. unfold wsnoc. cbn [wctx wco].
-      rewrite subst_wk1_snoc.
-      apply ent_acc_sub.
+      intros *. rewrite wpc_wsnoc.
+      pose proof (@subst_wk1_snoc (Pair PathCondition ArithIndex) _ _ (wctx w1) (wctx w2) b
+                    (wpc w1) t (sub_acc ω12)) as E.
+      cbn in E |- *. rewrite E. apply ent_acc_sub.
     Qed.
 
     Definition acc_snoc_left' {w : World} b (t : Term w (type b)) :
@@ -337,7 +391,7 @@ Module Type WorldsOn
       wcat w1 Δ ⊒ w2 := acc_sub (sub_acc ω12 ►► ζ) _.
     Next Obligation.
     Proof.
-      intros *. unfold wcat. cbn [wctx wco].
+      intros *. rewrite wpc_wcat.
       rewrite <- subst_sub_comp.
       rewrite sub_comp_cat_left.
       apply ent_acc_sub.
@@ -347,8 +401,7 @@ Module Type WorldsOn
       @acc_sub w (wformula w f) (sub_id (wctx w)) _.
     Next Obligation.
     Proof.
-      intros * ι. unfold wformula. cbn.
-      rewrite subst_sub_id.
+      intros * ι. rewrite subst_sub_id, instprop_wpc_wformula.
       now intros [].
     Qed.
 
@@ -356,19 +409,22 @@ Module Type WorldsOn
       w ⊒ wpathcondition w C :=
       @acc_sub w (wpathcondition w C) (sub_id (wctx w)) _.
     Next Obligation.
-    Proof. intros w C ι H%instprop_cat. now rewrite subst_sub_id. Qed.
+    Proof. intros w C ι H%instprop_wpc_wpathcondition. now rewrite subst_sub_id. Qed.
+
+    Lemma ent_wsubst {w : World} x {σ} {xIn : (x∷σ ∈ w)%katamaran} (t : Term (w - x∷σ) σ) :
+      wpc (wsubst w x t) ⊢ subst (wpc w) (sub_single xIn t).
+    Proof. intros ι. rewrite instprop_wpc_wsubst, instprop_subst. easy. Qed.
 
     Definition acc_subst_right {w : World} x {σ} {xIn : (x∷σ ∈ w)%katamaran} (t : Term (w - x∷σ) σ) :
       w ⊒ wsubst w x t :=
-      let ζ  := sub_single xIn t in
-      let w' := {| wctx := w - x∷σ; wco := subst (wco w) ζ |}  in
-      @acc_sub w w' ζ (entails_refl (wco w')).
+      @acc_sub w (wsubst w x t) (sub_single xIn t) (@ent_wsubst w x σ xIn t).
     Arguments acc_subst_right {w} x {σ xIn} t.
 
-    Definition acc_match_right {w : World} {σ} {s : Term w σ}
+    Program Definition acc_match_right {w : World} {σ} {s : Term w σ}
       {p : Pattern (N:=LVar) σ} (pc : PatternCase p) : w ⊒ wmatch w s p pc :=
-      @acc_sub w (wmatch w s p pc) (sub_cat_left (PatternCaseCtx pc))
-        (fun ι HCι => proj1 HCι).
+      @acc_sub w (wmatch w s p pc) (sub_cat_left (PatternCaseCtx pc)) _.
+    Next Obligation.
+    Proof. intros * ι [H _]%instprop_wpc_wformula. now rewrite wpc_wcat in H. Qed.
 
     Definition sub_matchvar_right {w : World} {x σ} {xIn : (x∷σ ∈ w)%katamaran}
         {p : Pattern (N:=LVar) σ} (pc : PatternCase p) : Sub w (wmatchvar w xIn p pc) :=
@@ -390,8 +446,9 @@ Module Type WorldsOn
       let sub : Sub w wmv := sub_matchvar_right pc in
       @acc_sub w wmv sub _.
     Next Obligation.
-      intros. cbn -[sub_single].
-      now rewrite <-subst_sub_comp.
+      intros. eapply entails_trans; [apply ent_wsubst|]. intros ι.
+      subst sub w1. unfold sub_matchvar_right. cbn zeta.
+      rewrite (subst_sub_comp (T := Pair PathCondition ArithIndex)), wpc_wcat. exact id.
     Qed.
     Arguments acc_matchvar_right {w} {x σ xIn p} pc : simpl never.
 
@@ -504,7 +561,7 @@ Module Type WorldsOn
     Proof. intros. now rewrite persist_subst, instprop_subst. Qed.
 
     Lemma ent_acc {w1 w2} (ω : w1 ⊒ w2) :
-      wco w2 ⊢ persist (A := PathCondition) (wco w1) ω.
+      wpc w2 ⊢ persist (A := Pair PathCondition ArithIndex) (wpc w1) ω.
     Proof. destruct ω; cbn; now rewrite ?subst_sub_id. Qed.
 
   End Persistence.
@@ -564,13 +621,15 @@ Module Type WorldsOn
     Context {w : World}.
 
     Record bientails (P Q : Pred w) : Prop :=
-      MkBientails { fromBientails : forall ι, instprop (wco w) ι -> P ι <-> Q ι }.
+      MkBientails { fromBientails : forall ι, instprop (wpc w) ι -> P ι <-> Q ι }.
     Record entails (P Q : Pred w) : Prop :=
-      MkEntails { fromEntails : forall ι, instprop (wco w) ι -> P ι -> Q ι }.
+      MkEntails { fromEntails : forall ι, instprop (wpc w) ι -> P ι -> Q ι }.
 
     #[export] Instance pred_equiv : Equiv (Pred w) := bientails.
 
   End EntailmentDefinitions.
+  #[global] Arguments fromBientails {w} [P Q] b ι _.
+  #[global] Arguments fromEntails {w} [P Q] e ι _.
 
   Ltac crushPredEntailsMatch1 :=
     match goal with
@@ -724,9 +783,9 @@ Module Type WorldsOn
     Import iris.bi.interface.
     (* update: better/more standard names? *)
     Definition assuming {w1 w2 : World } (ω : w2 ⊒ w1) : Pred w1 -> Pred w2 :=
-      fun Rpast ι => forall (ιpast : Valuation w1), inst (sub_acc ω) ιpast = ι -> instprop (wco w1) ιpast -> Rpast ιpast.
+      fun Rpast ι => forall (ιpast : Valuation w1), inst (sub_acc ω) ιpast = ι -> instprop (wpc w1) ιpast -> Rpast ιpast.
     Definition knowing {w1 w2 : World} (ω : w2 ⊒ w1) : Pred w1 -> Pred w2 :=
-      fun Rpast ι => (exists (ιpast : Valuation w1), inst (sub_acc ω) ιpast = ι /\ instprop (wco w1) ιpast /\ Rpast ιpast)%type.
+      fun Rpast ι => (exists (ιpast : Valuation w1), inst (sub_acc ω) ιpast = ι /\ instprop (wpc w1) ιpast /\ Rpast ιpast)%type.
     Definition forgetting {w1 w2 : World} (ω : w1 ⊒ w2) : Pred w1 -> Pred w2 :=
       fun Rfut ι => Rfut (inst (sub_acc ω) ι).
     Definition unconditionally {w : World} : (□ Pred) w -> Pred w :=
@@ -1178,7 +1237,10 @@ Module Type WorldsOn
     Qed.
 
     Lemma wco_valid {w : World} : ⊢ instpred (w := w) (wco w).
-    Proof. constructor. crushPredEntails2. now rewrite instpred_prop. Qed.
+    Proof.
+      constructor. intros ι Hpc _. rewrite instpred_prop.
+      apply (proj1 (proj1 (instprop_wpc w ι) Hpc)).
+    Qed.
 
     Import iris.bi.extensions.
     Definition proprepₚ {T : LCtx -> Type} {instTA : InstPred T} : Prop -> forall w, Tm T w -> Pred w :=
@@ -1453,7 +1515,8 @@ Module Type WorldsOn
 End WorldsOn.
 
 Module Type WorldsMixin (B : Base) (PK : PredicateKit B) :=
-  PartialEvaluationOn B <+ FormulasOn B PK <+ ChunksOn B PK <+ WorldsOn B PK.
+  PartialEvaluationOn B <+ FormulasOn B PK <+ ChunksOn B PK <+ ArithIndexOn B PK <+
+  WorldsOn B PK.
 
 Module Type SolverKit (B : Base) (P : PredicateKit B) (Import W : WorldsMixin B P).
   Local Set Implicit Arguments.

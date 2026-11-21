@@ -49,23 +49,22 @@ Module Type UnusedWorldInstance
   Record WInstance (w : World) : Set :=
     MkWInstance
       { ιassign :> Valuation w;
-        ιvalid  : instprop (wco w) ιassign;
+        ιvalid  : instprop (wpc w) ιassign;
       }.
 
   Program Definition winstance_formula {w} (ι : WInstance w) (fml : Formula w) (p : instprop fml ι) :
     WInstance (wformula w fml) :=
     {| ιassign := ι; |}.
   Next Obligation.
-  Proof. intros. cbn. split; auto. apply ιvalid. Qed.
+  Proof. intros. apply instprop_wpc_wformula. split; auto. apply ιvalid. Qed.
 
   Program Definition winstance_snoc {w} (ι : WInstance w) {b : LVar ∷ Ty} (v : Val (type b)) :
     WInstance (wsnoc w b) :=
     {| ιassign := env.snoc (ιassign ι) b v; |}.
   Next Obligation.
   Proof.
-    intros. unfold wsnoc. cbn [wctx wco].
-    rewrite instprop_subst, inst_sub_wk1.
-    apply ιvalid.
+    intros. destruct (proj1 (instprop_wpc w _) (ιvalid ι)) as [Hco Hidx].
+    split; now rewrite instprop_subst, inst_sub_wk1.
   Qed.
 
   Program Definition winstance_subst {w} (ι : WInstance w) {x σ} {xIn : x∷σ ∈ w}
@@ -73,8 +72,10 @@ Module Type UnusedWorldInstance
     WInstance (wsubst w x t) :=
     @MkWInstance (wsubst w x t) (env.remove _ (ιassign ι) xIn) _.
   Next Obligation.
-    intros *. cbn. rewrite instprop_subst, <- inst_sub_shift in *.
-    rewrite inst_sub_single_shift; auto using ιvalid.
+    intros *. apply instprop_wpc_wsubst. rewrite <- inst_sub_shift in *.
+    replace (inst (sub_single xIn t) (inst (sub_shift xIn) (ιassign ι))) with (ιassign ι);
+      [apply ιvalid|].
+    symmetry. now apply inst_sub_single_shift.
   Qed.
 
   Program Definition instacc {w0 w1} (ω01 : w0 ⊒ w1) : WInstance w1 -> WInstance w0 :=

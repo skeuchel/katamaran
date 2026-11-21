@@ -526,7 +526,7 @@ Module Type SymPropOn
     Proof.
       unfold assume_pathcondition_without_solver. revert p.
       induction C; cbn in *; intros p.
-      - destruct w0; cbn; split; auto.
+      - destruct w0 as [? []]; cbn; split; auto.
       - rewrite IHC. cbn. intuition.
     Qed.
 
@@ -538,7 +538,7 @@ Module Type SymPropOn
     Proof.
       unfold assert_pathcondition_without_solver. revert p.
       induction C; cbn in *; intros p.
-      - destruct w0; cbn; split.
+      - destruct w0 as [? []]; cbn; split.
         + intros HYP. split; auto.
         + intros []; auto.
       - rewrite IHC; cbn.
@@ -1971,12 +1971,14 @@ Module Type SymPropOn
         from_uqSymProp (to_uqSymProp P).
 
       Definition weakenWorld (w : World) {Σ'} (ζ : WeakensTo w Σ') : World :=
-        MkWorld Σ' (substSU (wco w) ζ).
+        MkWorld Σ' (substSU (wco w) ζ, subst (widx w) (interpWk ζ)).
       #[program] Definition weakenWorld_acc {w : World} {Σ'} {ζ : WeakensTo w Σ'} :
         Acc w (weakenWorld w ζ) := acc_sub (w2 := weakenWorld w ζ) (interpWk ζ) _.
       Next Obligation.
-        intros. cbn.
-        now rewrite (substSU_interpSU ζ (wco w)).
+        intros w Σ' ζ ι. rewrite instprop_subst !instprop_wpc.
+        cbn [weakenWorld wpc wco widx fst snd].
+        intros [H1 H2]. rewrite (substSU_interpSU ζ (wco w)) in H1.
+        rewrite instprop_subst in H1. rewrite instprop_subst in H2. now split.
       Qed.
 
       Lemma interpWk_lookup {Σ1 Σ2 : LCtx} {ζ : WeakensTo Σ1 Σ2}
@@ -2711,31 +2713,33 @@ Module Type LogSymPropOn
       end; crushPredEntails3.
       - now rewrite obligation_equiv in H1.
       - apply H; last done.
-        split; first done.
+        apply instprop_wpc_wformula. split; first done.
         now rewrite obligation_equiv in H1.
       - now rewrite obligation_equiv.
       - apply H; last done.
-        now split.
+        now apply instprop_wpc_wformula.
       - rewrite instpred_prop in H1.
         apply H; last intuition.
-        now split.
+        now apply instprop_wpc_wformula.
       - rewrite instpred_prop in H2.
         apply H; last intuition.
-        now split.
+        now apply instprop_wpc_wformula.
       - destruct H1 as (ι' & <- & Hpc' & Hsafe).
         destruct (env.view ι') as [ι v].
         exists v.
-        apply H; cbn; now rewrite ?instprop_subst inst_sub_wk1.
+        apply H; cbn; rewrite ?inst_sub_wk1; done.
       - exists (ι.[b ↦ x]).
         split.
         + apply inst_sub_wk1.
-        + split; cbn.
-          * now rewrite instprop_subst inst_sub_wk1.
-          * apply H; last done.
-            now rewrite instprop_subst inst_sub_wk1.
+        + assert (Hs : instprop (wpc (wsnoc w b)) ι.[b ↦ x])
+            by now rewrite wpc_wsnoc instprop_subst inst_sub_wk1.
+          split; first done. apply H; done.
       - apply H; cbn.
-        + now rewrite instprop_subst inst_sub_wk1.
-        + apply H1; cbn; now rewrite ?instprop_subst inst_sub_wk1.
+        + apply instprop_wpc in H0 as [Hco Hidx].
+          split; now rewrite instprop_subst inst_sub_wk1.
+        + apply H1.
+          * now rewrite inst_sub_wk1.
+          * now rewrite wpc_wsnoc instprop_subst inst_sub_wk1.
       - intros ιpast <- Hpc2.
         apply H; first done.
         destruct (env.view ιpast) as [ι v].
@@ -2747,10 +2751,10 @@ Module Type LogSymPropOn
       - rewrite <-inst_sub_shift.
         rewrite obligation_equiv in H1; cbn in H1.
         rewrite inst_subst in H1.
-        assert (instprop (wco (wsubst w x t)) (inst (sub_shift xIn) ι)).
-        { rewrite instprop_subst.
-          now rewrite inst_sub_single_shift.
-        }
+        assert (instprop (wpc (wsubst w x t)) (inst (sub_shift xIn) ι)).
+        { rewrite instprop_wpc_wsubst.
+          replace (inst (sub_single xIn t) (inst (sub_shift xIn) ι)) with ι; first done.
+          symmetry. now apply inst_sub_single_shift. }
         apply H; first done.
         apply H2; last done.
         now rewrite inst_sub_single_shift.
@@ -2763,10 +2767,10 @@ Module Type LogSymPropOn
         now rewrite <-inst_sub_shift, <-inst_subst, sub_comp_shift_single, inst_sub_id in H2.
       - rewrite <-inst_sub_shift.
         rewrite <-inst_sub_shift in H2.
-        assert (instprop (wco (wsubst w x t)) (inst (sub_shift xIn) ι)).
-        { rewrite instprop_subst.
-          now rewrite inst_sub_single_shift.
-        }
+        assert (instprop (wpc (wsubst w x t)) (inst (sub_shift xIn) ι)).
+        { rewrite instprop_wpc_wsubst.
+          replace (inst (sub_single xIn t) (inst (sub_shift xIn) ι)) with ι; first done.
+          symmetry. now apply inst_sub_single_shift. }
         apply H; first done.
         apply H1; last done.
         now rewrite inst_sub_single_shift.
@@ -2780,11 +2784,10 @@ Module Type LogSymPropOn
         rewrite lookup_sub_single_eq.
         rewrite <-subst_sub_comp.
         now rewrite sub_comp_shift_single subst_sub_id.
-      - assert (instprop (wco (wmatch w s pat c)) (ι ►► ι__pat)).
-        { cbn. split.
-          + change (instprop_ctx ?z ?ι) with (instprop z ι).
-            now rewrite instprop_subst inst_sub_cat_left.
-          + rewrite inst_subst inst_sub_cat_left.
+      - assert (instprop (wpc (wmatch w s pat c)) (ι ►► ι__pat)).
+        { unfold wmatch. apply instprop_wpc_wformula. split.
+          + now rewrite wpc_wcat instprop_subst inst_sub_cat_left.
+          + cbn. rewrite inst_subst inst_sub_cat_left.
             rewrite inst_pattern_match_term_reverse inst_sub_cat_right.
             apply (f_equal (pattern_match_val_reverse' pat)) in Hpmv.
             now rewrite pattern_match_val_inverse_left in Hpmv.
@@ -2795,18 +2798,17 @@ Module Type LogSymPropOn
       - unfold assuming; crushPredEntails3.
         env.destroy ιpast.
         rewrite inst_sub_cat_left in H2; subst.
-        rewrite inst_subst in H4.
-        rewrite instprop_subst in H3.
-        rewrite inst_sub_cat_left in H3,H4.
-        rewrite inst_pattern_match_term_reverse in H4.
-        rewrite inst_sub_cat_right in H4.
-        apply (f_equal (pattern_match_val pat)) in H4.
-        rewrite pattern_match_val_inverse_right in H4.
-        rewrite Hpmv in H4; dependent elimination H4; subst.
+        rewrite inst_subst in H5.
+        rewrite inst_sub_cat_left in H5.
+        rewrite inst_pattern_match_term_reverse in H5.
+        rewrite inst_sub_cat_right in H5.
+        apply (f_equal (pattern_match_val pat)) in H5.
+        rewrite pattern_match_val_inverse_right in H5.
+        rewrite Hpmv in H5; dependent elimination H5; subst.
         apply H; last done.
-        cbn. split.
-        + now rewrite instprop_subst inst_sub_cat_left.
-        + rewrite inst_subst inst_sub_cat_left.
+        unfold wmatch. apply instprop_wpc_wformula. split.
+        + now rewrite wpc_wcat instprop_subst inst_sub_cat_left.
+        + cbn. rewrite inst_subst inst_sub_cat_left.
           rewrite inst_pattern_match_term_reverse inst_sub_cat_right.
           apply (f_equal (pattern_match_val_reverse' pat)) in Hpmv.
           now rewrite pattern_match_val_inverse_left in Hpmv.
@@ -2824,8 +2826,8 @@ Module Type LogSymPropOn
           apply (f_equal (pattern_match_val_reverse' pat)) in Hpmv.
           now rewrite pattern_match_val_inverse_left in Hpmv.
         }
-        assert (instprop (wco (wmatchvar w xIn pat c)) (inst (sub_shift (ctx.in_cat_left (PatternCaseCtx c) xIn)) (ι ►► ι__pat))).
-        { rewrite !instprop_subst.
+        assert (instprop (wpc (wmatchvar w xIn pat c)) (inst (sub_shift (ctx.in_cat_left (PatternCaseCtx c) xIn)) (ι ►► ι__pat))).
+        { unfold wmatchvar. cbn zeta. rewrite instprop_wpc_wsubst wpc_wcat instprop_subst.
           rewrite inst_sub_single_shift; last done.
           now rewrite inst_sub_cat_left.
         }
@@ -2850,7 +2852,7 @@ Module Type LogSymPropOn
           change (fun Σ => Env (fun xt => Val (type xt)) Σ) with (@Env (Binding LVar Ty) (fun xt => Val (type xt))).
           now rewrite <-(env.cat_remove_left xIn ι ι__pat).
         }
-        assert (inst (sub_cat_right (PatternCaseCtx a)) (eq_rect ((w ▻▻ PatternCaseCtx a) - x∷σ)%ctx (λ Σ : LCtx, Valuation Σ) (inst (sub_shift (ctx.in_cat_left (PatternCaseCtx a) xIn)) (ι ►► ι__pat)) (w - x∷σ ▻▻ PatternCaseCtx a) (ctx.remove_in_cat_left xIn)) = ι__pat).
+        assert (inst (sub_cat_right (PatternCaseCtx a)) (eq_rect ((w ▻▻ PatternCaseCtx a) - x∷σ)%ctx (λ Σ : LCtx, Valuation Σ) (inst (sub_shift (ctx.in_cat_left (PatternCaseCtx a) xIn)) (ι ►► ι__pat)) (w - x∷σ ▻▻ PatternCaseCtx a) (ctx.remove_in_cat_left xIn)) = ι__pat) as Hcr.
         { rewrite inst_sub_shift.
           rewrite Hremcat.
           now rewrite inst_sub_cat_right.
@@ -2862,10 +2864,10 @@ Module Type LogSymPropOn
         { rewrite inst_pattern_match_term_reverse.
           rewrite inst_eq_rect.
           rewrite eq_sym_involutive.
-          now rewrite H4.
+          now rewrite Hcr.
         }
-        assert (instprop (wco (wmatchvar w xIn pat a)) (inst (sub_shift (ctx.in_cat_left (PatternCaseCtx a) xIn)) (ι ►► ι__pat))).
-        { rewrite !instprop_subst.
+        assert (instprop (wpc (wmatchvar w xIn pat a)) (inst (sub_shift (ctx.in_cat_left (PatternCaseCtx a) xIn)) (ι ►► ι__pat))).
+        { unfold wmatchvar. cbn zeta. rewrite instprop_wpc_wsubst wpc_wcat instprop_subst.
           rewrite inst_sub_single_shift.
           + now rewrite inst_sub_cat_left.
           + now rewrite env.lookup_cat_left.

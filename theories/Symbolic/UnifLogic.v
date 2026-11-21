@@ -140,10 +140,10 @@ Module Type UnifLogicOn
   Qed.
 
   Lemma bientails_unfold [w] (P Q : Pred w) :
-    (P ⊣⊢ₚ Q) <-> forall ι, instprop (wco w) ι -> P ι <-> Q ι.
+    (P ⊣⊢ₚ Q) <-> forall ι, instprop (wpc w) ι -> P ι <-> Q ι.
   Proof. crushPredEntails3. Qed.
   Lemma entails_unfold [w] (P Q : Pred w) :
-    (P ⊢ₚ Q) <-> forall ι, instprop (wco w) ι -> P ι -> Q ι.
+    (P ⊢ₚ Q) <-> forall ι, instprop (wpc w) ι -> P ι -> Q ι.
   Proof. crushPredEntails3. Qed.
   Lemma sep_unfold w (P Q : Pred w) :
     ∀ ι, interface.bi_sep P Q ι ↔ (P ι /\ Q ι).
@@ -309,11 +309,11 @@ Module Type UnifLogicOn
     Import classes.
 
     Lemma acc_pathcond {w1 w2} (ω : w2 ⊒ w1) :
-      forall ι,  instprop (wco w1) ι -> instprop (wco w2) (inst (sub_acc ω) ι).
+      forall ι,  instprop (wpc w1) ι -> instprop (wpc w2) (inst (sub_acc ω) ι).
     Proof.
       intros.
       rewrite <-instprop_subst.
-      now apply (ent_acc_sub ω ι H).
+      now apply (ent_acc_sub ω).
     Qed.
 
     Import iris.bi.interface.
@@ -1110,8 +1110,12 @@ Module Type UnifLogicOn
         now rewrite instpred_prop.
       - now rewrite inst_sub_id in H0; subst.
       - apply inst_sub_id.
-      - rewrite instprop_cat.
+      - apply instprop_wpc in H as [Hco _].
+        rewrite instprop_cat.
         now rewrite instpred_prop in H0.
+      - apply instprop_wpc in H as [Hco Hidx].
+        rewrite instpred_prop in H0.
+        now apply ai_assume_pc_spec.
     Qed.
 
     Lemma knowing_acc_snoc_right {w b P} :
@@ -1127,7 +1131,8 @@ Module Type UnifLogicOn
         change (env.snoc _ _ _) with (env.snoc (inst (sub_id w) ι) b x) in H0.
         rewrite inst_sub_id in H0.
         repeat split; eauto using inst_sub_wk1.
-        now rewrite instprop_subst inst_sub_wk1.
+        all: apply instprop_wpc in H as [Hco Hidx].
+        all: now rewrite instprop_subst inst_sub_wk1.
     Qed.
 
     Lemma forgetting_acc_snoc_left_repₚ {w1 w2 : World} {b} {ω : w1 ⊒ w2} {v} :
@@ -1158,24 +1163,20 @@ Module Type UnifLogicOn
       - subst; cbn.
         rewrite <-inst_lookup, <-inst_subst.
         now rewrite lookup_sub_single_eq subst_shift_single.
-      - rewrite !inst_sub_single2 in H3 H0.
-        apply (f_equal (fun ι => env.remove (x∷σ) ι xIn)) in H0, H3.
-        rewrite !env.remove_insert in H3, H0.
+      - rewrite !inst_sub_single2 in H4 H0.
+        apply (f_equal (fun ι => env.remove (x∷σ) ι xIn)) in H0, H4.
+        rewrite !env.remove_insert in H4, H0.
         assert (ιpast = x0) by (now transitivity (env.remove (x∷σ) ι xIn)).
         now subst.
       - exists (inst (sub_shift xIn) ι).
-        assert (instprop (wco w) (inst (sub_single xIn t) (inst (sub_shift xIn) ι))) as Hpc2.
-        { rewrite inst_sub_single_shift; first done.
-          now rewrite <-inst_subst.
-        }
-        assert (inst t (inst (sub_shift xIn) ι) = env.lookup ι xIn) as Hinst.
-        { now rewrite <-inst_subst. }
         assert (inst (sub_single xIn t) (inst (sub_shift xIn) ι) = ι) as Hinst2.
-        { now rewrite inst_sub_single_shift. }
+        { rewrite inst_sub_single_shift; first done.
+          now rewrite <-inst_subst. }
+        assert (Hw : instprop (wpc (wsubst w x t)) (inst (sub_shift xIn) ι)).
+        { rewrite instprop_wpc_wsubst. now rewrite Hinst2. }
+        apply instprop_wpc in Hw as [Hco Hidx].
         repeat split; try done.
-        + now rewrite instprop_subst.
-        + apply H1; try done.
-          now rewrite instprop_subst.
+        apply H1; try done.
     Qed.
 
     Lemma assuming_acc_snoc_right {w b P} :
@@ -1187,7 +1188,8 @@ Module Type UnifLogicOn
         rewrite inst_sub_id.
         apply H0.
         + eapply inst_sub_wk1.
-        + now rewrite instprop_subst inst_sub_wk1.
+        + apply instprop_wpc in H as [Hco Hidx].
+          split; now rewrite instprop_subst inst_sub_wk1.
       - destruct (env.view ιpast) as [ι' v].
         rewrite inst_sub_wk1 in H1; subst.
         specialize (H0 v).
@@ -1227,8 +1229,9 @@ Module Type UnifLogicOn
       crushPredEntails3.
       apply H1.
       - apply inst_sub_id.
-      - rewrite instpred_prop in H0.
-        now apply instprop_cat.
+      - rewrite instpred_prop in H0. apply instprop_wpc in H as [Hco Hidx]. split.
+        + now apply instprop_cat.
+        + now apply ai_assume_pc_spec.
     Qed.
 
     Lemma forgetting_acc_pathcondition_right_sep {w : World} {P : Pred w} {C : PathCondition w}
@@ -1775,8 +1778,17 @@ Module Type UnifLogicOn
       unfold knowing, RVal, RNEnv, RInst.
       crushPredEntails3.
       exists (env.cat ι args).
-      now rewrite instprop_subst inst_subst !inst_sub_cat_left
-        inst_pattern_match_term_reverse inst_sub_cat_right eq.
+      apply instprop_wpc in H as [Hco Hidx].
+      assert (HF : inst (subst sv (sub_cat_left (PatternCaseCtx pc))) (env.cat ι args) =
+                   inst (pattern_match_term_reverse p pc (sub_cat_right (PatternCaseCtx pc)))
+                     (env.cat ι args))
+        by now rewrite inst_subst !inst_sub_cat_left inst_pattern_match_term_reverse
+             inst_sub_cat_right eq.
+      repeat split; try exact HF.
+      - now rewrite inst_sub_cat_left.
+      - now rewrite instprop_subst inst_sub_cat_left.
+      - apply ai_assume_spec; [exact HF|]. now rewrite instprop_subst inst_sub_cat_left.
+      - now rewrite inst_sub_cat_right.
     Qed.
 
     #[export] Instance refine_pattern_match_val_term_reverse {N} {w : World} {σ}
@@ -1804,18 +1816,24 @@ Module Type UnifLogicOn
       unfold knowing, RVal, RNEnv, RInst.
       crushPredEntails3.
       exists (env.remove (x∷σ) (env.cat ι args) (ctx.in_cat_left (PatternCaseCtx pc) xIn)).
-      rewrite !instprop_subst !inst_subst.
-      rewrite inst_sub_single2 inst_pattern_match_term_reverse.
-      unfold wmatchvar_patternvars.
-      rewrite inst_eq_rect.
-      rewrite env.remove_cat_left.
-      rewrite eq_rect_sym1.
-      rewrite inst_sub_cat_right.
-      rewrite eq.
-      rewrite <-env.insert_cat_left.
-      rewrite <-H0.
-      rewrite env.insert_remove.
-      now rewrite inst_sub_cat_left.
+      set (ι' := env.remove (x∷σ) (env.cat ι args) (ctx.in_cat_left (PatternCaseCtx pc) xIn)).
+      assert (E : inst (sub_single (ctx.in_cat_left (PatternCaseCtx pc) xIn)
+                          (pattern_match_term_reverse p pc (wmatchvar_patternvars pc))) ι' =
+                  env.cat ι args).
+      { subst ι'. rewrite inst_sub_single2 inst_pattern_match_term_reverse.
+        unfold wmatchvar_patternvars.
+        rewrite inst_eq_rect env.remove_cat_left eq_rect_sym1 inst_sub_cat_right eq.
+        rewrite <-env.insert_cat_left. rewrite <-H0. now rewrite env.insert_remove. }
+      assert (Hι : inst (sub_matchvar_right pc) ι' = ι).
+      { unfold sub_matchvar_right. cbn zeta. now rewrite inst_subst E inst_sub_cat_left. }
+      assert (Hw : instprop (wpc (wmatchvar w xIn p pc)) ι').
+      { unfold wmatchvar. cbn zeta. rewrite instprop_wpc_wsubst wpc_wcat instprop_subst.
+        now rewrite E inst_sub_cat_left. }
+      apply instprop_wpc in Hw as [Hco Hidx].
+      split; [exact Hι|]. split; [split; [exact Hco|exact Hidx]|].
+      subst ι'. unfold wmatchvar_patternvars.
+      rewrite inst_eq_rect env.remove_cat_left eq_rect_sym1.
+      now rewrite inst_sub_cat_right.
     Qed.
 
     Lemma refine_unfreshen_patterncaseenv {N : Set} {w : World} {Σ} {n : N -> LVar} {σ}

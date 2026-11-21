@@ -194,7 +194,7 @@ Module Type RefinementMonadsOn
         (instpred C -∗ psafe (w := wpathcondition w C) p).
     Proof.
       revert p. induction C; cbn; intros p.
-      - destruct w. (* needed to make coq see that wpathcondition w0 [ctx] is the same as w0 *)
+      - destruct w as [? []]. (* needed to make coq see that wpathcondition w0 [ctx] is the same as w0 *)
         now rewrite bi.emp_wand.
       - rewrite IHC.
         cbn.
@@ -233,7 +233,7 @@ Module Type RefinementMonadsOn
       unfold assert_pathcondition_without_solver. revert p.
       induction C; cbn; intros p.
       - rewrite bi.True_sep.
-        now destruct w0.
+        now destruct w0 as [? []].
       - rewrite IHC; cbn.
         rewrite bi.sep_assoc.
         now rewrite <-obligation_equiv_pred.
