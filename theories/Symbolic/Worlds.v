@@ -355,13 +355,21 @@ Module Type WorldsOn
     Definition acc_wlctx_valuation {Σ} : Valuation Σ -> Acc (wlctx Σ) wnil :=
       fun ι => @acc_sub (wlctx Σ) wnil (lift ι) (fun _ _ => conj I I).
 
+    (* Proofs in accessibilities are evaluated by vm_compute: they must not
+       mention big terms. *)
+    Lemma ent_wsnoc (w : World) (b : LVar ∷ Ty) :
+      wpc (wsnoc w b) ⊢ subst (wpc w) (sub_wk1 (b := b)).
+    Proof. now rewrite wpc_wsnoc. Qed.
+
+    Lemma ent_wcat (w : World) (Δ : LCtx) :
+      wpc (wcat w Δ) ⊢ subst (wpc w) (sub_cat_left Δ).
+    Proof. now rewrite wpc_wcat. Qed.
+
     Definition acc_snoc_right {w} {b : LVar ∷ Ty} : w ⊒ wsnoc w b :=
-      @acc_sub w (wsnoc w b) sub_wk1
-        (eq_ind_r (fun x => x ⊢ _) (entails_refl (subst (wpc w) sub_wk1)) (wpc_wsnoc w b)).
+      @acc_sub w (wsnoc w b) sub_wk1 (@ent_wsnoc w b).
 
     Definition acc_cat_right w (Δ : LCtx) : w ⊒ wcat w Δ :=
-      @acc_sub w (wcat w Δ) (@sub_cat_left w Δ)
-        (eq_ind_r (fun x => x ⊢ _) (entails_refl (subst (wpc w) (sub_cat_left Δ))) (wpc_wcat w Δ)).
+      @acc_sub w (wcat w Δ) (@sub_cat_left w Δ) (@ent_wcat w Δ).
 
     Program Definition acc_snoc_left {w1 w2} (ω12 : w1 ⊒ w2) (b : LVar ∷ Ty) (t : Term w2 (type b)) :
       wsnoc w1 b ⊒ w2 := acc_sub (sub_snoc (sub_acc ω12) b t) _.
