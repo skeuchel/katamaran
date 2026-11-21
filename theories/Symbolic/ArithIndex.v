@@ -299,6 +299,19 @@ Module Type ArithIndexOn
     | _, _ => idx
     end.
 
+  (* Whether an atom of the index mentions x. A formula that mentions x has
+     such an atom, if it was indexed. *)
+  Definition ai_mentions {Σ x σ} (xIn : (x∷σ ∈ Σ)%katamaran) (idx : ArithIndex Σ) : bool :=
+    List.existsb
+      (fun t => match occurs_check xIn t with Some _ => false | None => true end)
+      (ai_table idx).
+
+  (* The index after t is substituted for x: idx' is idx substituted. *)
+  Definition ai_resubst {Σ x σ} (xIn : (x∷σ ∈ Σ)%katamaran) (C : PathCondition Σ)
+    (C' : PathCondition (Σ - x∷σ)) (idx : ArithIndex Σ) (idx' : ArithIndex (Σ - x∷σ)) :
+    ArithIndex (Σ - x∷σ) :=
+    if ai_mentions xIn idx then ai_reassume xIn C C' idx' else idx'.
+
   Section Sound.
 
     Lemma atom_env_subst {Σ Σ'} (ζ : Sub Σ Σ') (ι : Valuation Σ') l ext x :
@@ -658,9 +671,16 @@ Module Type ArithIndexOn
     split; [intuition|]. intros [HC HF] Hidx. now apply H2, IH2.
   Qed.
 
+  Lemma ai_resubst_spec {Σ x σ} (xIn : (x∷σ ∈ Σ)%katamaran) C C' (idx : ArithIndex Σ)
+    (idx' : ArithIndex (Σ - x∷σ)) (ι : Valuation (Σ - x∷σ)) :
+    (instprop (ai_resubst xIn C C' idx idx') ι -> instprop idx' ι) /\
+    (instprop C' ι -> instprop idx' ι -> instprop (ai_resubst xIn C C' idx idx') ι).
+  Proof. unfold ai_resubst. destruct ai_mentions; [apply ai_reassume_spec|tauto]. Qed.
+
   #[global] Arguments ai_assume : simpl never.
   #[global] Arguments ai_assume_pc : simpl never.
   #[global] Arguments ai_decide : simpl never.
   #[global] Arguments ai_reassume : simpl never.
+  #[global] Arguments ai_resubst : simpl never.
 
 End ArithIndexOn.

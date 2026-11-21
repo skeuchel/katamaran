@@ -105,7 +105,7 @@ Module Type WorldsOn
     Definition wsubst (w : World) x {σ} {xIn : (x∷σ ∈ w)%katamaran} (t : Term (w - x∷σ) σ) : World :=
       let C := subst (wco w) (sub_single xIn t) in
       @MkWorld (wctx w - x∷σ)
-        (C, ai_reassume xIn (wco w) C (subst (widx w) (sub_single xIn t))).
+        (C, ai_resubst xIn (wco w) C (widx w) (subst (widx w) (sub_single xIn t))).
     Global Arguments wsubst w x {σ xIn} t.
 
     Definition wmatch (w : World) {σ} (s : Term w σ) (p : Pattern (N:=LVar) σ)
@@ -179,8 +179,8 @@ Module Type WorldsOn
       instprop (wpc (wsubst w x t)) ι <-> instprop (wpc w) (inst (sub_single xIn t) ι).
     Proof.
       rewrite !instprop_wpc. cbn [wsubst wco widx wpc fst snd].
-      destruct (ai_reassume_spec xIn (wco w) (subst (wco w) (sub_single xIn t))
-                  (subst (widx w) (sub_single xIn t)) ι) as [H1 H2].
+      destruct (ai_resubst_spec xIn (wco w) (subst (wco w) (sub_single xIn t))
+                  (widx w) (subst (widx w) (sub_single xIn t)) ι) as [H1 H2].
       rewrite <- !instprop_subst. intuition.
     Qed.
 
