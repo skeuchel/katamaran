@@ -82,17 +82,19 @@ Module Type WorldsOn
 
     (* This adds one new logic variable binding [b] to the world, i.e. after
        "allocating" it in a quantifier in the proposition. *)
+    (* Substitutions are let-bound: building one is linear in the context. *)
     Definition wsnoc (w : World) (b : LVar ∷ Ty) : World :=
-      @MkWorld (wctx w ▻ b) (subst (wco w) sub_wk1, subst (widx w) sub_wk1).
+      let ζ := sub_wk1 in @MkWorld (wctx w ▻ b) (subst (wco w) ζ, subst (widx w) ζ).
     Definition term_var_zero {Σ} {b} : Term (Σ ▻ b) (type b) :=
       @term_var (Σ ▻ b) (name b) (type b) ctx.in_zero.
     Definition wlet (w : World) (b : LVar ∷ Ty) (v : Val (type b)): World :=
       let F := formula_relop bop.eq (term_var_zero) (term_val _ v) in
-      @MkWorld (wctx w ▻ b) (subst (wco w) sub_wk1 ▻ F, ai_assume F (subst (widx w) sub_wk1)).
+      let ζ := sub_wk1 in
+      @MkWorld (wctx w ▻ b) (subst (wco w) ζ ▻ F, ai_assume F (subst (widx w) ζ)).
 
     (* Add [Δ] many logic variables to the world [w]. *)
     Definition wcat (w : World) (Δ : LCtx) : World :=
-      @MkWorld (wctx w ▻▻ Δ) (subst (wco w) (sub_cat_left Δ), subst (widx w) (sub_cat_left Δ)).
+      let ζ := sub_cat_left Δ in @MkWorld (wctx w ▻▻ Δ) (subst (wco w) ζ, subst (widx w) ζ).
 
     (* Adds a new assume or asserted formula [f] to the world [w]. *)
     Definition wformula (w : World) (f : Formula w) : World :=
@@ -103,9 +105,9 @@ Module Type WorldsOn
 
     (* Change the world after a unifying variable [x] with term [t]. *)
     Definition wsubst (w : World) x {σ} {xIn : (x∷σ ∈ w)%katamaran} (t : Term (w - x∷σ) σ) : World :=
-      let C := subst (wco w) (sub_single xIn t) in
-      @MkWorld (wctx w - x∷σ)
-        (C, ai_resubst xIn (wco w) C (widx w) (subst (widx w) (sub_single xIn t))).
+      let ζ := sub_single xIn t in
+      let C := subst (wco w) ζ in
+      @MkWorld (wctx w - x∷σ) (C, ai_resubst xIn (wco w) C (widx w) (subst (widx w) ζ)).
     Global Arguments wsubst w x {σ xIn} t.
 
     Definition wmatch (w : World) {σ} (s : Term w σ) (p : Pattern (N:=LVar) σ)
