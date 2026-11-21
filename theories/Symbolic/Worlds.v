@@ -415,11 +415,13 @@ Module Type WorldsOn
       now intros [].
     Qed.
 
-    Program Definition acc_pathcondition_right (w : World) (C : PathCondition w) :
+    Lemma ent_wpathcondition (w : World) (C : PathCondition w) :
+      wpc (wpathcondition w C) ⊢ subst (wpc w) (sub_id (wctx w)).
+    Proof. intros ι H%instprop_wpc_wpathcondition. now rewrite subst_sub_id. Qed.
+
+    Definition acc_pathcondition_right (w : World) (C : PathCondition w) :
       w ⊒ wpathcondition w C :=
-      @acc_sub w (wpathcondition w C) (sub_id (wctx w)) _.
-    Next Obligation.
-    Proof. intros w C ι H%instprop_wpc_wpathcondition. now rewrite subst_sub_id. Qed.
+      @acc_sub w (wpathcondition w C) (sub_id (wctx w)) (@ent_wpathcondition w C).
 
     Lemma ent_wsubst {w : World} x {σ} {xIn : (x∷σ ∈ w)%katamaran} (t : Term (w - x∷σ) σ) :
       wpc (wsubst w x t) ⊢ subst (wpc w) (sub_single xIn t).

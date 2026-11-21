@@ -154,8 +154,9 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
                    (* change the world. We changed the type of *)
                    (* assume_pathcondition_without_solver just to not forget *)
                    (* adding the new path constraints. *)
-                   (POST (wpathcondition w1 C1)
-                      (acc_triangular ν ∘ acc_pathcondition_right w1 C1) tt))
+                   (let w2 := wpathcondition w1 C1 in
+                    POST w2 (acc_triangular ν ∘
+                             @acc_sub w1 w2 (sub_id w1) (@ent_wpathcondition w1 C1)) tt))
         | None =>
             (* The new path constraints are inconsistent with the old path
                constraints. *)
@@ -171,8 +172,9 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
             SymProp.assume_triangular ν
               (SymProp.assume_pathcondition_without_solver C1
                  (* Critical code. Like for assert_pathcondition. *)
-                 (POST (wpathcondition w1 C1)
-                    (acc_triangular ν ∘ acc_pathcondition_right w1 C1) tt))
+                 (let w2 := wpathcondition w1 C1 in
+                  POST w2 (acc_triangular ν ∘
+                           @acc_sub w1 w2 (sub_id w1) (@ent_wpathcondition w1 C1)) tt))
         | None =>
             (* The new path constraints are inconsistent with the old path *)
             (* constraints. *)
