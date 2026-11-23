@@ -121,11 +121,7 @@ Module Type RefinementMonadsOn
 
     #[export] Instance refine_error `{RA : Rel AT A} {w} m :
       Related (RMsg _ (RPureSpec RA)) m w (@SPureSpec.error _ w).
-    Proof.
-      unfold Related, RMsg, RPureSpec, RProp; cbn.
-      iIntros (msg k K) "Hk".
-      now cbn.
-    Qed.
+    Proof. unfold SPureSpec.error, RPureSpec; solve_related. Qed.
 
     #[export] Instance refine_angelic (x : option LVar) σ {w} :
       Related (RPureSpec (RVal σ)) (CPureSpec.angelic σ) w (SPureSpec.angelic (w := w) x σ).
@@ -795,11 +791,7 @@ Module Type RefinementMonadsOn
     #[export] Instance refine_debug `{RA : Rel SA CA} {w} :
       Related (RMsg _ (RPureSpec RA -> RPureSpec RA))
         CPureSpec.debug w (SPureSpec.debug (w := w)).
-    Proof.
-      iIntros (msg m ms) "Hm %k %ks Hk HSP".
-      iApply ("Hm" with "Hk [HSP]").
-      now iApply elim_debugPred.
-    Qed.
+    Proof. unfold CPureSpec.debug, SPureSpec.debug, RPureSpec; solve_related. Qed.
 
     Lemma refine_assert_eq_nenv {N : Set} {w} :
       ⊢ ℛ⟦∀ᵣ Δ : NCtx N Ty, RMsg _ (RNEnv _ Δ -> RNEnv _ Δ -> RPureSpec RUnit)⟧
@@ -1256,10 +1248,7 @@ Module Type RefinementMonadsOn
 
     #[export] Instance refine_error `{RA : Rel SA CA} cm {w} :
       Related (RMsg _ (RHeapSpec RA)) cm w (SHeapSpec.error (w := w)).
-    Proof.
-      iIntros (msg cΦ sΦ) "_ %ch %sh rh".
-      unfold RProp; now cbn.
-    Qed.
+    Proof. unfold SHeapSpec.error, RHeapSpec; solve_related. Qed.
 
     #[export] Instance refine_angelic x σ {w} :
       Related (RHeapSpec (RVal σ))
@@ -1286,23 +1275,14 @@ Module Type RefinementMonadsOn
     #[export] Instance refine_debug `{RA : Rel SA CA} {w} :
       Related (RMsg _ (RHeapSpec RA -> RHeapSpec RA))
         CHeapSpec.debug w (SHeapSpec.debug (w := w)).
-    Proof.
-      unfold Related, CHeapSpec.debug, SHeapSpec.debug.
-      iIntros (msg cm sm) "rm %cΦ %sΦ #rΦ %ch %sh rh".
-      iApply refine_symprop_debug.
-      iApply "rm"; auto.
-    Qed.
+    Proof. unfold CHeapSpec.debug, SHeapSpec.debug, RHeapSpec; solve_related. Qed.
 
     #[export] Instance refine_assert_formula {w} :
       Related (RMsg _ (RFormula -> RHeapSpec RUnit))
         CHeapSpec.assert_formula w (SHeapSpec.assert_formula (w := w)).
     Proof.
-      unfold Related, CHeapSpec.assert_formula, SHeapSpec.assert_formula,
-               CHeapSpec.lift_purespec.
-      iIntros (msg cF sF) "rF %cΦ %sΦ rΦ %ch %sh rh".
-      iApply (PureSpec.refine_assert_formula with "rF").
-      iIntros (w1 θ1) "!> %cu %su ru".
-      iApply ("rΦ" with "ru"); solve_related.
+      unfold CHeapSpec.assert_formula, SHeapSpec.assert_formula,
+        CHeapSpec.lift_purespec, RHeapSpec; solve_related.
     Qed.
 
     #[export] Instance refine_assume_formula {w} :
