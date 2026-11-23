@@ -192,13 +192,13 @@ Record counts : Set := Counts {
 Definition tally (c : counts) (rat : bool) (v1 v2 : verdict) : counts :=
   let '(Counts r u s k bu bs bk b) := c in
   let inc (x : nat) (yes : bool) := if yes then S x else x in
-  let is v w := match v, w with
+  let same v w := match v, w with
                 | VUnsat, VUnsat | VSat, VSat | VUnknown, VUnknown | VBad, VBad => true
                 | _, _ => false end in
-  Counts (inc r rat) (inc u (is v1 VUnsat)) (inc s (is v1 VSat)) (inc k (is v1 VUnknown))
-    (inc bu (is v2 VUnsat)) (inc bs (is v2 VSat)) (inc bk (is v2 VUnknown))
-    (inc b (is v1 VBad || is v2 VBad || (rat && negb (is v1 VUnsat))
-            || (is v1 VUnsat && negb (is v2 VUnsat)) || (is v2 VSat && rat))).
+  Counts (inc r rat) (inc u (same v1 VUnsat)) (inc s (same v1 VSat)) (inc k (same v1 VUnknown))
+    (inc bu (same v2 VUnsat)) (inc bs (same v2 VSat)) (inc bk (same v2 VUnknown))
+    (inc b (same v1 VBad || same v2 VBad || (rat && negb (same v1 VUnsat))
+            || (same v1 VUnsat && negb (same v2 VUnsat)) || (same v2 VSat && rat))).
 
 Fixpoint run (k m n : nat) (d c : Z) (s : Z) (acc : counts) : counts :=
   match k with
