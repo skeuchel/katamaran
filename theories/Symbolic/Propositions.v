@@ -2957,6 +2957,10 @@ Module Type LogSymPropOn
         RelatedFrom RProp P w block ⌜ P ⌝ :=
         refine_symprop_block.
 
+      #[export] Instance refine_symprop_error {w : World} {P : Prop} {msg : AMessage w} :
+        Related RProp P w (error msg).
+      Proof. constructor. intros ι _ _ []. Qed.
+
     End logicalrelation.
     Notation "'ℙ'" := (RProp) : rel_scope.
 

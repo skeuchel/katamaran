@@ -2163,11 +2163,15 @@ Module Type UnifLogicOn
        something take a continuation that receives the new context and its
        link to the old one. *)
 
-    (* Entry from [⊢ P], and from the proof mode, where [Γ] stands for the
-       whole proof-mode context. *)
+    (* Entry from [⊢ P], from [P ⊢ Q], and from the proof mode, where [Γ]
+       stands for the whole proof-mode context. *)
     Lemma rentry_valid {w} {P : Pred w} :
       (∀ Γ : Pred w, Γ ⊢ P) → ⊢ P.
     Proof. intros H. apply H. Qed.
+
+    Lemma rentry_entails {w} {P Q : Pred w} :
+      (∀ Γ : Pred w, (Γ ⊢ P) → Γ ⊢ Q) → P ⊢ Q.
+    Proof. intros H. now apply H. Qed.
 
     Lemma rentry_envs {w} {Δ : envs (Pred w)} {Q : Pred w} :
       (∀ Γ : Pred w, (Γ ⊢ of_envs Δ) → Γ ⊢ Q) → envs_entails Δ Q.
@@ -2535,11 +2539,15 @@ Module Type UnifLogicOn
           renvs_hyps hd e p
       end.
 
-    (* Bring a goal [⊢ P], [Related …] or a proof-mode goal into the form
-       [Γ ⊢ P]. *)
+    (* Bring a goal [⊢ P], [Related …], [P ⊢ Q], [RelatedFrom …] or a
+       proof-mode goal into the form [Γ ⊢ P]. *)
     Ltac2 rentry () : unit :=
       lazy_match! goal with
-      | [ |- _ ⊢ _ ] => ()
+      | [ |- ?p ⊢ _ ] =>
+          if Constr.is_var p then ()
+          else (nrefine (rentry_entails _); intros ?Γ ?H)
+      | [ |- RelatedFrom _ _ _ _ _ ] =>
+          nrefine (rentry_entails _); intros ?Γ ?H
       | [ |- envs_entails (Envs ?gp ?gs _) _ ] =>
           nrefine (rentry_envs _);
           let hd := Fresh.in_goal @HΔ in
