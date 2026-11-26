@@ -2912,14 +2912,6 @@ Module Type LogSymPropOn
     Section logicalrelation.
       Import SymProp logicalrelation logicalrelation.notations.
 
-      Lemma refine_symprop_debug {w : World} PC PS (msg : AMessage w) :
-        ⊢ ℛ⟦RProp⟧ PC PS -∗ ℛ⟦RProp⟧ PC (debug msg PS).
-      Proof.
-        iIntros "HP HPS". cbn.
-        iDestruct (elim_debugPred with "HPS") as "HPS".
-        iApply ("HP" with "HPS").
-      Qed.
-
       (* Adequacy: a refinement in the empty world transfers safety. *)
       Lemma RProp_safe {P} {SP : SymProp wnil} :
         (⊢ ℛ⟦RProp⟧ P SP) -> safe SP [env] -> P.
@@ -2947,15 +2939,30 @@ Module Type LogSymPropOn
 
       Lemma refine_symprop_block {w : World} {P : Prop} :
         ⌜ P ⌝ ⊢ ℛ⟦RProp⟧ P (@block w).
-      Proof. now iIntros "HP _". Qed.
+      Proof. unfold RProp; cbn [RSat]. apply bi.wand_intro_r. rewrite sep_is_and. apply bi.and_elim_l. Qed.
 
-      #[export] Instance refine_compat_symprop_debug {w : World} {PC PS} {msg : AMessage w} :
+      Lemma refine_symprop_error {w : World} {P : Prop} {msg : AMessage w} :
+        emp ⊢ ℛ⟦RProp⟧ P (error msg).
+      Proof.
+        unfold RProp; cbn [RSat]. apply bi.wand_intro_r.
+        rewrite sep_is_and. etrans; [apply bi.and_elim_r|]. exact (bi.False_elim _).
+      Qed.
+
+                        #[export] Instance refine_compat_symprop_debug {w : World} {PC PS} {msg : AMessage w} :
         RelatedFrom RProp PC w (debug msg PS) (ℛ⟦RProp⟧ PC PS).
-      Proof. unfold RelatedFrom. iIntros "HP". iApply (refine_symprop_debug with "HP"). Qed.
+      Proof.
+        unfold RelatedFrom, RProp; cbn [RSat]. apply bi.wand_intro_r.
+        etrans; [apply bi.sep_mono_r, elim_debugPred|].
+        apply bi.wand_elim_l.
+      Qed.
 
       #[export] Instance refine_compat_symprop_block {w : World} {P : Prop} :
         RelatedFrom RProp P w block ⌜ P ⌝ :=
         refine_symprop_block.
+
+      #[export] Instance refine_compat_symprop_error {w : World} {P : Prop} {msg : AMessage w} :
+        RelatedFrom RProp P w (error msg) emp :=
+        refine_symprop_error.
 
     End logicalrelation.
     Notation "'ℙ'" := (RProp) : rel_scope.

@@ -82,7 +82,7 @@ Module Type RefinementMonadsOn
 
   #[export] Instance refine_compat_block_finish {w} :
     Related RProp FINISH w SymProp.block | 0.
-  Proof. now iIntros "_". Qed.
+  Proof. solve_related. now apply bi.pure_intro. Qed.
 
   Module PureSpec.
     Import SPureSpec.notations.
@@ -122,9 +122,7 @@ Module Type RefinementMonadsOn
     #[export] Instance refine_error `{RA : Rel AT A} {w} m :
       Related (RMsg _ (RPureSpec RA)) m w (@SPureSpec.error _ w).
     Proof.
-      unfold Related, RMsg, RPureSpec, RProp; cbn.
-      iIntros (msg k K) "Hk".
-      now cbn.
+      unfold Related, RPureSpec, SPureSpec.error. solve_related.
     Qed.
 
     #[export] Instance refine_angelic (x : option LVar) σ {w} :
@@ -796,43 +794,39 @@ Module Type RefinementMonadsOn
       Related (RMsg _ (RPureSpec RA -> RPureSpec RA))
         CPureSpec.debug w (SPureSpec.debug (w := w)).
     Proof.
-      iIntros (msg m ms) "Hm %k %ks Hk HSP".
-      iApply ("Hm" with "Hk [HSP]").
-      now iApply elim_debugPred.
+      unfold Related, RPureSpec, SPureSpec.debug, CPureSpec.debug. solve_related.
     Qed.
 
-    Lemma refine_assert_eq_nenv {N : Set} {w} :
-      ⊢ ℛ⟦∀ᵣ Δ : NCtx N Ty, RMsg _ (RNEnv _ Δ -> RNEnv _ Δ -> RPureSpec RUnit)⟧
-        CPureSpec.assert_eq_nenv (SPureSpec.assert_eq_nenv (w := w)).
-    Proof.
-      iIntros (Δ msg E1 Es1) "HE1 %E2 %Es2 HE2".
-      iInduction Es1 as [|Es1] "IHEs1";
-        env.destroy Es2; env.destroy E1; env.destroy E2; cbn -[RSat].
-      - now iApply (refine_pure (RA := RUnit)).
-      - iDestruct (repₚ_invert_snoc with "HE1") as "(HE1 & Hv0db)".
-        iDestruct (repₚ_invert_snoc with "HE2") as "(HE2 & Hv1v)".
-        iSpecialize ("IHEs1" with "HE1 HE2").
-        iApply (refine_bind (RA := RUnit) (RB := RUnit) with "IHEs1"); solve_related.
-    Qed.
-
-    #[export] Instance refine_compat_assert_eq_nenv {N : Set} {w} {Δ : NCtx N Ty} :
+    #[export] Instance refine_assert_eq_nenv {N : Set} {w} {Δ : NCtx N Ty} :
       Related (RMsg _ (RNEnv _ Δ -> RNEnv _ Δ -> RPureSpec RUnit))
         (CPureSpec.assert_eq_nenv (Δ := Δ)) w (@SPureSpec.assert_eq_nenv N w Δ).
-    Proof. iIntros. iApply refine_assert_eq_nenv. Qed.
-
-    Lemma refine_assert_eq_env {w} :
-      ⊢ ℛ⟦∀ᵣ Δ, RMsg _ (REnv Δ -> REnv Δ -> RPureSpec RUnit)⟧
-        CPureSpec.assert_eq_env (SPureSpec.assert_eq_env (w := w)).
     Proof.
-      iIntros (Δ msg E1 Es1) "HE1 %E2 %Es2 HE2".
-      iInduction Es1 as [] "IHE"; env.destroy E1; env.destroy E2; env.destroy Es2; cbn - [RSat].
-      - now iApply (refine_pure (RA := RUnit)).
-      - iDestruct (repₚ_invert_snoc with "HE1") as "(HE1 & Hvdb)".
-        iDestruct (repₚ_invert_snoc with "HE2") as "(HE2 & Hv0v1)".
-        iSpecialize ("IHE" with "HE1 HE2").
-        iApply (refine_bind (RA := RUnit) (RB := RUnit) with "IHE"); solve_related.
+      induction Δ; unfold Related; apply RefineSolver.rmsg_intro; intros msg;
+        apply RefineSolver.rimpl_intro; intros E1 Es1 Γ1 Hle1 H1;
+        apply RefineSolver.rimpl_intro; intros E2 Es2 Γ2 Hle2 H2;
+        env.destroy Es1; env.destroy Es2; env.destroy E1; env.destroy E2;
+        cbn -[RSat].
+      - solve_related.
+      - apply (RefineSolver.rnenv_snoc_elim H1 Hle2); intros Γ1' Hle1' H1a H1b.
+        apply (RefineSolver.rnenv_snoc_elim H2 Hle1'); intros Γ2' ? H2a H2b.
+        solve_related.
     Qed.
-    
+
+    #[export] Instance refine_assert_eq_env {w} {Δ : Ctx Ty} :
+      Related (RMsg _ (REnv Δ -> REnv Δ -> RPureSpec RUnit))
+        (CPureSpec.assert_eq_env (Δ := Δ)) w (@SPureSpec.assert_eq_env w Δ).
+    Proof.
+      induction Δ; unfold Related; apply RefineSolver.rmsg_intro; intros msg;
+        apply RefineSolver.rimpl_intro; intros E1 Es1 Γ1 Hle1 H1;
+        apply RefineSolver.rimpl_intro; intros E2 Es2 Γ2 Hle2 H2;
+        env.destroy Es1; env.destroy Es2; env.destroy E1; env.destroy E2;
+        cbn -[RSat].
+      - solve_related.
+      - apply (RefineSolver.renv_snoc_elim H1 Hle2); intros Γ1' Hle1' H1a H1b.
+        apply (RefineSolver.renv_snoc_elim H2 Hle1'); intros Γ2' ? H2a H2b.
+        solve_related.
+    Qed.
+
     Lemma RChunk_ind (P : Rel Chunk SCChunk) {w : World} :
       (∀ p args sargs, ℛ⟦ REnv (𝑯_Ty p) ⟧ args sargs -∗ ℛ⟦ P ⟧ (chunk_user p args) (chunk_user p sargs)) ∗
         (∀ σ r v sv, ℛ⟦ RVal σ ⟧ v sv -∗ ℛ⟦ P ⟧ (chunk_ptsreg r v) (chunk_ptsreg r sv)) ∗
@@ -1257,8 +1251,7 @@ Module Type RefinementMonadsOn
     #[export] Instance refine_error `{RA : Rel SA CA} cm {w} :
       Related (RMsg _ (RHeapSpec RA)) cm w (SHeapSpec.error (w := w)).
     Proof.
-      iIntros (msg cΦ sΦ) "_ %ch %sh rh".
-      unfold RProp; now cbn.
+      unfold Related, RHeapSpec, SHeapSpec.error. solve_related.
     Qed.
 
     #[export] Instance refine_angelic x σ {w} :
@@ -1287,10 +1280,7 @@ Module Type RefinementMonadsOn
       Related (RMsg _ (RHeapSpec RA -> RHeapSpec RA))
         CHeapSpec.debug w (SHeapSpec.debug (w := w)).
     Proof.
-      unfold Related, CHeapSpec.debug, SHeapSpec.debug.
-      iIntros (msg cm sm) "rm %cΦ %sΦ #rΦ %ch %sh rh".
-      iApply refine_symprop_debug.
-      iApply "rm"; auto.
+      unfold Related, RHeapSpec, CHeapSpec.debug, SHeapSpec.debug. solve_related.
     Qed.
 
     #[export] Instance refine_assert_formula {w} :

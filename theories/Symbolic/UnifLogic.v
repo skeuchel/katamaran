@@ -2340,6 +2340,38 @@ Module Type UnifLogicOn
         rewrite H; cbn [RProd RSat]; [apply bi.sep_elim_l|apply bi.sep_elim_r]; tc_solve.
     Qed.
 
+    Lemma rnenv_snoc_elim {N : Set} {Δ : NCtx N Ty} {b} {w} {Γ0 Γ Q : Pred w}
+      {E : NamedEnv Val Δ} {a : Val (type b)}
+      {sE : NamedEnv (Term w) Δ} {sa : Term w (type b)} :
+      (Γ0 ⊢ ℛ⟦RNEnv N (Δ ▻ b)⟧ (E.[b ↦ a])%env (sE.[b ↦ sa])%env) →
+      rext Γ Γ0 →
+      (∀ Γ' : Pred w, rext Γ' Γ → (Γ' ⊢ ℛ⟦RNEnv N Δ⟧ E sE) →
+         (Γ' ⊢ ℛ⟦RVal (type b)⟧ a sa) → Γ' ⊢ Q) →
+      Γ ⊢ Q.
+    Proof.
+      intros H Hle HQ. unfold rext in Hle.
+      have Hs : Γ ⊢ ℛ⟦RNEnv N Δ⟧ E sE ∗ ℛ⟦RVal (type b)⟧ a sa
+        by (etrans; [exact Hle|etrans; [exact H|apply repₚ_invert_snoc; tc_solve]]).
+      apply (HQ Γ); unfold rext; [reflexivity| |];
+        rewrite Hs; [apply bi.sep_elim_l|apply bi.sep_elim_r]; tc_solve.
+    Qed.
+
+    Lemma renv_snoc_elim {Δ : Ctx Ty} {b : Ty} {w} {Γ0 Γ Q : Pred w}
+      {E : Env Val Δ} {a : Val b}
+      {sE : Env (Term w) Δ} {sa : Term w b} :
+      (Γ0 ⊢ ℛ⟦REnv (Δ ▻ b)⟧ (env.snoc E b a) (env.snoc sE b sa)) →
+      rext Γ Γ0 →
+      (∀ Γ' : Pred w, rext Γ' Γ → (Γ' ⊢ ℛ⟦REnv Δ⟧ E sE) →
+         (Γ' ⊢ ℛ⟦RVal b⟧ a sa) → Γ' ⊢ Q) →
+      Γ ⊢ Q.
+    Proof.
+      intros H Hle HQ. unfold rext in Hle.
+      have Hs : Γ ⊢ ℛ⟦REnv Δ⟧ E sE ∗ ℛ⟦RVal b⟧ a sa
+        by (etrans; [exact Hle|etrans; [exact H|apply repₚ_invert_snoc; tc_solve]]).
+      apply (HQ Γ); unfold rext; [reflexivity| |];
+        rewrite Hs; [apply bi.sep_elim_l|apply bi.sep_elim_r]; tc_solve.
+    Qed.
+
     (* ---------------------------------------------------------------------- *)
     (* Tactics, in Ltac2. Each acts on one focused goal [Γ ⊢ P] and fails if
        it does not apply, so that [rstep] can try them in order. *)

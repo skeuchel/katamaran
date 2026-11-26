@@ -151,24 +151,20 @@ Module Type RefinementMonadClassesOn
       induction Δ; cbn [SHeapSpecM.demonic_ctx CHeapSpecM.demonic_ctx]; solve_related.
     Qed.
 
-    Lemma refine_assert_eq_nenv {N : Set} {w} :
-      ⊢ ℛ⟦∀ᵣ Δ : NCtx N Ty, RMsg _ (RNEnv _ Δ -> RNEnv _ Δ -> RM RUnit)⟧
-        CHeapSpecM.assert_eq_nenv (SHeapSpecM.assert_eq_nenv (w := w)).
-    Proof.
-      iIntros (Δ msg E1 Es1) "HE1 %E2 %Es2 HE2".
-      iInduction Es1 as [|Es1] "IHEs1";
-        env.destroy Es2; env.destroy E1; env.destroy E2; cbn -[RSat].
-      - now iApply (refine_pure (RA := RUnit)).
-      - iDestruct (repₚ_invert_snoc with "HE1") as "(HE1 & Hv0db)".
-        iDestruct (repₚ_invert_snoc with "HE2") as "(HE2 & Hv1v)".
-        iSpecialize ("IHEs1" with "HE1 HE2").
-        iApply (refine_bind (RA := RUnit) (RB := RUnit) with "IHEs1"); solve_related.
-    Qed.
-
-    #[export] Instance refine_compat_assert_eq_nenv {N : Set} {w} {Δ : NCtx N Ty} :
+    #[export] Instance refine_assert_eq_nenv {N : Set} {w} {Δ : NCtx N Ty} :
       Related (RMsg _ (RNEnv _ Δ -> RNEnv _ Δ -> RM RUnit))
         (CHeapSpecM.assert_eq_nenv (Δ := Δ)) w (@SHeapSpecM.assert_eq_nenv _ _ N w Δ).
-    Proof. iIntros. iApply refine_assert_eq_nenv. Qed.
+    Proof.
+      induction Δ; unfold Related; apply RefineSolver.rmsg_intro; intros msg;
+        apply RefineSolver.rimpl_intro; intros E1 Es1 Γ1 Hle1 H1;
+        apply RefineSolver.rimpl_intro; intros E2 Es2 Γ2 Hle2 H2;
+        env.destroy Es1; env.destroy Es2; env.destroy E1; env.destroy E2;
+        cbn -[RSat].
+      - solve_related.
+      - apply (RefineSolver.rnenv_snoc_elim H1 Hle2); intros Γ1' Hle1' H1a H1b.
+        apply (RefineSolver.rnenv_snoc_elim H2 Hle1'); intros Γ2' ? H2a H2b.
+        solve_related.
+    Qed.
 
     #[export] Instance refine_produce {Σ} (asn : Assertion Σ) :
       ∀ w, Related (RInst (Sub Σ) (Valuation Σ) -> RM RUnit)
