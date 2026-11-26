@@ -965,23 +965,6 @@ Module Type RefinementMonadsOn
       intros. now rewrite <- inst_sub_shift, <- inst_subst, sub_comp_shift.
     Qed.
 
-    Lemma refine_replay_aux {Σ} (s : 𝕊 Σ) {w} :
-      Related (RNEnv LVar Σ -> RPureSpec RUnit)
-        (CPureSpec.replay_aux s) w (SPureSpec.replay_aux (w := w) s).
-    Proof.
-      revert w; induction s; intros w; cbn -[RSat]; solve_related.
-      all: rewrite <-inst_sub_shift, <-inst_subst; solve_related.
-    Qed.
-
-    Lemma refine_replay (s : 𝕊 wnil) :
-      ⊢ (ℛ⟦ RProp ⟧ (CPureSpec.replay s [env]) (SPureSpec.replay s)).
-    Proof.
-      unfold CPureSpec.replay, SPureSpec.replay.
-      iApply refine_run.
-      iApply (refine_replay_aux s).
-      now iApply (refine_lift (AT := Sub [ctx])).
-    Qed.
-
     #[export] Instance refine_peval_chunk {w} :
       Related (RChunk -> RChunk) id w (peval_chunk : Impl _ _ w).
     Proof.

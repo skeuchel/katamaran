@@ -474,6 +474,39 @@ Module Type ShallowExecOn
   Definition vcgen {SPEC : Specification} (cfg : Config) (inline_fuel : nat) {Δ τ} (c : SepContract Δ τ) (body : Stm Δ τ) : Prop :=
     CHeapSpec.run (exec_contract (M := CHeapSpec) (cexec cfg inline_fuel) c body).
 
+  Definition replay [Σ] (P : 𝕊 Σ) (ι : Valuation Σ) : Prop :=
+    CHeapSpec.run (CReplay.replay_aux (M := CHeapSpec) P ι).
+
+  Lemma replay_sound {Σ} (s : 𝕊 Σ) (ι : Valuation Σ) :
+    replay s ι -> SymProp.safe s ι.
+  Proof.
+    unfold replay, CHeapSpec.run.
+    generalize (@List.nil SCChunk) as h.
+    revert ι. induction s; intros ι h; cbn [CReplay.replay_aux];
+      cbv [CHeapSpecM.bind CHeapSpecM.pure CHeapSpecM.block CHeapSpecM.error
+           CHeapSpecM.angelic CHeapSpecM.demonic CHeapSpecM.angelic_binary
+           CHeapSpecM.demonic_binary CHeapSpecM.assert_formula
+           CHeapSpecM.assume_formula CHeapSpecM.debug
+           CHeapSpec.cheapspecm_cheapspec CHeapSpec.bind CHeapSpec.pure
+           CHeapSpec.error CHeapSpec.angelic CHeapSpec.demonic
+           CHeapSpec.angelic_binary CHeapSpec.demonic_binary
+           CHeapSpec.assert_formula CHeapSpec.assume_formula CHeapSpec.debug
+           CHeapSpec.lift_purespec].
+    - intros [H|H]; [left; eapply IHs1 | right; eapply IHs2]; exact H.
+    - intros [H1 H2]; split; [eapply IHs1 | eapply IHs2]; eassumption.
+    - intros [].
+    - auto.
+    - intros [H1 H2]. split; [exact H1 | eapply IHs; exact H2].
+    - intros H1 H2. eapply IHs; eauto.
+    - intros [v H]. exists v. eapply IHs; exact H.
+    - intros H v. eapply IHs; apply H.
+    - intros [H1 H2]. split; [symmetry; exact H1 | eapply IHs; exact H2].
+    - intros H1 H2. eapply IHs. apply H1. symmetry. exact H2.
+    - intros [].
+    - intros [].
+    - intros H. eapply IHs. exact H.
+  Qed.
+
   Module Shallow.
 
     Definition ValidContractWithFuel {SPEC : Specification} {Δ τ} (fuel : nat)

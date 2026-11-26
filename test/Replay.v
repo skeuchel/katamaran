@@ -488,7 +488,7 @@ Qed.
 Lemma symbolic_replay_valid_contract_main :
   VerificationCondition
     (postprocess
-       (SPureSpec.replay (postprocess (ReplayExecutor.vcgen default_config 1 sep_contract_main (FunDef main) wnil)))).
+       (ReplayExecutor.replay (postprocess (ReplayExecutor.vcgen default_config 1 sep_contract_main (FunDef main) wnil)))).
 Proof.
   compute. (* Output: with the replay functionality the residu VC is trivial. *)
   firstorder.
@@ -544,7 +544,7 @@ Section ReplayExamples.
 
     Definition test1 := Eval compute in ReplayExecutor.vcgen default_config 1 arith_contract1 (FunDef arith_example)wnil.
     Definition test2 := Eval compute in postprocess test1.
-    Definition test3 := Eval compute in SPureSpec.replay (w := wnil) test2.
+    Definition test3 := Eval compute in ReplayExecutor.replay (w := wnil) test2.
     Definition test4 := Eval compute in postprocess test3.
     
     Lemma valid_arith_contract1_with_replay : ValidContract arith_contract1 (FunDef arith_example).

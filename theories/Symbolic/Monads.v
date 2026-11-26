@@ -590,65 +590,6 @@ Module Type SymbolicMonadsOn (Import B : Base) (Import P : PredicateKit B)
         | _ , _ => error msg⟨θ1⟩
         end.
 
-    Definition replay_aux :
-      forall {Σ} (s : 𝕊 Σ), ⊢ Sub Σ -> SPureSpec Unit :=
-      fix replay {Σ} s {w0} δ {struct s} :=
-        match s with
-        | SymProp.angelic_binary o1 o2 =>
-            SPureSpec.angelic_binary (replay o1 δ) (replay o2 δ)
-        | SymProp.demonic_binary o1 o2 =>
-            SPureSpec.demonic_binary (replay o1 δ) (replay o2 δ)
-        | SymProp.block => block
-        | SymProp.error msg =>
-            error (subst msg δ)
-        | SymProp.assertk fml msg k =>
-            ⟨ θ ⟩ _ <- assert_formula (subst msg δ) (subst fml δ) ;;
-            replay k (persist δ θ)
-        | SymProp.assumek fml k =>
-            ⟨ θ ⟩ _ <- assume_formula (subst fml δ) ;;
-            replay k (persist δ θ)
-        | SymProp.angelicv b k =>
-            ⟨ θ ⟩ t <- angelic (Some (name b)) (type b) ;;
-            replay k (env.snoc (persist δ θ) b t)
-        | SymProp.demonicv b k =>
-            ⟨ θ ⟩ t <- demonic (Some (name b)) (type b) ;;
-            replay k (env.snoc (persist δ θ) b t)
-        | SymProp.assert_vareq x t msg k =>
-            let ζ    := sub_shift (b:=x∷_) _ in
-            let msg  := subst msg ζ in
-            let fml  := formula_relop bop.eq (subst t ζ) (term_var x) in
-            ⟨ θ ⟩ _ <- assert_formula (subst msg δ) (subst fml δ) ;;
-            replay k (env.remove (x∷_) δ⟨θ⟩ _)
-        | SymProp.assume_vareq x t k =>
-            let ζ    := sub_shift (b:=x∷_) _ in
-            let fml  := formula_relop bop.eq (subst t ζ) (term_var x) in
-            ⟨ θ ⟩ _ <- assume_formula (subst fml δ) ;;
-            replay k (env.remove (x∷_) δ⟨θ⟩ _)
-        | SymProp.pattern_match s pat rhs =>
-            (* FIXME *)
-            (* ⟨ θ ⟩ '(existT pc δpc) <- new_pattern_match id pat (subst s δ) ;; *)
-            (* replay (rhs pc) (persist δ θ ►► δpc) *)
-            error (amsg.mk
-                     {| debug_string_pathcondition := wco w0;
-                        debug_string_message       :=
-                          "NOT IMPLEMENTED: replay_aux.pattern_match";
-                     |})
-        | SymProp.pattern_match_var x pat rhs =>
-            (* FIXME *)
-            (* ⟨ θ ⟩ '(existT pc δpc) <- new_pattern_match id pat (subst (term_var x) δ) ;; *)
-            (* replay (rhs pc) (env.remove _ (δ⟨θ⟩ ►► δpc) _) *)
-            error (amsg.mk
-                     {| debug_string_pathcondition := wco w0;
-                        debug_string_message       :=
-                          "NOT IMPLEMENTED: replay_aux.pattern_match_var";
-                     |})
-        | SymProp.debug msg k =>
-            debug (subst msg δ) (replay k δ)
-        end.
-
-    Definition replay : ⊢ 𝕊 -> 𝕊 :=
-      fun w P => run (replay_aux P (sub_id w)).
-
     Definition produce_chunk :
       ⊢ Chunk -> SHeap -> SPureSpec SHeap :=
       fun w0 c h => pure (cons (peval_chunk c) h).

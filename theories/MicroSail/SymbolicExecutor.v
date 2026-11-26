@@ -737,12 +737,15 @@ Module Type SymbolicExecOn
     (c : SepContract Δ τ) (s : Stm Δ τ) : ⊢ 𝕊 :=
     fun w => SHeapSpec.run (exec_contract (M := SHeapSpec) (sexec cfg inline_fuel) c s w).
 
+  Definition replay : ⊢ 𝕊 -> 𝕊 :=
+    fun w P => SHeapSpec.run (SReplay.replay_aux (M := SHeapSpec) P (sub_id w)).
+
   Module Symbolic.
 
     Definition ValidContractWithFuel {SPEC : Specification} {Δ τ} (fuel : nat)
       (c : SepContract Δ τ) (body : Stm Δ τ) : Prop :=
       VerificationCondition
-        (postprocess (SPureSpec.replay (postprocess (vcgen default_config fuel c body wnil)))).
+        (postprocess (replay (postprocess (vcgen default_config fuel c body wnil)))).
 
     Definition ValidContract {SPEC : Specification} {Δ τ} (c : SepContract Δ τ)
       (body : Stm Δ τ) : Prop :=
@@ -771,7 +774,7 @@ Module Type SymbolicExecOn
 
     Definition ValidContractReflectWithFuel {SPEC : Specification} {Δ τ}
       (fuel : nat) (c : SepContract Δ τ) (body : Stm Δ τ) : Prop :=
-      is_true (ok (postprocess (SPureSpec.replay (postprocess (vcgen default_config fuel c body wnil))))).
+      is_true (ok (postprocess (replay (postprocess (vcgen default_config fuel c body wnil))))).
 
     Definition ValidContractReflect {SPEC : Specification} {Δ τ}
       (c : SepContract Δ τ) (body : Stm Δ τ) : Prop :=
@@ -797,7 +800,7 @@ Module Type SymbolicExecOn
 
     Definition VcGenErasureFuel {SPEC : Specification} {Δ τ} (fuel : nat)
       (c : SepContract Δ τ) (body : Stm Δ τ) : Erasure.ESymProp :=
-      Erasure.erase_symprop (postprocess (SPureSpec.replay (postprocess (vcgen default_config fuel c body wnil)))).
+      Erasure.erase_symprop (postprocess (replay (postprocess (vcgen default_config fuel c body wnil)))).
 
     Definition ValidContractWithErasureAndFuel {SPEC : Specification} {Δ τ}
       (fuel : nat) (c : SepContract Δ τ) (body : Stm Δ τ) : Prop :=
@@ -871,7 +874,7 @@ Module Type SymbolicExecOn
             let vc := vcgen default_config fuel c (FunDef f) wnil in
             Some {| vc_raw         := vc_count vc vc_count_empty;
                     vc_postprocess := vc_count (postprocess vc) vc_count_empty;
-                    vc_replay      := vc_count (postprocess (SPureSpec.replay (postprocess vc)))
+                    vc_replay      := vc_count (postprocess (replay (postprocess vc)))
                                         vc_count_empty |}
         | None => None
         end.

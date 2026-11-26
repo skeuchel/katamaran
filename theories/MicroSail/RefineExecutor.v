@@ -362,12 +362,21 @@ Module RefineExecOn
 
   End WithSpec.
 
+  Lemma refine_replay (s : 𝕊 wnil) :
+    ⊢ ℛ⟦RProp⟧ (SHAL.replay s [env]) (SYMB.replay s).
+  Proof.
+    unfold SHAL.replay, SYMB.replay.
+    iApply HeapSpec.refine_run.
+    iApply (RReplay.refine_replay_aux (RM := @RHeapSpec) s).
+    now iApply (refine_lift (AT := Sub [ctx])).
+  Qed.
+
   Lemma replay_sound (s : 𝕊 wnil) :
-    safe (SPureSpec.replay s) [env] -> safe s [env].
+    safe (SYMB.replay s) [env] -> safe s [env].
   Proof.
     intros H.
-    apply CPureSpec.replay_sound.
-    exact (RProp_safe (PureSpec.refine_replay s) H).
+    apply SHAL.replay_sound.
+    exact (RProp_safe (refine_replay s) H).
   Qed.
 
   Lemma symbolic_vcgen_fuel_soundness {SPEC : Specification} {Γ τ} (fuel : nat)
